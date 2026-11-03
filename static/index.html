@@ -1385,13 +1385,14 @@ async function trPrep(c) {
   const fix = (ids, protect, delta) => { let r = ids.slice();
     if (delta > 0) { const cand = r.filter(i => !protect.includes(i)).sort((a, b) => score(a) - score(b)); for (let k = 0; k < delta && cand.length; k++) r.splice(r.indexOf(cand[k]), 1); }
     else if (delta < 0) r.push(...fas.filter(f => !r.includes(f.id)).slice(0, -delta).map(f => f.id)); return r; };
-  const base = {}; c.D.teams.forEach(t => { base[t.id] = trVal(c.tms[t.id].ids, W); });
-  T.px = {mode: T.mode, week: st.slate.week, W, R, row, score, vor, fix, TP, base, repl}; T.pxBusy = null; renderTrades(c); return T.px;
+  const faAdd = ['QB', 'RB', 'RB', 'WR', 'WR', 'TE'].reduce((a, p) => { const f = fas.find(f => f.pos === p && !a.includes(f.id)); return f ? [...a, f.id] : a; }, []);
+  const base = {}; c.D.teams.forEach(t => { base[t.id] = trVal([...c.tms[t.id].ids, ...faAdd], W); });
+  T.px = {mode: T.mode, week: st.slate.week, W, R, row, score, vor, faAdd, TP, base, repl}; T.pxBusy = null; renderTrades(c); return T.px;
 }
 function trEval(c, give, get, tid) {
   const x = st.tr.px, me = c.tms[c.L.my], th = c.tms[tid], vg = give.reduce((s, i) => s + x.vor(i), 0), vq = get.reduce((s, i) => s + x.vor(i), 0);
-  const m2 = x.fix([...me.ids.filter(i => !give.includes(i)), ...get], get, get.length - give.length), t2 = x.fix([...th.ids.filter(i => !get.includes(i)), ...give], give, give.length - get.length);
-  const mA = trVal(m2, x.W), tA = trVal(t2, x.W);
+  const m2 = [...me.ids.filter(i => !give.includes(i)), ...get], t2 = [...th.ids.filter(i => !get.includes(i)), ...give];
+  const mA = trVal([...m2, ...x.faAdd], x.W), tA = trVal([...t2, ...x.faAdd], x.W);
   return {myGain: mA - x.base[c.L.my], theirGain: tA - x.base[tid], mB: x.base[c.L.my], mA, tB: x.base[tid], tA, vg, vq, bal: vq > 0 ? vg / vq : 9, m2, t2};
 }
 const trOk = e => e.theirGain > 0.3 && e.bal >= 0.8 && e.bal <= 1.6;
@@ -1455,7 +1456,7 @@ function renderTrades(c) {
         <div class="gbox"><span class="sub2">${tn.toUpperCase()}</span><b class="${gcls(e.theirGain)}">${sgn(e.theirGain)}</b><span class="sub2">${fmt(e.tB, 0)} → ${fmt(e.tA, 0)} pts</span></div></div>
       <div class="balance"><div class="sub2">VALUE OVER FREE-AGENT REPLACEMENT</div><div class="bbar"><i style="width:${e.vg / tot * 100}%"></i></div><div class="blab"><span>You send ${fmt(e.vg, 0)}</span><span>You receive ${fmt(e.vq, 0)}</span></div></div>
       ${slots.length ? `<div class="sub2" style="margin-top:var(--s3)">YOUR LINEUP CHANGES THIS WEEK (week ${lw})</div><table class="st"><tr><th class="l">Slot</th><th class="l">Before</th><th class="l">After</th></tr>${slots.map(([k]) => `<tr><td class="slot">${k}</td><td class="l">${setB[k] ? (dp[setB[k]] || {}).name || '' : 'empty'}</td><td class="l strong">${setA[k] ? (dp[setA[k]] || {}).name || '' : 'empty'}</td></tr>`).join('')}</table>` : `<div class="note">Your starting lineup this week would not change.</div>`}
-      <div class="note">Points are best-lineup totals ${x.mode === 'week' ? 'for this week' : x.mode === 'playoff' ? 'over the rest of the season, playoff weeks counted extra' : 'summed over the rest of the season'}. A side that gives up more players than it gets refills the spot from free agents; a side that gets more drops its worst bench player. A trade is “reasonable” when the other lineup improves and both sides trade similar value.</div>${actions}`;
+      <div class="note">Points are best-lineup totals ${x.mode === 'week' ? 'for this week' : x.mode === 'playoff' ? 'over the rest of the season, playoff weeks counted extra' : 'summed over the rest of the season'}. Every team is scored as if it can also pick up the best free agents, so a trade only counts for what it adds beyond them. A trade is “reasonable” when the other lineup improves and both sides trade similar value.</div>${actions}`;
   }
   const g = id => $('#' + id); g('trClear') && (g('trClear').onclick = () => { T.give = []; T.get = []; T.sugg = null; renderTrades(c); });
   g('trRet') && (g('trRet').onclick = () => trSuggest(c, 'returns')); g('trOff') && (g('trOff').onclick = () => trSuggest(c, 'offer')); g('trAny') && (g('trAny').onclick = () => trSuggest(c, 'any'));
