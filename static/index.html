@@ -53,6 +53,8 @@ summary small{color:var(--dim);font-weight:400;margin-left:auto}
 .pl .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pl .ps{color:var(--dim);font-size:11px;width:22px}
 .pl .sh{color:var(--dim);font-size:11px;font-family:var(--mono)}
+.inj{font-style:normal;font-size:10px;font-weight:700;padding:1px 5px;border-radius:4px;margin-left:4px;vertical-align:1px}
+.inj.Q{background:#facc1533;color:#facc15}.inj.D,.inj.O{background:#f8717133;color:#f87171}
 .pl.off .nm{color:var(--dim);text-decoration:line-through}
 .note{color:var(--dim);font-size:12px;margin-top:10px}
 .tabs{display:flex;gap:4px;margin-bottom:14px;border-bottom:1px solid var(--line)}
@@ -191,7 +193,7 @@ const st = {away: null, home: null, n: 2000, neutral: false, ov: {}, TEAMS: {}, 
 async function init() {
   const j = await (await fetch('/api/teams')).json();
   st.TEAMS = j.teams;
-  $('#dataChip').textContent = `2026 wk 1–${j.meta.max_week} + 2025 prior`;
+  $('#dataChip').textContent = `2026 wk 1–${j.meta.max_week} + 2025 prior · injuries: ${j.meta.injuries}`;
   const abbrs = Object.keys(st.TEAMS).sort((a, b) => st.TEAMS[a].name.localeCompare(st.TEAMS[b].name));
   for (const id of ['away', 'home']) {
     const s = $('#' + id);
@@ -225,7 +227,7 @@ function renderLineups() {
       const on = p.id in st.ov ? st.ov[p.id] : p.active;
       const r = el('div', 'pl' + (on ? '' : ' off'));
       const share = p.grp === 'QB' ? '' : [p.tgt >= .01 ? `${Math.round(p.tgt * 100)}%t` : '', p.car >= .02 ? `${Math.round(p.car * 100)}%c` : ''].filter(Boolean).join(' ');
-      r.innerHTML = `<span class="ps">${p.pos}</span><span class="nm">${p.name}</span><span class="sh">${share}</span>
+      r.innerHTML = `<span class="ps">${p.pos}</span><span class="nm">${p.name}${p.status ? ` <em class="inj ${p.status[0]}">${p.status === 'Questionable' ? 'Q' : p.status === 'Doubtful' ? 'D' : 'OUT'}</em>` : ''}</span><span class="sh">${share}</span>
         <span class="sw"><input type="checkbox" ${on ? 'checked' : ''}><i></i></span>`;
       r.querySelector('input').onchange = e => {
         if (e.target.checked === p.active) delete st.ov[p.id]; else st.ov[p.id] = e.target.checked;

@@ -3,7 +3,7 @@
 Play-by-play NFL Monte Carlo simulator with a web UI.
 
     pip install -r requirements.txt
-    # data: download nflverse pbp_2026/2025 parquet + roster parquet into data/ (see build_model.py header)
+    python fetch_data.py       # download nflverse data (re-run weekly to refresh)
     python build_model.py      # data -> model.json (team ratings, player usage, empirical pools)
     python server.py           # http://localhost:8000
     python sim.py KC BUF -n 5000   # CLI

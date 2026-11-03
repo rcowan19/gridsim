@@ -114,8 +114,10 @@ def main():
                                 "p90": float(g["ppr_p90"][i]), "act": ap_, "played": played, "base": float(base_ppr.get(pid, np.nan)), "n": float(base_n.get(pid, np.nan))})
             # actual fantasy-relevant players the sim didn't project
             miss = act[(act.ppr >= 8) & ~act.index.isin(g["pids"])]
+            inmodel = {q["id"]: q for tm in M["teams"].values() for q in tm["qbs"] + tm["skill"]}
             for pid, row in miss.iterrows():
-                players.append({"week": wk, "pid": pid, "team": None, "pred": np.nan, "p10": np.nan, "p90": np.nan, "act": float(row.ppr), "played": True, "base": float(base_ppr.get(pid, np.nan)), "n": float(base_n.get(pid, np.nan))})
+                reason = "inactive_flag" if pid in inmodel else "not_in_model"
+                players.append({"week": wk, "pid": pid, "team": None, "pred": np.nan, "p10": np.nan, "p90": np.nan, "act": float(row.ppr), "played": True, "base": float(base_ppr.get(pid, np.nan)), "n": float(base_n.get(pid, np.nan)), "reason": reason})
         print(f"week {wk} done ({len(W)} games)  {time.time() - t0:.0f}s", flush=True)
     gdf, pdf = pd.DataFrame(games), pd.DataFrame(players)
     gdf.to_csv("backtest_games.csv", index=False); pdf.to_csv("backtest_players.csv", index=False)
@@ -142,6 +144,7 @@ def report(g, p):
     print(f"vs trailing-avg baseline on same {len(b)} rows:  sim MAE {np.abs(b.pred - b.act).mean():.2f} / base MAE {np.abs(b.base - b.act).mean():.2f}   sim corr {np.corrcoef(b.pred, b.act)[0, 1]:.3f} / base corr {np.corrcoef(b.base, b.act)[0, 1]:.3f}")
     print(f"80% interval coverage (should be ~80%): {((pp.act >= pp.p10) & (pp.act <= pp.p90)).mean():.1%}")
     allp = p[p.played & (p.act >= 8)]
+    if "reason" in p: print("  missed scorers by reason:", p[p.reason.notna()].reason.value_counts().to_dict())
     print(f"players who scored >=8 PPR: {len(allp)}, projected by sim at all: {allp.pred.notna().mean():.1%}")
     print("by projected-points bucket:")
     for lo, hi in [(3, 6), (6, 10), (10, 15), (15, 99)]:

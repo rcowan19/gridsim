@@ -63,8 +63,8 @@ def teams():
     out = {}
     for abbr, t in MODEL["teams"].items():
         nm, col = TEAMS.get(abbr, (abbr, "#888888"))
-        players = [dict(id=q["id"], name=q["name"], pos=q["pos"], active=q["active"], grp="QB") for q in t["qbs"]]
-        players += [dict(id=q["id"], name=q["name"], pos=q["pos"], active=q["active"], grp="skill",
+        players = [dict(id=q["id"], name=q["name"], pos=q["pos"], active=q["active"], grp="QB", status=q.get("status")) for q in t["qbs"]]
+        players += [dict(id=q["id"], name=q["name"], pos=q["pos"], active=q["active"], grp="skill", status=q.get("status"),
                          tgt=round(q["tgt"], 3), car=round(q["car"], 3)) for q in t["skill"]]
         out[abbr] = {"name": nm, "color": col, "players": players, "kicker": t["k"]["name"], "punter": t["punter"]}
     return {"teams": out, "meta": MODEL["meta"], "league": MODEL["league_actual"]}

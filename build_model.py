@@ -367,7 +367,7 @@ def main(cutoff=None, write=True, quiet=False):
 
     # ---------------- players ----------------
     cur = sc[sc.cur == 1]
-    last_weeks = {t: sorted(cur[cur.posteam == t].week.unique())[-2:] for t in teams}
+    last_weeks = {t: sorted(cur[cur.posteam == t].week.unique())[-4:] for t in teams}
     P = {}
 
     def pl(pid, name):
@@ -400,6 +400,8 @@ def main(cutoff=None, write=True, quiet=False):
         p["_recent"] = p.get("_recent", 0) + float(g[g.week.isin(last_weeks.get(tm, [])) & (g.cur == 1)].shape[0])
     # QBs
     for pid, g in dbk[dbk.passer_player_id.notna()].groupby("passer_player_id"):
+        if pos.get(pid) not in (None, "QB"):
+            continue          # trick-play throws by WR/RB/TE don't make them quarterbacks
         p = pl(pid, g.passer_player_name.iloc[-1])
         a = g[(g.sack == 0) & (g.qb_scramble == 0)]
         p["_db_w"] = float(g.w.sum())
@@ -422,6 +424,21 @@ def main(cutoff=None, write=True, quiet=False):
         exp_fg = np.interp(g.kick_distance, [r_[0] for r_ in fgt], [r_[1] for r_ in fgt])
         p["_fg_over"] = float(((g.field_goal_result == "made") * 1.0 - exp_fg).mul(g.w).sum())
 
+    # injury report: statuses for the target week (backtest: that week's pre-game report; live: next week if published, else latest)
+    inj_status, inj_note = {}, "none"
+    try:
+        inj = pd.read_parquet("data/injuries_2026.parquet")
+        inj = inj[inj.report_status.isin(["Out", "Doubtful", "Questionable"])]
+        want = cutoff if cutoff is not None else maxwk + 1
+        wk_av = inj.week.max() if len(inj) else 0
+        use = want if want in set(inj.week) else (None if cutoff is not None else wk_av)
+        if use is not None:
+            inj_status = dict(zip(inj[inj.week == use].gsis_id, inj[inj.week == use].report_status))
+            inj_note = f"week {int(use)}" + ("" if use == want else " (stale: next week not published yet)")
+    except FileNotFoundError:
+        pass
+    M["meta"]["injuries"] = inj_note
+    live = cutoff is None
     pg = player_games(d[d.cur == 1])
     ppr_avg = pg.groupby("pid").ppr.mean().to_dict()
     ppr_n = pg.groupby("pid").ppr.count().to_dict()
@@ -452,6 +469,10 @@ def main(cutoff=None, write=True, quiet=False):
         p["team"] = rt
         T0 = team_tot[tm_pbp]
         q = {"id": pid, "name": p["name"], "pos": p["pos"]}
+        if pid in inj_status:
+            q["status"] = inj_status[pid]
+        if live and rstatus.get(pid) in ("RES", "CUT"):
+            q["status"] = "Out"
         if pid in ppr_avg:
             q["ppr_avg"], q["ppr_n"] = round(ppr_avg[pid], 3), int(ppr_n[pid])
         if p["pos"] == "QB":
@@ -513,12 +534,14 @@ def main(cutoff=None, write=True, quiet=False):
         o = out[t]
         o["qbs"].sort(key=lambda x: (-x["recent"], -x["db"]))
         o["skill"].sort(key=lambda x: -(x["tgt"] + x["car"]))
-        o["skill"] = o["skill"][:14]
-        for i, q in enumerate(o["qbs"][:3]):
-            q["active"] = (i == 0)
+        o["skill"] = o["skill"][:18]
         o["qbs"] = o["qbs"][:3]
+        ok_ = lambda q: q.get("status") not in ("Out", "Doubtful")
+        first = next((q for q in o["qbs"] if ok_(q) and q["recent"] > 0), o["qbs"][0] if o["qbs"] else None)
+        for q in o["qbs"]:
+            q["active"] = q is first
         for q in o["skill"]:
-            q["active"] = bool(q["recent"] > 0)
+            q["active"] = bool(q["recent"] > 0 and ok_(q))
         if o["k"] is None:
             o["k"] = {"id": f"K_{t}", "name": "K." + t, "pos": "K", "fg_over": 0.0, "fga": 0, "cur": True}
         # punter name
