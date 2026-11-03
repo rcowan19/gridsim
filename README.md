@@ -22,3 +22,8 @@ Calibration knobs: `Engine.DEFAULT_TUNE`. Known gap: league scoring ~21.1 ppg vs
     python backtest.py -s 3 -n 300   # walk-forward backtest -> backtest_games.csv / backtest_players.csv
     python tune.py                   # fit engine knobs to league averages
     python fit_calib.py 5            # fit player-projection calibration (train wk<=5, test after) -> calib.json
+
+## ESPN league (My league tab)
+Enter your league ID (public leagues need nothing else; private leagues need the `espn_s2` and `SWID` cookies). The server reads
+rosters/settings/schedule from ESPN (`espn.py`), matches players to projections, and shows lineup advice, league matchup win
+probabilities, power rankings and a waiver wire. Dev/testing: `GRIDSIM_ESPN_MOCK=path.json python server.py` serves a saved ESPN payload.

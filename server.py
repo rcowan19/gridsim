@@ -1,4 +1,5 @@
 """GridSim web server:  python server.py  ->  http://localhost:8000"""
+import json
 import os
 import random
 from contextlib import asynccontextmanager
@@ -77,6 +78,17 @@ def schedule_():
     weeks = sorted({g["week"] for g in sim.SCHEDULE})
     nxt = next((w for w in weeks if any(g["week"] == w and not g["played"] for g in sim.SCHEDULE)), weeks[-1] if weeks else None)
     return {"games": sim.SCHEDULE, "weeks": weeks, "next_week": nxt}
+
+
+@app.get("/api/espn")
+def espn_league(league: str, season: int = 2026, s2: str = "", swid: str = ""):
+    import espn
+    try:
+        mock = os.environ.get("GRIDSIM_ESPN_MOCK")        # dev/testing: serve a saved ESPN payload instead of calling ESPN
+        raw = json.load(open(mock)) if mock else espn.fetch(league, season, s2 or None, swid or None)
+        return espn.normalize(raw)
+    except espn.EspnError as e:
+        raise HTTPException(502, str(e))
 
 
 class SlateReq(BaseModel):
