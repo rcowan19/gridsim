@@ -338,6 +338,13 @@ tr.chg td{background:var(--ink-bg)}tr.tot td{font-weight:700;border-top:1px soli
 .sug{display:flex;flex-direction:column;gap:4px;text-align:left;padding:var(--s3) var(--s4);border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface);cursor:pointer;font:inherit;color:inherit}.sug:hover{border-color:var(--line-strong);transform:translateY(-1px)}
 .sug .line i{font-style:normal;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-right:6px}.sfoot{display:flex;gap:var(--s3);align-items:center;margin-top:4px}.sfoot b{font-size:16px}
 @media(max-width:900px){.tgrid,.tdeal,.tgains{grid-template-columns:1fr}.tdeal .arr{display:none}}
+.tacards{display:grid;gap:var(--s2);margin-top:var(--s3)}
+.tacard{position:relative;display:grid;grid-template-columns:1fr auto auto auto 24px;gap:var(--s3);align-items:center;padding:8px 10px 8px 14px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface)}
+.tacard .stripe{position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--pc);border-radius:var(--r-sm) 0 0 var(--r-sm)}
+.tacard .tn{display:flex;flex-direction:column;min-width:0}.tacard .tn b{font-size:14px}
+.tacard .tv{display:flex;flex-direction:column;align-items:flex-end;font-variant-numeric:tabular-nums;min-width:52px}.tacard .tv b{font-size:15px}
+.tacard .x{border:0;background:none;font-size:18px;color:var(--muted);cursor:pointer;line-height:1}.tacard .x:hover{color:var(--bad)}
+@media(max-width:900px){.tacard{grid-template-columns:1fr auto auto 24px}.tacard .tsp{display:none}}
 /* ===== responsive ===== */
 @media(max-width:900px){
   .top-in{padding:var(--s3) var(--s4);gap:var(--s3)}
@@ -825,7 +832,7 @@ function renderSlateShell() {
   $('#tab-slate').innerHTML = `<div class="card"><div class="ctl">
       <div class="grow"><label class="f" for="s_q">Search</label><input id="s_q" class="inp" placeholder="Player or team"></div>
       <div class="chips" id="s_pos" role="group" aria-label="Position">${['ALL', 'QB', 'RB', 'WR', 'TE', 'FLEX', 'K', 'DST'].map(p => `<button data-p="${p}" class="${st.pos === p ? 'on' : ''}">${p}</button>`).join('')}</div></div></div>
-    <div class="subtabs" data-sg="players"><button data-k="rank" class="on">Rankings</button><button data-k="trend">Trends</button><button data-k="stack">Stacks</button></div>
+    <div class="subtabs" data-sg="players"><button data-k="rank" class="on">Rankings</button><button data-k="trend">Trends</button><button data-k="stack">Stacks</button><button data-k="trade">Trade analyzer</button></div>
     <div id="s_body"></div>`;
   $('#s_q').oninput = e => { st.q = e.target.value.toLowerCase(); delete st.pg.rank; if (st.slate) renderSlate(); };
   $('#s_pos').onclick = e => { const b = e.target.closest('button'); if (!b) return; st.pos = b.dataset.p; delete st.pg.rank; [...$('#s_pos').children].forEach(x => x.classList.toggle('on', x === b)); if (st.slate) renderSlate(); };
@@ -859,7 +866,7 @@ function renderSlate() {
   let rows = S.rows.filter(r => (st.pos === 'ALL' || (st.pos === 'FLEX' ? ['RB', 'WR', 'TE'].includes(r.pos) : r.pos === st.pos)) &&
     (!st.q || r.name.toLowerCase().includes(st.q) || r.team.toLowerCase() === st.q || (st.TEAMS[r.team] && st.TEAMS[r.team].name.toLowerCase().includes(st.q))));
   if (st.pos === 'ALL') rows = rows.filter(r => r.pos !== 'K' && r.pos !== 'DST' || r.proj > 5);
-  host.innerHTML = `<div data-sp="players" data-k="rank" id="pl-rank"></div><div data-sp="players" data-k="trend" id="pl-trend" class="hide"></div><div data-sp="players" data-k="stack" id="pl-stack" class="hide"></div>`;
+  host.innerHTML = `<div data-sp="players" data-k="rank" id="pl-rank"></div><div data-sp="players" data-k="trend" id="pl-trend" class="hide"></div><div data-sp="players" data-k="stack" id="pl-stack" class="hide"></div><div data-sp="players" data-k="trade" id="pl-trade" class="hide"></div>`;
   $('#pl-rank').appendChild(card(`<h3>Rankings: ${st.pos}, ${FMTN[st.fmt]} <span class="sub2">${rows.length} players, week ${S.week}</span></h3><div id="rkTable"></div>`));
   fantasyTable($('#rkTable'), 'rank', rows, {rank: true, opp: true, vor: true, tier: true, limit: 25, step: 25, note: true});
   const g = S.games;
@@ -875,6 +882,7 @@ function renderSlate() {
   $('#pl-trend').appendChild(tr);
   $('#pl-stack').appendChild(card(`<h3>Shootout stack targets <span class="sub2">highest simulated game totals</span></h3><div class="grid3">${stackHtml}</div>`));
   host.querySelectorAll('.stkr').forEach(d => d.onclick = () => { const r = S.rows.find(x => x.id === d.dataset.id); if (r) showPlayer(r); });
+  renderTradeAnalyzer();
   setSub('players', st.sub.players);
 }
 
@@ -954,6 +962,7 @@ function renderLab() {
   host.querySelectorAll('select.sl').forEach(s => s.onchange = () => { const set = st.lab[s.dataset.side + 'Set']; if (s.value) set[s.dataset.slot] = s.value; else delete set[s.dataset.slot]; save(); renderLab(); });
   host.querySelectorAll('[data-auto]').forEach(b => b.onclick = () => { const k = b.dataset.auto; st.lab[k + 'Set'] = autoSet(st.lab[k]); save(); renderLab(); });
   host.querySelectorAll('[data-clear]').forEach(b => b.onclick = () => { const k = b.dataset.clear; st.lab[k] = []; st.lab[k + 'Set'] = {}; save(); renderLab(); });
+  const hl = $('#taHeal'); if (hl) hl.onchange = e => { T.heal = e.target.checked; renderTradeAnalyzer(); };
   host.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { const [k, id] = b.dataset.rm.split(':'); st.lab[k] = st.lab[k].filter(x => x !== id); save(); renderLab(); });
   const o = host.querySelector('[data-opt]'); if (o) o.onclick = () => { if (!st.lab.mine.length) return; o.textContent = 'Optimizing…'; setTimeout(() => { st.lab.mineSet = optimizeWP(st.lab.mine, Object.keys(st.lab.mineSet).length ? st.lab.mineSet : autoSet(st.lab.mine), Object.values(st.lab.oppSet)); save(); renderLab(); }, 30); };
   host.querySelectorAll('input[data-q]').forEach(inp => {
@@ -1291,7 +1300,7 @@ function renderWhatIf(ctx) {
   // ---- search
   const q = $('#wiQ'), box = $('#wiRes');
   q.oninput = () => { const s = q.value.toLowerCase().trim(); if (s.length < 2) { box.classList.add('hide'); return; }
-    const hits = Object.values(pool).filter(p => !base.includes(p.id) && !W.add.includes(p.id) && (p.name.toLowerCase().includes(s) || p.team.toLowerCase() === s)).sort((a, b) => b.proj - a.proj).slice(0, 8);
+    const hits = Object.values(pool).filter(p => !base.includes(p.id) && !W.add.includes(p.id) && nameMatch(p, s)).sort((a, b) => b.proj - a.proj).slice(0, 8);
     box.innerHTML = hits.map(p => `<div data-add="${p.id}"><span class="posb" style="color:${POSCOL[p.pos]}">${p.pos}</span> ${p.name} <span class="sub2">${p.team} ${p.home ? 'vs' : '@'} ${p.opp}${ctx.owners ? ' · ' + owner(ctx, p.id) : ''}</span><b>${fmt(P(p, 'proj'))}</b></div>`).join('') || '<div class="sub2">No matches</div>'; box.classList.remove('hide');
     box.querySelectorAll('[data-add]').forEach(d => d.onclick = () => { W.add.push(d.dataset.add); renderWhatIf(ctx); }); };
   host.querySelectorAll('[data-rmadd]').forEach(x => x.onclick = () => { W.add = W.add.filter(i => i !== x.dataset.rmadd); renderWhatIf(ctx); });
@@ -1516,6 +1525,91 @@ function renderSeason(c) {
     {k: 'pw', t: 'Power (pts/wk)', v: r => r.power, h: r => fmt(r.power)}, {k: 'sos', t: 'Schedule left', v: r => r.sos, h: r => `<span class="${r.sos > 1 ? 'neg' : r.sos < -1 ? 'pos' : ''}">${r.left ? sgn(r.sos) : '–'}</span>`}];
   renderTable($('#ssTbl'), 'ssn', cols, rows, {sort: 'po', limit: 20, step: 20});
   $('#ssTbl').insertAdjacentHTML('beforeend', `<div class="note">${S.res.N.toLocaleString()} simulated seasons; top ${S.res.pt} make the playoffs. Weekly scores use each team's best projected lineup (bye weeks included) with realistic week-to-week spread. “Schedule left” is the average points per week your remaining opponents project above the league average, so positive means harder. ${hasGames ? '' : 'The league schedule has no remaining games to simulate.'} Current injuries are assumed to persist, and other managers are assumed to set their best lineups.</div>`);
+}
+
+/* ================= trade analyzer (any players, no league needed) ================= */
+// "josh allen", "allen", "j.allen" or a team code all match the abbreviated names in the data ("J.Allen")
+function nameMatch(p, s) {
+  const n = p.name.toLowerCase(), t = s.split(/\s+/).filter(Boolean);
+  if (n.includes(s) || p.team.toLowerCase() === s) return true;
+  if (t.length < 2) return false;
+  const last = t.slice(1).join(' '), nl = n.replace(/^[a-z]{1,3}\./, '');
+  return nl.startsWith(last) && n[0] === t[0][0];
+}
+st.ta = {give: [], get: [], mode: 'ros', loading: null, heal: true};
+const TA_REPL = {QB: 11, RB: 23, WR: 29, TE: 11, K: 11, DST: 11};   // replacement = this rank at the position (12-team league)
+function taWeeks() {
+  const S = st.slate, R = st.wi.ros && !st.wi.ros.loading && !st.wi.ros.error ? st.wi.ros : null, mode = st.ta.mode;
+  const po = ((st.lg && st.lg.data.settings && st.lg.data.settings.regular_weeks) || 14) + 1;
+  if (mode === 'week' || !R) return [{w: S.week, pool: labPool(), wt: 1}];
+  return R.weeks.map(w => ({w, pool: w === S.week ? labPool() : R.pools[w], wt: mode === 'playoff' ? (w >= po ? 2.5 : 0.25) : 1}));
+}
+function taRepl(W) {   // per week, per position replacement-level projection
+  const out = {};
+  W.forEach(x => { out[x.w] = {}; const by = {}; Object.values(x.pool).forEach(r => { if (!r.idle) (by[r.pos] = by[r.pos] || []).push(P(r, 'proj')); });
+    for (const [p, a] of Object.entries(by)) { a.sort((u, v) => v - u); out[x.w][p] = a[Math.min(TA_REPL[p] ?? 11, a.length - 1)] || 0; } });
+  return out;
+}
+function taPlayer(id, W, RP) {
+  const any = labPool()[id] || (st.wi.ros && st.wi.ros.any[id]);
+  const heal = st.ta.heal, w0 = st.slate.week;
+  const wk = W.map(x => { const r = x.pool[id]; let pj = r && !r.idle ? P(r, 'proj') : 0;
+    if (heal && x.w > w0 && r && r.idle && r.idle !== 'BYE' && any.avg != null) pj = Math.max(0, avgF(any) ?? any.avg);  /* injured: back at his season average */ return {w: x.w, pj, bye: !r || r.idle === 'BYE', out: r && r.idle && r.idle !== 'BYE', vor: Math.max(0, pj - ((RP[x.w] || {})[any.pos] || 0)), wt: x.wt}; });
+  return {r: any, wk, now: wk[0].pj, tot: wk.reduce((s, x) => s + x.pj, 0), val: wk.reduce((s, x) => s + x.wt * x.vor, 0), byes: wk.filter(x => x.bye).map(x => x.w)};
+}
+function spark(vals, mx, col) {
+  const w = 120, h = 26, bw = w / Math.max(vals.length, 1);
+  return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">${vals.map((v, i) => `<rect x="${i * bw + 1}" y="${h - Math.max(v / mx * h, v > 0 ? 1.5 : 0)}" width="${bw - 2}" height="${Math.max(v / mx * h, v > 0 ? 1.5 : 0)}" rx="1" fill="${col}"/>`).join('')}</svg>`;
+}
+async function taLoadRos() {
+  if (st.wi.ros && !st.wi.ros.error && !st.wi.ros.loading) { renderTradeAnalyzer(); return; }
+  st.ta.loading = 'Loading…'; renderTradeAnalyzer();
+  await ensureRos(r => { st.ta.loading = `Simulating week ${st.slate.week + r.done - 1} of ${r.weeks[r.weeks.length - 1]}…`; const el_ = $('#taBusy'); if (el_) el_.textContent = st.ta.loading; });
+  st.ta.loading = null; renderTradeAnalyzer();
+}
+function renderTradeAnalyzer() {
+  const host = $('#pl-trade'); if (!host || !st.slate) return; const T = st.ta, pool = labPool();
+  const needRos = T.mode !== 'week' && !(st.wi.ros && !st.wi.ros.loading && !st.wi.ros.error);
+  const W = taWeeks(), RP = taRepl(W), A = T.give.filter(i => pool[i] || (st.wi.ros && st.wi.ros.any[i])).map(i => taPlayer(i, W, RP)), B = T.get.filter(i => pool[i] || (st.wi.ros && st.wi.ros.any[i])).map(i => taPlayer(i, W, RP));
+  const sum = (L, k) => L.reduce((s, x) => s + x[k], 0), mx = Math.max(1, ...[...A, ...B].flatMap(p => p.wk.map(x => x.pj)));
+  const side = (L, k, title, col) => `<div class="card"><div class="thead"><h3>${title}</h3><span class="sub2">${L.length} player${L.length === 1 ? '' : 's'}</span></div>
+      <div class="srch"><input class="inp" id="taQ_${k}" placeholder="Add any player by name or team" autocomplete="off"><div class="sres hide" id="taR_${k}"></div></div>
+      <div class="tacards">${L.map(p => `<div class="tacard" style="--pc:${POSCOL[p.r.pos]}"><i class="stripe"></i>
+          <div class="tn"><b>${p.r.name}${badge(p.r.status, p.r.p_play, p.r.inj_note, p.r.idle)}</b><span class="sub2">${p.r.pos} · ${p.r.team}${p.byes.length && T.mode !== 'week' ? ' · bye wk ' + p.byes.join(', ') : ''}</span></div>
+          ${T.mode === 'week' ? '' : `<div class="tsp" title="Projected points by week">${spark(p.wk.map(x => x.pj), mx, col)}</div>`}
+          <div class="tv"><b>${fmt(T.mode === 'week' ? p.now : p.tot)}</b><span class="sub2">${T.mode === 'week' ? 'this week' : 'pts left'}</span></div>
+          <div class="tv"><b>${fmt(p.val)}</b><span class="sub2">value</span></div>
+          <button class="x" data-rm="${k}:${p.r.id}" title="Remove">×</button></div>`).join('') || '<div class="note">Search above to add players.</div>'}</div></div>`;
+  const va = sum(A, 'val'), vb = sum(B, 'val'), tot = Math.max(va + vb, 1e-6), d = vb - va, rel = Math.abs(d) / Math.max(va, vb, 1e-6);
+  const verdict = !A.length || !B.length ? null : rel < 0.1 ? ['Fair trade', 'ok', 'The two sides are within 10% of each other in value.'] : d > 0 ? ['You win this trade', 'good', `You get ${fmt(rel * 100, 0)}% more value than you give.`] : ['You lose this trade', 'bad', `You give ${fmt(rel * 100, 0)}% more value than you get.`];
+  const weeks = W.map(x => x.w), wa = weeks.map((_, i) => A.reduce((s, p) => s + p.wk[i].pj, 0)), wb = weeks.map((_, i) => B.reduce((s, p) => s + p.wk[i].pj, 0));
+  const cmax = Math.max(1, ...wa, ...wb), cw = 1000 / weeks.length;
+  const chart = weeks.length < 2 ? '' : `<div class="sub2" style="margin-top:var(--s4)">PROJECTED POINTS BY WEEK</div><svg viewBox="0 0 1000 150" width="100%" style="max-height:170px">${weeks.map((w, i) => {
+      const ha = wa[i] / cmax * 110, hb = wb[i] / cmax * 110, x0 = i * cw;
+      return `<rect x="${x0 + cw * .14}" y="${125 - ha}" width="${cw * .34}" height="${ha}" rx="2" fill="${C.bad}" opacity=".75"><title>Week ${w}: you give ${fmt(wa[i])}</title></rect><rect x="${x0 + cw * .52}" y="${125 - hb}" width="${cw * .34}" height="${hb}" rx="2" fill="${C.good}" opacity=".85"><title>Week ${w}: you get ${fmt(wb[i])}</title></rect><text x="${x0 + cw / 2}" y="144" fill="${C.muted}" font-size="12" text-anchor="middle">${w}</text>`; }).join('')}<line x1="0" x2="1000" y1="125" y2="125" stroke="${C.rule2}"/></svg>
+      <div class="blab"><span style="color:${C.bad}">■ You give</span><span style="color:${C.good}">■ You get</span></div>`;
+  host.innerHTML = `<div class="card"><div class="ctl"><div class="grow"><h3 style="margin:0">Trade analyzer</h3><div class="sub2">Compare any players, from any team, for any league. Value counts only the points a player scores above a waiver-wire replacement at his position.</div></div>
+      ${T.mode === 'week' ? '' : `<label class="chk" title="Players ruled out this week count at their season average from next week on. Untick to assume today's injuries last all season."><input type="checkbox" id="taHeal" ${T.heal ? 'checked' : ''}> Injured players return next week</label>`}
+      <div class="seg" id="taMode">${[['week', 'This week'], ['ros', 'Rest of season'], ['playoff', 'Playoffs']].map(([k, l]) => `<button data-m="${k}" class="${T.mode === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
+      ${T.loading ? `<div class="empty" style="padding:var(--s3)"><span class="spin dark"></span><span id="taBusy">${T.loading}</span></div>` : ''}</div>
+    <div class="tgrid">${side(A, 'give', 'You give', C.bad)}${side(B, 'get', 'You get', C.good)}</div>
+    <div class="card"><div class="thead"><h3>Verdict</h3>${verdict ? `<span class="chipv ${verdict[1]}">${verdict[0]}</span>` : ''}</div>
+      ${verdict ? `<div class="tgains"><div class="gbox"><span class="sub2">VALUE YOU GIVE</span><b>${fmt(va)}</b><span class="sub2">${fmt(T.mode === 'week' ? sum(A, 'now') : sum(A, 'tot'))} projected pts</span></div>
+        <div class="gbox"><span class="sub2">VALUE YOU GET</span><b class="${d > 0 ? 'pos' : d < 0 ? 'neg' : ''}">${fmt(vb)}</b><span class="sub2">${fmt(T.mode === 'week' ? sum(B, 'now') : sum(B, 'tot'))} projected pts</span></div></div>
+        <div class="balance"><div class="bbar"><i style="width:${va / tot * 100}%"></i></div><div class="blab"><span>You give ${fmt(va / tot * 100, 0)}%</span><span>You get ${fmt(vb / tot * 100, 0)}%</span></div></div>
+        <div class="note">${verdict[2]} ${A.length !== B.length ? `This is a ${A.length}-for-${B.length} trade: the side getting more players has to cut someone, and that cut player's value is already left out, because only points above replacement count.` : ''}</div>${chart}`
+      : '<div class="note" style="margin-top:0">Add at least one player to each side.</div>'}
+      <div class="note">${T.mode === 'week' ? `Week ${st.slate.week} projections.` : `Weeks ${weeks[0]}–${weeks[weeks.length - 1]}${T.mode === 'playoff' ? ', playoff weeks counted 10× more than regular-season weeks' : ''}. ${T.heal ? 'Players out this week come back next week at their season average' : 'Future weeks assume today’s injuries last all season'}; byes count as zero.`} Replacement level is the ${Object.entries(TA_REPL).slice(0, 4).map(([p, n]) => `${p}${n + 1}`).join(', ')} that week (12-team league). Scoring follows the PPR/Half/Std switch at the top.</div></div>`;
+  host.querySelectorAll('#taMode [data-m]').forEach(b => b.onclick = () => { T.mode = b.dataset.m; if (T.mode !== 'week') taLoadRos(); else renderTradeAnalyzer(); });
+  host.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { const [k, id] = b.dataset.rm.split(':'); T[k] = T[k].filter(i => i !== id); renderTradeAnalyzer(); });
+  ['give', 'get'].forEach(k => { const q = $('#taQ_' + k), box = $('#taR_' + k);
+    q.oninput = () => { const s = q.value.toLowerCase().trim(); if (s.length < 2) { box.classList.add('hide'); return; }
+      const src = {...(st.wi.ros ? st.wi.ros.any : {}), ...pool}, taken = new Set([...T.give, ...T.get]);
+      const hits = Object.values(src).filter(p => !taken.has(p.id) && nameMatch(p, s)).sort((a, b) => (b.avg || b.proj || 0) - (a.avg || a.proj || 0)).slice(0, 8);
+      box.innerHTML = hits.map(p => `<div data-add="${p.id}"><span class="posb" style="color:${POSCOL[p.pos]}">${p.pos}</span> ${p.name}${badge(p.status, p.p_play, p.inj_note, p.idle)} <span class="sub2">${p.team}</span><b>${p.idle ? '–' : fmt(P(p, 'proj'))}</b></div>`).join('') || '<div class="sub2">No matches</div>'; box.classList.remove('hide');
+      box.querySelectorAll('[data-add]').forEach(dv => dv.onclick = () => { T[k].push(dv.dataset.add); renderTradeAnalyzer(); setTimeout(() => { const n = $('#taQ_' + k); n && n.focus(); }, 0); }); };
+    q.onblur = () => setTimeout(() => box.classList.add('hide'), 200); });
+  if (needRos && !T.loading) taLoadRos();
 }
 
 /* ---------- game viewer ---------- */
