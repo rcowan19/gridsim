@@ -2,7 +2,7 @@
 import os, sys, urllib.request
 BASE = "https://github.com/nflverse/nflverse-data/releases/download"
 FILES = ["pbp/play_by_play_2026", "pbp/play_by_play_2025", "rosters/roster_2026", "rosters/roster_2025",
-         "snap_counts/snap_counts_2026", "injuries/injuries_2026"]
+         "snap_counts/snap_counts_2026", "injuries/injuries_2026", "depth_charts/depth_charts_2026"]
 os.makedirs("data", exist_ok=True)
 try:   # schedule + betting lines
     urllib.request.urlretrieve("https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv", "data/games.csv")

@@ -479,7 +479,7 @@ def main(cutoff=None, write=True, quiet=False, usage_decay=None, w_prev_use=None
         p["_fg_over"] = float(((g.field_goal_result == "made") * 1.0 - exp_fg).mul(g.w).sum())
 
     # injury report: statuses for the target week (backtest: that week's pre-game report; live: next week if published, else latest)
-    inj_status, inj_prac, inj_note = {}, {}, "none"
+    inj_status, inj_prac, inj_note, inj_stale = {}, {}, "none", False
     try:
         inj = pd.read_parquet("data/injuries_2026.parquet")
         inj = inj[inj.report_status.isin(["Out", "Doubtful", "Questionable"])]
@@ -491,6 +491,7 @@ def main(cutoff=None, write=True, quiet=False, usage_decay=None, w_prev_use=None
             inj_status = dict(zip(iw.gsis_id, iw.report_status))
             inj_prac = dict(zip(iw.gsis_id, iw.practice_status.fillna("")))
             inj_note = f"week {int(use)}" + ("" if use == want else " (stale: next week not published yet)")
+            inj_stale = use != want
     except FileNotFoundError:
         pass
     M["meta"]["injuries"] = inj_note
@@ -546,6 +547,9 @@ def main(cutoff=None, write=True, quiet=False, usage_decay=None, w_prev_use=None
         q = {"id": pid, "name": p["name"], "pos": p["pos"]}
         if pid in inj_status:
             q["status"] = inj_status[pid]
+            # last week's report only: a player listed Out/Doubtful but back near the top of the current depth chart is a coin flip
+            if inj_stale and q["status"] in ("Out", "Doubtful") and depth.get(rt, {}).get(pid, ("", 99))[1] <= 2:
+                q["status"], q["p_play"], q["note"] = "Questionable", 0.5, f"{inj_status[pid]} last week; back on the depth chart (this week's report not out yet)"
             if q["status"] == "Questionable":
                 q["p_play"] = PLAY_P.get(inj_prac.get(pid, ""), 0.67)
         if live and rstatus.get(pid) in ("RES", "CUT"):

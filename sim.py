@@ -143,7 +143,7 @@ def game_rows(res, home, away, ov, hist=None, ns=400, with_stats=False, c=None):
             r = {"id": pid, "name": q["name"], "pos": pos, "team": cfg.abbr, "opp": opp.abbr, "home": side == 0,
                  "proj": round(float(mean), 2), "lo": round(float(lo), 1), "hi": round(float(hi), 1),
                  "med": round(float(np.median(cal)), 1), "sd": round(float(cal.std()), 2), "sim": round(float(sim_mean), 2),
-                 "avg": q.get("ppr_avg"), "n": q.get("ppr_n"), "status": q.get("status"), "p_play": q.get("p_play"),
+                 "avg": q.get("ppr_avg"), "n": q.get("ppr_n"), "status": q.get("status"), "p_play": q.get("p_play"), "inj_note": q.get("note"),
                  "boom": round(float((cal >= BOOM.get(pos, 99)).mean()), 3) if pos in BOOM else None,
                  "bust": round(float((cal < BUST.get(pos, -99)).mean()), 3) if pos in BUST else None,
                  "cs": round(q.get("car", 0), 3), "ts": round(q.get("tgt", 0), 3),
