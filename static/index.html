@@ -677,25 +677,10 @@ function renderSlate() {
   if (st.pos === 'ALL') rows = rows.filter(r => r.pos !== 'K' && r.pos !== 'DST' || r.proj > 5);
   host.innerHTML = `<div class="grid2c3"><div class="stack" id="s_left"></div></div>`;
   const left = $('#s_left');
-  // games & edges
-  const g = S.games, hasMk = g.some(x => x.spread != null);
-  const gc = card(`<h3>Games this week <span class="sub2">· simulated ${S.n.toLocaleString()}× each in ${S.secs}s</span></h3><div id="gTable"></div>`);
-  left.appendChild(gc);
-  const gcols = [
-    {k: 'm', t: 'Game', v: x => x.away, first: 1, h: x => `<span style="color:${color(x.away)}">${x.away}</span> <span class="sub2">@</span> <span style="color:${color(x.home)}">${x.home}</span>${x.neutral ? ' <span class="sub2">(neutral)</span>' : ''}`},
-    {k: 'day', t: 'Kickoff', v: x => x.day + x.time, first: 1, h: x => `<span class="sub2">${x.day.slice(5)} ${x.time}</span>`},
-    {k: 'ms', t: 'Mkt spread', v: x => x.spread, h: x => x.spread == null ? '–' : `${x.home} ${x.spread > 0 ? '−' + x.spread : '+' + Math.abs(x.spread)}`},
-    {k: 'ss', t: 'Sim spread', v: x => x.sim_margin, h: x => `${x.home} ${x.sim_margin > 0 ? '−' + fmt(x.sim_margin) : '+' + fmt(Math.abs(x.sim_margin))}`},
-    {k: 'edge', t: 'Spread edge', v: x => x.spread == null ? null : Math.abs(x.sim_margin - x.spread), h: x => { if (x.spread == null) return '–'; const e = x.sim_margin - x.spread; return `<span class="${Math.abs(e) >= 3 ? 'hotc' : ''}">${Math.abs(e) < 1.5 ? '–' : (e > 0 ? x.home : x.away) + ' ' + fmt(Math.abs(e))}</span>`; }},
-    {k: 'mt', t: 'Mkt total', v: x => x.total, h: x => fmt(x.total)},
-    {k: 'st', t: 'Sim total', v: x => x.sim_total, cls: 'main', h: x => fmt(x.sim_total)},
-    {k: 'te', t: 'Total edge', v: x => x.total == null ? null : x.sim_total - x.total, h: x => x.total == null ? '–' : `<span class="${Math.abs(x.sim_total - x.total) >= 3 ? 'hotc' : ''}">${sgn(x.sim_total - x.total)}</span>`},
-    {k: 'ih', t: 'Implied (sim)', v: x => x.sim_home, h: x => `${x.away} ${fmt(x.sim_away, 0)} · ${x.home} ${fmt(x.sim_home, 0)}`},
-    {k: 'wp', t: 'Home win%', v: x => x.sim_home_win, h: x => pct(x.sim_home_win)},
-    {k: 'cond', t: 'Conditions', v: x => x.cond && x.cond.wind, h: x => `<span class="sub2">${condText(x.cond, x.roof)}</span>`},
-  ];
-  renderTable($('#gTable'), 'games', gcols, g, {sort: 'st', onRow: x => { st.home = x.home; st.away = x.away; $('#home').value = x.home; $('#away').value = x.away; $('#neutral').checked = x.neutral; st.neutral = x.neutral; renderLineups(); tab('proj'); runSim(); }});
-  $('#gTable').insertAdjacentHTML('beforeend', `<div class="note">Spread/total edges compare the simulator with the betting market; click a game to run the full matchup analysis. Positive total edge = sim projects more points than the market.</div>`);
+  const rk = card(`<h3>Rankings · ${st.pos} · ${FMTN[st.fmt]} <span class="sub2">· ${rows.length} players</span></h3><div id="rkTable"></div>`);
+  left.appendChild(rk);
+  fantasyTable($('#rkTable'), 'rank', rows, {rank: true, opp: true, vor: true, tier: true, limit: 150, note: true});
+  const g = S.games;
 
   // stack targets + movers
   const sg = [...g].sort((a, b) => b.sim_total - a.sim_total).slice(0, 4);
@@ -711,9 +696,7 @@ function renderSlate() {
   left.appendChild(ins);
   ins.querySelectorAll('.stkr').forEach(d => d.onclick = () => { const r = S.rows.find(x => x.id === d.dataset.id); if (r) showPlayer(r); });
 
-  const rk = card(`<h3>Rankings · ${st.pos} · ${FMTN[st.fmt]} <span class="sub2">· ${rows.length} players</span></h3><div id="rkTable"></div>`);
-  left.appendChild(rk);
-  fantasyTable($('#rkTable'), 'rank', rows, {rank: true, opp: true, vor: true, tier: true, limit: 150, note: true});
+
 }
 
 /* ================= lineup lab ================= */
@@ -992,13 +975,14 @@ function nflSlot(g) {
   if (dow === 4) return 'Thu'; if (dow === 1) return 'Mon'; if (dow === 0) return hr <= 13 ? 'Sun early' : hr <= 17 ? 'Sun late' : 'Sun night';
   return dow === 5 || dow === 6 ? 'Thu' : 'Sun late';
 }
-st.nfl = {slot: 'All', sort: 'time'};
+st.nfl = {slot: 'All', sort: 'time', view: 'cards'};
 function renderNflShell() {
   const wk = st.sched.weeks.map(w => `<option value="${w}" ${w === st.week ? 'selected' : ''}>Week ${w}</option>`).join('');
   $('#tab-nfl').innerHTML = `<div class="card"><div class="ctl">
       <div><label class="f">Week</label><select id="n_week">${wk}</select></div>
       <div><label class="f">Sims / game</label><select id="n_n"><option value="500">500</option><option value="1000">1,000</option><option value="2000">2,000</option></select></div>
       <label class="chk" style="padding-bottom:10px"><input type="checkbox" id="n_wx" checked> Apply weather &amp; roof</label>
+      <div><label class="f">View</label><div class="seg fseg" id="n_view"><button data-v="cards" class="on">Cards</button><button data-v="table">Table</button></div></div>
       <div><label class="f">Sort</label><select id="n_sort"><option value="time">Kickoff</option><option value="total">Highest total</option><option value="close">Most competitive</option><option value="edge">Biggest market edge</option></select></div>
       <div><button class="btn primary" id="n_run" style="margin-top:22px">Simulate week</button></div></div>
     <div class="tb" id="n_slots" style="margin:12px 0 0">${SLOTS_NFL.map(s => `<button data-s="${s}" class="${st.nfl.slot === s ? 'on' : ''}">${s}</button>`).join('')}</div>
@@ -1009,7 +993,25 @@ function renderNflShell() {
   $('#n_wx').onchange = e => { st.useWx = e.target.checked; st.slate = null; loadSlate('nfl'); };
   $('#n_run').onclick = () => { st.slate = null; loadSlate('nfl'); };
   $('#n_sort').onchange = e => { st.nfl.sort = e.target.value; renderNflWeek(); };
+  $('#n_view').onclick = e => { const b = e.target.closest('button'); if (!b) return; st.nfl.view = b.dataset.v; [...$('#n_view').children].forEach(x => x.classList.toggle('on', x === b)); renderNflWeek(); };
   $('#n_slots').onclick = e => { const b = e.target.closest('button'); if (!b) return; st.nfl.slot = b.dataset.s; [...$('#n_slots').children].forEach(x => x.classList.toggle('on', x === b)); renderNflWeek(); };
+}
+function gamesTable(host, games) {
+  const gcols = [
+    {k: 'm', t: 'Game', v: x => x.away, first: 1, h: x => `<span style="color:${color(x.away)}">${x.away}</span> <span class="sub2">@</span> <span style="color:${color(x.home)}">${x.home}</span>${x.neutral ? ' <span class="sub2">(neutral)</span>' : ''}`},
+    {k: 'day', t: 'Kickoff', v: x => x.day + x.time, first: 1, h: x => `<span class="sub2">${x.day.slice(5)} ${x.time}</span>`},
+    {k: 'ms', t: 'Mkt spread', v: x => x.spread, h: x => x.spread == null ? '–' : `${x.home} ${x.spread > 0 ? '−' + x.spread : '+' + Math.abs(x.spread)}`},
+    {k: 'ss', t: 'Sim spread', v: x => x.sim_margin, h: x => `${x.home} ${x.sim_margin > 0 ? '−' + fmt(x.sim_margin) : '+' + fmt(Math.abs(x.sim_margin))}`},
+    {k: 'edge', t: 'Spread edge', v: x => x.spread == null ? null : Math.abs(x.sim_margin - x.spread), h: x => { if (x.spread == null) return '–'; const e = x.sim_margin - x.spread; return `<span class="${Math.abs(e) >= 3 ? 'hotc' : ''}">${Math.abs(e) < 1.5 ? '–' : (e > 0 ? x.home : x.away) + ' ' + fmt(Math.abs(e))}</span>`; }},
+    {k: 'mt', t: 'Mkt total', v: x => x.total, h: x => fmt(x.total)},
+    {k: 'st', t: 'Sim total', v: x => x.sim_total, cls: 'main', h: x => fmt(x.sim_total)},
+    {k: 'te', t: 'Total edge', v: x => x.total == null ? null : x.sim_total - x.total, h: x => x.total == null ? '–' : `<span class="${Math.abs(x.sim_total - x.total) >= 3 ? 'hotc' : ''}">${sgn(x.sim_total - x.total)}</span>`},
+    {k: 'ih', t: 'Implied (sim)', v: x => x.sim_home, h: x => `${x.away} ${fmt(x.sim_away, 0)} · ${x.home} ${fmt(x.sim_home, 0)}`},
+    {k: 'wp', t: 'Home win%', v: x => x.sim_home_win, h: x => pct(x.sim_home_win)},
+    {k: 'cond', t: 'Conditions', v: x => x.cond && x.cond.wind, h: x => `<span class="sub2">${condText(x.cond, x.roof)}</span>`},
+  ];
+  renderTable(host, 'games', gcols, games, {sort: 'st', onRow: x => { st.home = x.home; st.away = x.away; $('#home').value = x.home; $('#away').value = x.away; $('#neutral').checked = x.neutral; st.neutral = x.neutral; st.cond.mode = 'auto'; $('#condMode').value = 'auto'; $('#condManual').classList.add('hide'); renderLineups(); tab('proj'); runSim(); }});
+  host.insertAdjacentHTML('beforeend', `<div class="note">Spread/total edges compare the simulator with the betting market; click a game to run the full matchup analysis. Positive total edge = sim projects more points than the market.</div>`);
 }
 function renderNflWeek() {
   const host = $('#nflBody'); if (!host || !st.slate) return;
@@ -1017,6 +1019,10 @@ function renderNflWeek() {
   const edge = g => g.spread == null ? 0 : Math.max(Math.abs(g.sim_margin - g.spread), Math.abs(g.total == null ? 0 : g.sim_total - g.total));
   const key = {time: g => g.day + g.time, total: g => -g.sim_total, close: g => Math.abs(g.sim_home_win - .5), edge: g => -edge(g)}[st.nfl.sort];
   gs = [...gs].sort((a, b) => key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0);
+  if (st.nfl.view === 'table') {
+    host.innerHTML = `<div class="card"><h3>Games · week ${S.week} <span class="sub2">· simulated ${S.n.toLocaleString()}× each in ${S.secs}s</span></h3><div id="gTable"></div></div>`;
+    gamesTable($('#gTable'), gs); return;
+  }
   host.innerHTML = `<div class="gcards" id="gcards"></div>`;
   const wrap = $('#gcards'); let lastDay = '';
   gs.forEach(g => {
