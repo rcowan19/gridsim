@@ -637,7 +637,7 @@ async function loadSlate(mode) {
   if (mode === true) $('#tab-lab').innerHTML = msg;
   if (mode === 'league') $('#lgStatus').innerHTML = msg;
   try { st.slate = await post('/api/slate', {week: st.week, n: st.slateN}); st.lab.trials = null; renderSlate(); renderLab(); if (st.lg) renderLeague(); }
-  catch (e) { if (body) body.innerHTML = `<div class="card empty err">${e.message}</div>`; }
+  catch (e) { const m = `<div class="card empty err"><b>Couldn't load projections</b>${e.message}</div>`; if (body) body.innerHTML = m; if (mode === true) $('#tab-lab').innerHTML = m; if (mode === 'league' && $('#lgStatus')) $('#lgStatus').innerHTML = m; console.error(e); }
   busy($('#s_run'), false);
 }
 const REPL = {QB: 11, RB: 23, WR: 29, TE: 11, K: 11, DST: 11};
@@ -857,6 +857,7 @@ async function loadLeague() {
     const my = (data.teams.find(t => String(t.id) === saved) || rowdy || data.teams[0]).id;
     st.lg = {data, my, opp: null}; autoOpp();
     if (st.sched.weeks.includes(data.week) && (!st.slate || st.slate.week !== data.week)) { st.week = data.week; st.slate = null; }
+    if (st.week == null) throw new Error('No schedule available. Run `python fetch_data.py` (or `git pull`), then restart the server.');
     if (!st.slate) { $('#lgBtn').disabled = false; renderLeague(); await loadSlate('league'); }
   } catch (e) { $('#lgErr').textContent = e.message; }
   busy($('#lgBtn'), false); renderLeague();
@@ -877,7 +878,7 @@ function renderLeague() {
       <div class="err" id="lgErr"></div><div id="lgStatus"></div></div>`;
   if (!st.lg) { host.innerHTML = setup; $('#lgBtn').onclick = loadLeague; return; }
   const L = st.lg, D = L.data;
-  if (!st.slate) { host.innerHTML = setup; $('#lgBtn').onclick = loadLeague; return; }
+  if (!st.slate) { host.innerHTML = setup + `<div class="card empty"><b>Waiting for projections</b>The league loaded, but the week's projections aren't ready. Open the Fantasy rankings tab and press Simulate week, then come back.</div>`; $('#lgBtn').onclick = loadLeague; return; }
   const idx = slotIndex(), tms = Object.fromEntries(D.teams.map(t => [t.id, teamModel(t, idx)]));
   const me = tms[L.my], opp = tms[L.opp], pool = labPool();
   const fmtName = FMTN[st.fmt];

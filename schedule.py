@@ -2,13 +2,20 @@
 import os
 import pandas as pd
 
-PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "games.csv")
+HERE = os.path.dirname(os.path.abspath(__file__))
+PATHS = [os.path.join(HERE, "data", "games.csv"), os.path.join(HERE, "schedule_2026.csv")]   # downloaded copy first, bundled fallback
 
 
 def load(season=2026):
-    try:
-        d = pd.read_csv(PATH)
-    except OSError:
+    d = None
+    for p in PATHS:
+        try:
+            d = pd.read_csv(p)
+            if len(d[d.season == season]):
+                break
+        except OSError:
+            continue
+    if d is None:
         return []
     d = d[(d.season == season) & (d.game_type == "REG")]
     out = []
