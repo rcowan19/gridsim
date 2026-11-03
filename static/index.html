@@ -3,8 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GridSim · NFL play-by-play simulator</title>
+<title>GridSim · NFL simulator &amp; fantasy analysis</title>
 <style>
+
 :root{
   --bg:#0a0e13; --panel:#111720; --panel2:#151c27; --line:#1f2937; --text:#e7edf4; --muted:#8696a9; --dim:#5b6b7e;
   --accent:#5eead4; --good:#4ade80; --bad:#f87171; --away:#60a5fa; --home:#f87171;
@@ -132,33 +133,86 @@ td.main{font-weight:700}
 .spin{display:inline-block;width:14px;height:14px;border:2px solid #04201c55;border-top-color:#04201c;border-radius:50%;animation:s .7s linear infinite;vertical-align:-2px;margin-right:6px}
 @keyframes s{to{transform:rotate(360deg)}}
 .err{color:var(--bad);margin-top:10px;font-size:13px}
+.layout.nosd{grid-template-columns:1fr}.nosd .side{display:none}
+.tscroll{overflow-x:auto}
+table.st td.nm{font-weight:550;white-space:nowrap}
+th.srt{cursor:pointer;user-select:none}th.srt:hover,th.on{color:var(--text)}
+tr.clk{cursor:pointer}tr.clk:hover td{background:var(--panel2)}
+.pdot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px}
+.posb{font-weight:700;font-size:12px}
+.pos{color:var(--good)}.neg{color:var(--bad)}.hotc{color:#fbbf24;font-weight:700}
+.pill.hot{background:rgba(251,191,36,.12);border-color:#fbbf2466;color:#fbbf24}
+.lnk{cursor:pointer}.lnk:hover{color:var(--accent)}
+.rtxt{display:block;text-align:right;font-size:11px;color:var(--dim);line-height:1.1}
+.lgc{color:var(--dim)}
+.mb td.pos,.mb td.neg{font-weight:700}
+.spin.dark{border-color:#5eead455;border-top-color:var(--accent);margin-right:8px}
+.grid2c{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:18px}
+@media(max-width:1100px){.grid2c{grid-template-columns:1fr}}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+@media(max-width:1100px){.grid3{grid-template-columns:1fr}}
+.grid2c3{display:block}
+table.heat{border-collapse:separate;border-spacing:2px;width:auto;font-size:11px}
+table.heat th{text-align:right;padding:2px 6px;border:0;white-space:nowrap;font-size:11px;text-transform:none;letter-spacing:0;font-weight:600}
+table.heat th.vh{height:104px;vertical-align:bottom;padding:2px}
+table.heat th.vh div{writing-mode:vertical-rl;transform:rotate(180deg);white-space:nowrap}
+table.heat td{width:30px;height:26px;text-align:center;border-radius:4px;padding:0;border:0;color:#e7edf4;font-size:10.5px}
+.ctl{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap}.ctl .grow{flex:1;min-width:180px}
+.ctl label.f{margin:0 0 5px}
+.inp{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:9px 10px;outline:none}.inp:focus{border-color:var(--accent)}
+.chk{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:13px}
+.fseg{width:auto}.fseg button{padding:6px 11px;white-space:nowrap}
+.tb .spacer{flex:1}
+/* drawer */
+.drawer{position:fixed;inset:0;z-index:50}.dback{position:absolute;inset:0;background:rgba(0,0,0,.55)}
+.dpanel{position:absolute;right:0;top:0;bottom:0;width:min(620px,100%);background:var(--panel);border-left:1px solid var(--line);padding:22px 24px;overflow:auto;box-shadow:-20px 0 60px rgba(0,0,0,.5)}
+.dx{position:absolute;right:16px;top:14px;background:none;border:0;color:var(--muted);font-size:18px;cursor:pointer}
+.dh{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding-right:26px}
+.dnm{font-size:22px;font-weight:800}.dsub{color:var(--muted);margin-top:3px;font-size:13px}
+.dbig{text-align:right}.dbig b{display:block;font-size:40px;line-height:1;font-weight:800;color:var(--accent)}.dbig span{font-size:11px;color:var(--muted)}
+.dpanel h4{margin:20px 0 8px;font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.kpis.k4{grid-template-columns:repeat(4,1fr)}
+.kpis div,.statline div{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:8px 10px}
+.kpis span,.statline span{display:block;font-size:11px;color:var(--muted)}.kpis b,.statline b{font-size:16px;font-variant-numeric:tabular-nums}
+.statline{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.props{display:flex;flex-direction:column;gap:10px}.prow{display:grid;grid-template-columns:150px 90px 1fr;gap:10px;align-items:center}
+.prow label{color:var(--muted);font-size:13px}.prow select,.prow input{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 8px;outline:none;width:100%}
+.pres b{color:var(--accent)}.pres span{color:var(--dim);font-size:12px}
+.ladder{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-top:4px}
+.ladder div{position:relative;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:7px 10px;overflow:hidden}
+.ladder i{position:absolute;left:0;bottom:0;height:3px;background:var(--accent)}.ladder span{font-size:11.5px;color:var(--muted);display:block}.ladder b{font-size:15px}
+/* slate */
+.stk{border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-bottom:8px}.stkh{display:flex;justify-content:space-between;margin-bottom:4px}
+.stkr{display:flex;gap:7px;align-items:center;padding:3px 0;font-size:13px;cursor:pointer}.stkr:hover{color:var(--accent)}.stkr b{margin-left:auto}
+/* lab */
+.labside table.lab td{padding:5px 6px}.labside td.slot{color:var(--muted);font-weight:700;font-size:12px;width:46px}
+.labside select.sl{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+.srch{position:relative;margin-bottom:10px}.sres{position:absolute;left:0;right:0;top:100%;background:#0e141c;border:1px solid var(--line);border-radius:9px;z-index:10;box-shadow:0 12px 30px rgba(0,0,0,.5);overflow:hidden}
+.sres div{padding:8px 10px;cursor:pointer;display:flex;gap:8px;align-items:center}.sres div:hover{background:var(--panel2)}.sres b{margin-left:auto}
+.bench{margin:10px 0;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.chip2{background:var(--panel2);border:1px solid var(--line);border-radius:99px;padding:3px 10px;font-size:12px}.chip2 i{font-style:normal;color:var(--dim);cursor:pointer;margin-left:4px}.chip2 i:hover{color:var(--bad)}
+.lbtns{display:flex;gap:8px;flex-wrap:wrap}.btn.sm{width:auto;padding:7px 12px;font-size:12.5px}
+.inj.O,.inj.D{background:#f8717133;color:#f87171}
+
 </style>
 </head>
 <body>
 <header>
   <div class="logo">Grid<span>Sim</span></div>
-  <div class="sub">NFL play-by-play Monte Carlo simulator</div>
+  <div class="sub">NFL play-by-play Monte Carlo simulator · fantasy analysis</div>
   <div class="spacer"></div>
   <div class="chip" id="dataChip">loading…</div>
 </header>
-
-<div class="layout">
-  <aside class="side">
+<div class="layout" id="layout">
+  <aside class="side" id="side">
     <div class="card">
       <h3>Matchup</h3>
-      <label class="f" style="margin-top:0">Away</label>
-      <select id="away"></select>
-      <label class="f">Home</label>
-      <select id="home"></select>
+      <label class="f" style="margin-top:0">Away</label><select id="away"></select>
+      <label class="f">Home</label><select id="home"></select>
       <div class="row"><span>Neutral site</span><span class="sw"><input type="checkbox" id="neutral"><i></i></span></div>
       <label class="f">Simulations</label>
-      <div class="seg" id="nseg">
-        <button data-n="1000">1k</button><button data-n="2000" class="on">2k</button><button data-n="5000">5k</button><button data-n="10000">10k</button>
-      </div>
-      <div class="btns">
-        <button class="btn primary" id="runBtn">Simulate matchup</button>
-        <button class="btn ghost" id="gameBtn">Play one game</button>
-      </div>
+      <div class="seg" id="nseg"><button data-n="1000">1k</button><button data-n="2000" class="on">2k</button><button data-n="5000">5k</button><button data-n="10000">10k</button></div>
+      <div class="btns"><button class="btn primary" id="runBtn">Simulate matchup</button><button class="btn ghost" id="gameBtn">Play one game</button></div>
       <div class="err" id="err"></div>
     </div>
     <div class="card">
@@ -167,40 +221,48 @@ td.main{font-weight:700}
       <div class="note">Toggle a player off to simulate without him; his usage is redistributed to teammates at the same position group.</div>
     </div>
   </aside>
-
   <section class="main">
     <div class="tabs">
-      <button data-tab="proj" class="on">Projection</button>
+      <button data-tab="proj" class="on">Matchup</button>
+      <button data-tab="slate">Fantasy rankings</button>
+      <button data-tab="lab">Lineup lab</button>
       <button data-tab="game">Game viewer</button>
     </div>
     <div id="tab-proj">
-      <div class="card empty" id="projEmpty"><b>Pick two teams and hit Simulate</b>Runs thousands of full games snap-by-snap and aggregates results.</div>
+      <div class="card empty" id="projEmpty"><b>Pick two teams and hit Simulate</b>Runs thousands of full games snap-by-snap, then breaks down scoring, matchup ratings, fantasy projections, correlations and game script.</div>
       <div class="stack hide" id="projBody"></div>
     </div>
+    <div id="tab-slate" class="hide stack"></div>
+    <div id="tab-lab" class="hide stack"></div>
     <div id="tab-game" class="hide">
       <div class="card empty" id="gameEmpty"><b>Watch a single simulated game</b>Step through every snap with a live field view.</div>
       <div class="hide" id="gameBody"></div>
     </div>
   </section>
 </div>
+<div id="drawer" class="drawer hide"><div class="dback" id="dback"></div><div class="dpanel" id="dpanel"></div></div>
 
 <script>
 const $ = s => document.querySelector(s);
 const el = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h != null) e.innerHTML = h; return e; };
-const fmt = (x, d = 1) => Number(x).toLocaleString(undefined, {minimumFractionDigits: d, maximumFractionDigits: d});
-const st = {away: null, home: null, n: 2000, neutral: false, ov: {}, TEAMS: {}, last: null, G: null, i: 0, timer: null};
+const fmt = (x, d = 1) => (x == null || x !== x) ? '–' : Number(x).toLocaleString(undefined, {minimumFractionDigits: d, maximumFractionDigits: d});
+const pct = (x, d = 0) => x == null ? '–' : fmt(x * 100, d) + '%';
+const sgn = (x, d = 1) => x == null ? '–' : (x > 0 ? '+' : x < 0 ? '−' : '') + fmt(Math.abs(x), d);
+const st = {away: null, home: null, n: 2000, neutral: false, ov: {}, TEAMS: {}, lgRates: {}, league: {}, last: null, G: null, i: 0, timer: null,
+  fmt: 'ppr', sched: null, week: null, slate: null, slateN: 500, pos: 'ALL', q: '', sort: {}, lab: {mine: [], opp: [], slotsK: false, slotsD: false, mineSet: null, oppSet: null}};
+try { st.lab.mine = JSON.parse(localStorage.getItem('gs_mine') || '[]'); st.lab.opp = JSON.parse(localStorage.getItem('gs_opp') || '[]'); } catch (e) {}
+const color = a => (st.TEAMS[a] || {color: '#8696a9'}).color;
+const POSCOL = {QB: '#f87171', RB: '#4ade80', WR: '#60a5fa', TE: '#fbbf24', K: '#a78bfa', DST: '#94a3b8'};
 
 async function init() {
-  const j = await (await fetch('/api/teams')).json();
-  st.TEAMS = j.teams;
+  const [j, sc] = await Promise.all([fetch('/api/teams').then(r => r.json()), fetch('/api/schedule').then(r => r.json())]);
+  st.TEAMS = j.teams; st.league = j.league; st.lgRates = j.league_rates; st.sched = sc; st.week = sc.next_week;
   $('#dataChip').textContent = `2026 wk 1–${j.meta.max_week} + 2025 prior · injuries: ${j.meta.injuries}`;
   const abbrs = Object.keys(st.TEAMS).sort((a, b) => st.TEAMS[a].name.localeCompare(st.TEAMS[b].name));
-  for (const id of ['away', 'home']) {
-    const s = $('#' + id);
-    abbrs.forEach(a => s.add(new Option(st.TEAMS[a].name, a)));
-  }
-  st.home = st.TEAMS.KC ? 'KC' : abbrs[0];
-  st.away = st.TEAMS.BUF ? 'BUF' : abbrs[1];
+  for (const id of ['away', 'home']) { const s = $('#' + id); abbrs.forEach(a => s.add(new Option(st.TEAMS[a].name, a))); }
+  const g0 = sc.games.find(g => g.week === sc.next_week && !g.played);
+  st.home = g0 ? g0.home : (st.TEAMS.KC ? 'KC' : abbrs[0]); st.away = g0 ? g0.away : (st.TEAMS.BUF ? 'BUF' : abbrs[1]);
+  if (g0 && g0.neutral) { st.neutral = true; $('#neutral').checked = true; }
   $('#home').value = st.home; $('#away').value = st.away;
   $('#home').onchange = e => { st.home = e.target.value; renderLineups(); };
   $('#away').onchange = e => { st.away = e.target.value; renderLineups(); };
@@ -209,36 +271,36 @@ async function init() {
   $('#runBtn').onclick = runSim; $('#gameBtn').onclick = playGame;
   $('#resetLineups').onclick = () => { st.ov = {}; renderLineups(); };
   document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => tab(b.dataset.tab));
-  renderLineups();
+  $('#dback').onclick = closeDrawer;
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
+  renderLineups(); renderSlateShell(); renderLab();
 }
 function tab(t) {
   document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
-  $('#tab-proj').classList.toggle('hide', t !== 'proj'); $('#tab-game').classList.toggle('hide', t !== 'game');
+  for (const x of ['proj', 'slate', 'lab', 'game']) $('#tab-' + x).classList.toggle('hide', x !== t);
+  $('#layout').classList.toggle('nosd', t === 'slate' || t === 'lab');
+  if (t === 'slate' && !st.slate) loadSlate();
+  if (t === 'lab') { if (!st.slate) loadSlate(true); else renderLab(); }
 }
-function color(a) { return st.TEAMS[a].color; }
 
+/* ---------- lineups sidebar ---------- */
 function renderLineups() {
   const box = $('#lineups'); box.innerHTML = '';
   for (const a of [st.away, st.home]) {
-    const T = st.TEAMS[a];
-    const d = el('details'); d.open = true;
+    const T = st.TEAMS[a]; const d = el('details'); d.open = true;
     d.innerHTML = `<summary><span class="dot" style="background:${T.color}"></span>${T.name}<small>K ${T.kicker}</small></summary>`;
     T.players.forEach(p => {
       const on = p.id in st.ov ? st.ov[p.id] : p.active;
       const r = el('div', 'pl' + (on ? '' : ' off'));
       const share = p.grp === 'QB' ? '' : [p.tgt >= .01 ? `${Math.round(p.tgt * 100)}%t` : '', p.car >= .02 ? `${Math.round(p.car * 100)}%c` : ''].filter(Boolean).join(' ');
-      r.innerHTML = `<span class="ps">${p.pos}</span><span class="nm">${p.name}${p.status ? ` <em class="inj ${p.status[0]}">${p.status === 'Questionable' ? 'Q' : p.status === 'Doubtful' ? 'D' : 'OUT'}</em>` : ''}</span><span class="sh">${share}</span>
-        <span class="sw"><input type="checkbox" ${on ? 'checked' : ''}><i></i></span>`;
-      r.querySelector('input').onchange = e => {
-        if (e.target.checked === p.active) delete st.ov[p.id]; else st.ov[p.id] = e.target.checked;
-        r.classList.toggle('off', !e.target.checked);
-      };
+      r.innerHTML = `<span class="ps">${p.pos}</span><span class="nm">${p.name}${badge(p.status)}</span><span class="sh">${share}</span><span class="sw"><input type="checkbox" ${on ? 'checked' : ''}><i></i></span>`;
+      r.querySelector('input').onchange = e => { if (e.target.checked === p.active) delete st.ov[p.id]; else st.ov[p.id] = e.target.checked; r.classList.toggle('off', !e.target.checked); };
       d.appendChild(r);
     });
     box.appendChild(d);
   }
 }
-
+const badge = s => s ? ` <em class="inj ${s[0]}">${s === 'Questionable' ? 'Q' : s === 'Doubtful' ? 'D' : 'OUT'}</em>` : '';
 function body() { return {home: st.home, away: st.away, n: st.n, neutral: st.neutral, overrides: st.ov}; }
 async function post(url, b) {
   const r = await fetch(url, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(b)});
@@ -246,124 +308,496 @@ async function post(url, b) {
   return r.json();
 }
 function busy(btn, on, label) { btn.disabled = on; btn.dataset.l = btn.dataset.l || btn.textContent; btn.innerHTML = on ? `<span class="spin"></span>${label}` : btn.dataset.l; }
-
 async function runSim() {
   $('#err').textContent = '';
   if (st.home === st.away) { $('#err').textContent = 'Pick two different teams.'; return; }
   busy($('#runBtn'), true, `Simulating ${st.n.toLocaleString()}…`);
   const t0 = performance.now();
-  try {
-    const d = await post('/api/simulate', body());
-    d.secs = (performance.now() - t0) / 1000;
-    st.last = d; tab('proj'); renderProj(d);
-  } catch (e) { $('#err').textContent = e.message; }
+  try { const d = await post('/api/simulate', body()); d.secs = (performance.now() - t0) / 1000; st.last = d; tab('proj'); renderProj(d); }
+  catch (e) { $('#err').textContent = e.message; }
   busy($('#runBtn'), false);
 }
 
-/* ---------- charts ---------- */
-function hist(h, {lo, hi, w = 520, hgt = 150, colors, split = null, ticks = []}) {
-  const bins = h.counts.map((c, i) => ({c, x: h.lo + i * h.step}));
-  const vis = bins.filter(b => b.x >= lo && b.x < hi);
-  const max = Math.max(...vis.map(b => b.c), 1);
-  const pad = {l: 8, r: 8, t: 8, b: 22}, iw = w - pad.l - pad.r, ih = hgt - pad.t - pad.b;
-  const bw = iw / vis.length;
-  let s = `<svg viewBox="0 0 ${w} ${hgt}" width="100%">`;
-  vis.forEach((b, i) => {
-    const hh = b.c / max * ih;
-    const col = colors(b.x);
-    s += `<rect x="${pad.l + i * bw + .5}" y="${pad.t + ih - hh}" width="${Math.max(bw - 1, 1)}" height="${hh}" rx="1.5" fill="${col}" opacity=".85"><title>${b.x}${h.step > 1 ? '–' + (b.x + h.step - 1) : ''}: ${(b.c / h.counts.reduce((a, c) => a + c, 0) * 100).toFixed(1)}%</title></rect>`;
-  });
-  ticks.forEach(t => {
-    const x = pad.l + (t - lo) / (hi - lo) * iw;
-    s += `<line x1="${x}" x2="${x}" y1="${pad.t}" y2="${pad.t + ih}" stroke="#ffffff${t === split ? '55' : '12'}" ${t === split ? '' : 'stroke-dasharray="2 3"'}/><text x="${x}" y="${hgt - 6}" fill="#8696a9" font-size="10.5" text-anchor="middle">${t}</text>`;
-  });
-  return s + '</svg>';
+/* ---------- fantasy-format helpers ---------- */
+const FMTF = {ppr: 0, half: 0.5, std: 1};
+const FMTN = {ppr: 'PPR', half: 'Half-PPR', std: 'Standard'};
+const rdelta = r => (r.pos === 'K' || r.pos === 'DST') ? 0 : FMTF[st.fmt] * ((r.st && r.st.rec) || 0);
+const P = (r, k) => r[k] == null ? null : r[k] - rdelta(r);
+function avgF(r) {
+  if (r.avg == null) return null;
+  if (!FMTF[st.fmt] || !r.trend) return r.avg;
+  const rec = r.trend.reduce((a, w) => a + w[4], 0) / Math.max(r.trend.length, 1);
+  return r.avg - FMTF[st.fmt] * rec;
 }
-function rangeBar(p, max, col, w = 110) {
-  const sc = v => Math.min(v / max, 1) * (w - 6) + 3;
-  return `<svg class="rng" width="${w}" height="14"><line x1="3" x2="${w - 3}" y1="7" y2="7" stroke="#1f2937" stroke-width="2"/>
-    <rect x="${sc(p.p10)}" y="3" width="${Math.max(sc(p.p90) - sc(p.p10), 2)}" height="8" rx="3" fill="${col}" opacity=".35"/>
-    <line x1="${sc(p.mean)}" x2="${sc(p.mean)}" y1="1" y2="13" stroke="${col}" stroke-width="2.5" stroke-linecap="round"/></svg>`;
+function fmtToggle(id, after) {
+  return `<div class="seg fseg" id="${id}">${Object.keys(FMTN).map(k => `<button data-f="${k}" class="${st.fmt === k ? 'on' : ''}">${FMTN[k]}</button>`).join('')}</div>`;
+}
+function bindFmt(id, after) { const b = $('#' + id); if (!b) return; b.onclick = e => { const x = e.target.closest('button'); if (!x) return; st.fmt = x.dataset.f; after(); }; }
+
+/* ---------- generic sortable table ---------- */
+function renderTable(host, id, cols, rows, opts = {}) {
+  const S = st.sort[id] || (st.sort[id] = {k: opts.sort || cols.find(c => c.v).k, dir: opts.dir || -1});
+  const col = cols.find(c => c.k === S.k) || cols[0];
+  const sorted = [...rows].sort((a, b) => {
+    const x = col.v(a), y = col.v(b);
+    if (x == null && y == null) return 0; if (x == null) return 1; if (y == null) return -1;
+    return (typeof x === 'string' ? x.localeCompare(y) : x - y) * S.dir;
+  });
+  const lim = opts.limit ? sorted.slice(0, opts.limit) : sorted;
+  host.innerHTML = `<div class="tscroll"><table class="st"><thead><tr>${cols.map(c => `<th data-k="${c.k}" class="${c.v ? 'srt' : ''} ${S.k === c.k ? 'on' : ''}" style="${c.w ? 'width:' + c.w : ''}">${c.t}${S.k === c.k ? (S.dir < 0 ? ' ▾' : ' ▴') : ''}</th>`).join('')}</tr></thead><tbody>` +
+    lim.map((r, i) => `<tr data-i="${i}" class="${opts.onRow ? 'clk' : ''}">${cols.map(c => `<td class="${c.cls || ''}">${c.h ? c.h(r, i) : fmt(c.v(r))}</td>`).join('')}</tr>`).join('') + `</tbody></table></div>` +
+    (opts.limit && rows.length > opts.limit ? `<div class="note">Showing ${opts.limit} of ${rows.length}.</div>` : '');
+  host.querySelectorAll('th.srt').forEach(th => th.onclick = () => { const k = th.dataset.k; if (S.k === k) S.dir *= -1; else { S.k = k; S.dir = (cols.find(c => c.k === k).first ? 1 : -1); } renderTable(host, id, cols, rows, opts); });
+  if (opts.onRow) host.querySelectorAll('tbody tr').forEach(tr => tr.onclick = () => opts.onRow(lim[+tr.dataset.i]));
 }
 
-/* ---------- projection ---------- */
+/* ---------- charts ---------- */
+function hist(h, {lo, hi, w = 520, hgt = 150, colors, split = null, ticks = [], marks = []}) {
+  const bins = h.counts.map((c, i) => ({c, x: h.lo + i * h.step}));
+  const vis = bins.filter(b => b.x >= lo && b.x < hi);
+  const max = Math.max(...vis.map(b => b.c), 1), tot = h.counts.reduce((a, c) => a + c, 0);
+  const pad = {l: 8, r: 8, t: 12, b: 22}, iw = w - pad.l - pad.r, ih = hgt - pad.t - pad.b, bw = iw / vis.length;
+  let s = `<svg viewBox="0 0 ${w} ${hgt}" width="100%">`;
+  vis.forEach((b, i) => { const hh = b.c / max * ih;
+    s += `<rect x="${pad.l + i * bw + .5}" y="${pad.t + ih - hh}" width="${Math.max(bw - 1, 1)}" height="${hh}" rx="1.5" fill="${colors(b.x)}" opacity=".85"><title>${b.x}${h.step > 1 ? '–' + (b.x + h.step - 1) : ''}: ${(b.c / tot * 100).toFixed(1)}%</title></rect>`; });
+  ticks.forEach(t => { const x = pad.l + (t - lo) / (hi - lo) * iw;
+    s += `<line x1="${x}" x2="${x}" y1="${pad.t}" y2="${pad.t + ih}" stroke="#ffffff${t === split ? '55' : '12'}" ${t === split ? '' : 'stroke-dasharray="2 3"'}/><text x="${x}" y="${hgt - 6}" fill="#8696a9" font-size="10.5" text-anchor="middle">${t}</text>`; });
+  marks.forEach(m => { const x = pad.l + (m.x - lo) / (hi - lo) * iw;
+    s += `<line x1="${x}" x2="${x}" y1="${pad.t - 4}" y2="${pad.t + ih}" stroke="${m.c}" stroke-width="2"/><text x="${x}" y="9" fill="${m.c}" font-size="10" text-anchor="middle" font-weight="700">${m.t}</text>`; });
+  return s + '</svg>';
+}
+function rangeBar(lo, hi, mean, max, col, w = 110) {
+  const sc = v => Math.max(0, Math.min(v / max, 1)) * (w - 6) + 3;
+  return `<svg class="rng" width="${w}" height="14"><line x1="3" x2="${w - 3}" y1="7" y2="7" stroke="#1f2937" stroke-width="2"/><rect x="${sc(lo)}" y="3" width="${Math.max(sc(hi) - sc(lo), 2)}" height="8" rx="3" fill="${col}" opacity=".35"/><line x1="${sc(mean)}" x2="${sc(mean)}" y1="1" y2="13" stroke="${col}" stroke-width="2.5" stroke-linecap="round"/></svg>`;
+}
+function spark(vals, proj, col, w = 84, h = 22) {
+  if (!vals || !vals.length) return '';
+  const mx = Math.max(...vals, proj || 0, 1);
+  const bw = w / vals.length;
+  return `<svg width="${w}" height="${h}">` + vals.map((v, i) => `<rect x="${i * bw + 1}" y="${h - Math.max(v, 0) / mx * h}" width="${bw - 2}" height="${Math.max(v, 0) / mx * h}" rx="1" fill="${col}" opacity=".75"/>`).join('') +
+    (proj != null ? `<line x1="0" x2="${w}" y1="${h - proj / mx * h}" y2="${h - proj / mx * h}" stroke="#fff" stroke-opacity=".7" stroke-dasharray="2 2"/>` : '') + '</svg>';
+}
+const heat = v => v >= 0 ? `rgba(94,234,212,${Math.min(Math.abs(v) * 1.1, 1) * .75})` : `rgba(248,113,113,${Math.min(Math.abs(v) * 1.6, 1) * .75})`;
+
+/* ---------- projection (matchup) tab ---------- */
 const TS_ROWS = [['pts', 'Points'], ['plays', 'Plays'], ['pass', 'Pass plays'], ['rush', 'Rush plays'], ['yds', 'Total yards'], ['pyd', 'Pass yards (net)'], ['ryd', 'Rush yards'],
   ['fd', 'First downs'], ['sacks', 'Sacks taken'], ['to', 'Turnovers'], ['pen', 'Penalties'], ['td', 'Touchdowns'], ['fga', 'FG attempts'], ['punts', 'Punts'], ['poss', 'Possessions']];
 const PTABS = {
   Passing: {key: 'pa', cols: [['pa', 'Att'], ['pc', 'Cmp'], ['pyd', 'Yds', 1], ['ptd', 'TD'], ['int', 'INT']]},
   Rushing: {key: 'ra', cols: [['ra', 'Att'], ['ryd', 'Yds', 1], ['rtd', 'TD'], ['fl', 'Fum L']]},
   Receiving: {key: 'tgt', cols: [['tgt', 'Tgt'], ['rec', 'Rec'], ['recyd', 'Yds', 1], ['rectd', 'TD']]},
-  'Fantasy PPR': {key: 'ppr', fantasy: true},
   Kicking: {key: 'fga', cols: [['fga', 'FGA'], ['fgm', 'FGM'], ['xpa', 'XPA'], ['xpm', 'XPM']]},
 };
-let ptab = 'Fantasy PPR';
+let ptab = 'Fantasy';
+const card = (h, c = '') => { const d = el('div', 'card ' + c, h); return d; };
 
 function renderProj(d) {
   $('#projEmpty').classList.add('hide');
   const B = $('#projBody'); B.classList.remove('hide'); B.innerHTML = '';
-  const H = d.home, A = d.away, hc = color(H), ac = color(A);
-  const w = d.win, fav = d.margin.median > 0 ? H : d.margin.median < 0 ? A : null;
+  const H = d.home, A = d.away, hc = color(H), ac = color(A), w = d.win;
+  const fav = d.margin.median > 0 ? H : d.margin.median < 0 ? A : null;
   const spread = fav ? `${fav} −${Math.abs(d.margin.median)}` : 'Pick’em';
-  const head = el('div', 'card');
-  head.innerHTML = `<div class="sbhead">
+  B.appendChild(card(`<div class="sbhead">
     <div class="tm"><div class="ab" style="color:${ac}">${A} · AWAY</div><div class="nm">${st.TEAMS[A].name}</div><div class="win">${fmt(w.away * 100)}%</div><div class="avg">${fmt(d.score.away.mean)} avg pts</div></div>
     <div class="mid"><div class="line">win probability</div>
       <div class="wbar"><div style="width:${w.away * 100}%;background:${ac}"></div><div style="width:${w.tie * 100}%;background:#556"></div><div style="width:${w.home * 100}%;background:${hc}"></div></div>
       <div class="line">Median spread <b>${spread}</b> · Total <b>${fmt(d.total.median)}</b></div>
       <div class="line" style="margin-top:3px">${fmt(w.tie * 100)}% ties · ${fmt(d.ot_rate * 100)}% go to OT</div></div>
-    <div class="tm r"><div class="ab" style="color:${hc}">HOME · ${H}</div><div class="nm">${st.TEAMS[H].name}</div><div class="win">${fmt(w.home * 100)}%</div><div class="avg">${fmt(d.score.home.mean)} avg pts</div></div>
-  </div>
-  <div class="note" style="text-align:center;margin-top:12px">${d.n.toLocaleString()} games in ${fmt(d.secs)}s${st.neutral ? ' · neutral site' : ''}${Object.keys(st.ov).length ? ' · custom lineups' : ''}</div>`;
-  B.appendChild(head);
+    <div class="tm r"><div class="ab" style="color:${hc}">HOME · ${H}</div><div class="nm">${st.TEAMS[H].name}</div><div class="win">${fmt(w.home * 100)}%</div><div class="avg">${fmt(d.score.home.mean)} avg pts</div></div></div>
+  <div class="note" style="text-align:center;margin-top:12px">${d.n.toLocaleString()} games in ${fmt(d.secs)}s${st.neutral ? ' · neutral site' : ''}${Object.keys(st.ov).length ? ' · custom lineups' : ''}</div>`));
+
+  // market comparison + cover probabilities
+  const v = d.vegas, cv = d.cover;
+  const mk = el('div', 'grid2');
+  let vh = `<h3>Model vs market</h3>`;
+  if (v) {
+    const simSpread = d.margin.mean, edgeS = simSpread - v.spread, edgeT = d.total.mean - v.total;
+    const lean = (e, a, b) => Math.abs(e) < 1.5 ? '<span class="pill">no edge</span>' : `<span class="pill hot">lean ${e > 0 ? a : b}</span>`;
+    vh += `<table class="st"><tr><th></th><th>Market</th><th>GridSim</th><th>Edge</th><th></th></tr>
+      <tr><td>Spread (${H})</td><td>${v.spread > 0 ? '−' + v.spread : '+' + Math.abs(v.spread)}</td><td>${simSpread > 0 ? '−' + fmt(simSpread) : '+' + fmt(Math.abs(simSpread))}</td><td>${sgn(edgeS)}</td><td>${lean(edgeS, H, A)}</td></tr>
+      <tr><td>Total</td><td>${fmt(v.total)}</td><td>${fmt(d.total.mean)}</td><td>${sgn(edgeT)}</td><td>${lean(edgeT, 'over', 'under')}</td></tr>
+      <tr><td>${H} implied</td><td>${fmt(v.home_total)}</td><td>${fmt(d.score.home.mean)}</td><td>${sgn(d.score.home.mean - v.home_total)}</td><td></td></tr>
+      <tr><td>${A} implied</td><td>${fmt(v.away_total)}</td><td>${fmt(d.score.away.mean)}</td><td>${sgn(d.score.away.mean - v.away_total)}</td><td></td></tr></table>
+      <div class="note">Week ${v.week} · ${v.day}. The simulator knows nothing about betting lines, so gaps flag where its read differs from the market (the market is usually right; treat edges as a prompt to check injuries and news).</div>`;
+  } else vh += `<div class="note">No scheduled game between these teams in the 2026 schedule, so no market line to compare against.</div>`;
+  mk.appendChild(card(vh));
+  mk.appendChild(card(`<h3>Outcome probabilities</h3><table class="st">
+    <tr><td>${H} wins by 3+</td><td>${pct(cv.home_by_3)}</td><td>${A} wins by 3+</td><td>${pct(cv.away_by_3)}</td></tr>
+    <tr><td>${H} wins by 7+</td><td>${pct(cv.home_by_7)}</td><td>${A} wins by 7+</td><td>${pct(cv.away_by_7)}</td></tr>
+    <tr><td>One-score game (≤8)</td><td>${pct(cv.one_score)}</td><td>Blowout (17+)</td><td>${pct(cv.blowout)}</td></tr>
+    <tr><td>Total over 45</td><td>${pct(cv.over_45)}</td><td>Total over 50</td><td>${pct(cv.over_50)}</td></tr></table>
+    <div class="note">Score range (10th–90th pct): ${A} ${fmt(d.score.away.p10, 0)}–${fmt(d.score.away.p90, 0)} · ${H} ${fmt(d.score.home.p10, 0)}–${fmt(d.score.home.p90, 0)}</div>`));
+  B.appendChild(mk);
 
   const g2 = el('div', 'grid2');
-  const c1 = el('div', 'card'); c1.innerHTML = `<h3>Final margin (home − away)</h3>` +
-    hist(d.hist.margin, {lo: -34, hi: 36, colors: x => x >= 0 ? hc : ac, split: 0, ticks: [-30, -20, -10, 0, 10, 20, 30]}) +
-    `<div class="note">Left of 0: ${A} wins · Right: ${H} wins</div>`;
-  const c2 = el('div', 'card'); c2.innerHTML = `<h3>Total points</h3>` +
-    hist(d.hist.total, {lo: 10, hi: 90, colors: () => '#5eead4', ticks: [20, 30, 40, 50, 60, 70, 80]}) +
-    `<div class="note">Mean ${fmt(d.total.mean)} · ${A} ${fmt(d.score.away.p10, 0)}–${fmt(d.score.away.p90, 0)} · ${H} ${fmt(d.score.home.p10, 0)}–${fmt(d.score.home.p90, 0)} (10th–90th pct)</div>`;
-  g2.append(c1, c2); B.appendChild(g2);
+  g2.appendChild(card(`<h3>Final margin (home − away)</h3>` + hist(d.hist.margin, {lo: -34, hi: 36, colors: x => x >= 0 ? hc : ac, split: 0, ticks: [-30, -20, -10, 0, 10, 20, 30]}) + `<div class="note">Left of 0: ${A} wins · Right: ${H} wins</div>`));
+  g2.appendChild(card(`<h3>Total points</h3>` + hist(d.hist.total, {lo: 10, hi: 90, colors: () => '#5eead4', ticks: [20, 30, 40, 50, 60, 70, 80]}) + `<div class="note">Mean ${fmt(d.total.mean)}</div>`));
+  B.appendChild(g2);
 
-  const ts = el('div', 'card');
-  let rows = TS_ROWS.map(([k, n]) => `<tr><td>${n}</td><td>${fmt(d.teamstats[A][k])}</td><td>${fmt(d.teamstats[H][k])}</td></tr>`).join('');
-  ts.innerHTML = `<h3>Average team stats</h3><table><tr><th></th><th style="color:${ac}">${A}</th><th style="color:${hc}">${H}</th></tr>${rows}</table>`;
-  const pl = el('div', 'card'); pl.id = 'plCard';
-  const g3 = el('div', 'grid2'); g3.style.gridTemplateColumns = 'minmax(0,1fr)'; B.appendChild(pl); B.appendChild(ts);
-  renderPlayers(d);
+  B.appendChild(matchupCard(d));
+  const pl = card('', ''); pl.id = 'plCard'; B.appendChild(pl); renderPlayers(d);
+  B.appendChild(corrCard(d));
+  B.appendChild(scriptCard(d));
+  const rows = TS_ROWS.map(([k, n]) => `<tr><td>${n}</td><td>${fmt(d.teamstats[A][k])} <span class="sub2">±${fmt(d.teamstats_sd[A][k])}</span></td><td>${fmt(d.teamstats[H][k])} <span class="sub2">±${fmt(d.teamstats_sd[H][k])}</span></td></tr>`).join('');
+  B.appendChild(card(`<h3>Average team stats <span class="sub2">(± one standard deviation across games)</span></h3><table class="st"><tr><th></th><th style="color:${ac}">${A}</th><th style="color:${hc}">${H}</th></tr>${rows}</table>`));
 }
 
+/* team-vs-team rating breakdown from the model's rates */
+function matchupCard(d) {
+  const L = st.lgRates, la = st.league, A = d.away, H = d.home, rA = st.TEAMS[A].rates, rH = st.TEAMS[H].rates;
+  const exp = (o, df) => ({
+    sack: la.sack_rate + (o.sack_off - la.sack_rate) + (df.sack_def - la.sack_rate),
+    comp: df.cpoe_def, ypc: la.ypc + 0.8 * df.ypc_def + 0.5 * o.ypc_off, int: la.int_rate + (df.int_def - la.int_rate),
+    pace: o.pace, pass: o.pass_shift });
+  const a = exp(rA, rH), h = exp(rH, rA);
+  const row = (name, key, f, good, note) => {
+    const va = f(a[key]), vh = f(h[key]); const lgv = f(key === 'sack' ? la.sack_rate : key === 'ypc' ? la.ypc : key === 'int' ? la.int_rate : key === 'comp' ? 0 : key === 'pace' ? 1 : 0);
+    const cl = v => Math.abs(v - lgv) < 0.0001 * Math.abs(lgv + 1) ? '' : ((v > lgv) === good ? 'pos' : 'neg');
+    return `<tr><td>${name}<div class="sub2">${note}</div></td><td class="${cl(va)}">${va.toFixed(key === 'ypc' || key === 'pace' ? 2 : 1)}</td><td class="${cl(vh)}">${vh.toFixed(key === 'ypc' || key === 'pace' ? 2 : 1)}</td><td class="lgc">${lgv.toFixed(key === 'ypc' || key === 'pace' ? 2 : 1)}</td></tr>`; };
+  return card(`<h3>Matchup breakdown <span class="sub2">· each team's offense against the opposing defense (green = favorable to the offense)</span></h3>
+    <table class="st mb"><tr><th>Metric</th><th style="color:${color(A)}">${A} offense</th><th style="color:${color(H)}">${H} offense</th><th>League</th></tr>
+    ${row('Sack rate faced (%)', 'sack', x => x * 100, false, 'their blocking + the other defense\'s pass rush')}
+    ${row('Completion % over avg (opp D)', 'comp', x => x * 100, true, 'how much the opposing defense allows above league average')}
+    ${row('Expected yards per carry', 'ypc', x => x, true, 'rushing ability vs run defense')}
+    ${row('Interception rate (%)', 'int', x => x * 100, false, 'QB ball security + the defense\'s takeaways')}
+    ${row('Pass-lean (logit shift)', 'pass', x => x, true, 'tendency to throw vs expected for the situation')}
+    ${row('Pace (relative seconds/play)', 'pace', x => x, false, 'below 1.00 = faster than average')}</table>`);
+}
+
+/* player stat tables + fantasy table */
 function renderPlayers(d) {
   const pl = $('#plCard'); const T = PTABS[ptab];
-  let h = `<h3>Player projections <span class="sub2" style="text-transform:none;letter-spacing:0">· mean (bar shows 10th–90th percentile)</span></h3><div class="tb">` +
-    Object.keys(PTABS).map(k => `<button class="${k === ptab ? 'on' : ''}" data-t="${k}">${k}</button>`).join('') + '</div>';
-  if (T.fantasy) {
-    const all = [d.away, d.home].flatMap(t => (d.players[t] || []).filter(p => p.ppr).map(p => ({...p, team: t}))).sort((a, b) => b.ppr.proj - a.ppr.proj);
-    const max = Math.max(...all.map(p => p.ppr.hi), 1);
-    h += `<table><tr><th>Player</th><th>Proj</th><th>Raw sim</th><th>Season avg</th><th style="width:130px">Range (80%)</th></tr>` + all.map(p => {
-      const r = p.ppr;
-      return `<tr><td class="nm"><span style="color:${color(p.team)}">●</span> ${p.name}<span class="p">${p.pos} · ${p.team}</span></td><td class="main">${fmt(r.proj)}</td><td>${fmt(r.sim)}</td><td>${r.avg != null ? fmt(r.avg) : '–'}</td>
-        <td>${rangeBar({p10: Math.max(r.lo, 0), p90: r.hi, mean: r.proj}, max, color(p.team), 120)}</td></tr>`;
-    }).join('') + `</table><div class="note">Proj = simulator mean, shrunk toward the field and blended with the player's season average, fitted on a walk-forward backtest (range widened to cover ~80% of outcomes). PPR scoring.</div>`;
-    pl.innerHTML = h;
-    pl.querySelectorAll('.tb button').forEach(b => b.onclick = () => { ptab = b.dataset.t; renderPlayers(d); });
-    return;
-  }
+  const tabs = ['Fantasy', ...Object.keys(PTABS)];
+  let h = `<h3>Player projections</h3><div class="tb">${tabs.map(k => `<button class="${k === ptab ? 'on' : ''}" data-t="${k}">${k}</button>`).join('')}<span class="spacer"></span>${ptab === 'Fantasy' ? fmtToggle('mfmt') : ''}</div><div id="ptab"></div>`;
+  pl.innerHTML = h;
+  pl.querySelectorAll('.tb button[data-t]').forEach(b => b.onclick = () => { ptab = b.dataset.t; renderPlayers(d); });
+  bindFmt('mfmt', () => renderPlayers(d));
+  const host = $('#ptab');
+  if (ptab === 'Fantasy') { fantasyTable(host, 'mfant', d.rows.filter(r => r.pos !== 'K' || true), {note: true}); return; }
+  let out = '';
   for (const team of [d.away, d.home]) {
     const rows = (d.players[team] || []).filter(p => p[T.key]).sort((a, b) => b[T.key].mean - a[T.key].mean);
     const mainKey = (T.cols.find(c => c[2]) || T.cols[0])[0];
     const max = Math.max(...rows.map(p => p[mainKey] ? p[mainKey].p90 : 0), 1);
-    h += `<table style="margin-bottom:14px"><tr><th style="color:${color(team)}">${team}</th>${T.cols.map(c => `<th>${c[1]}</th>`).join('')}<th style="width:120px">Range</th></tr>`;
+    out += `<table class="st" style="margin-bottom:14px"><tr><th style="color:${color(team)}">${team}</th>${T.cols.map(c => `<th>${c[1]}</th>`).join('')}<th style="width:120px">Range (10–90%)</th></tr>`;
     rows.forEach(p => {
-      h += `<tr><td class="nm">${p.name}<span class="p">${p.pos}</span></td>` + T.cols.map(([k,, m]) => {
-        const v = p[k]; const dec = ['ptd', 'rtd', 'rectd', 'int', 'fl', 'xpa'].includes(k) ? 2 : 1;
-        return `<td class="${m ? 'main' : ''}">${v ? fmt(v.mean, dec) : '–'}</td>`;
-      }).join('') + `<td>${p[mainKey] ? rangeBar(p[mainKey], max, color(team)) : ''}</td></tr>`;
+      out += `<tr><td class="nm lnk" data-id="${p.id}">${p.name}<span class="p">${p.pos}</span></td>` + T.cols.map(([k,, m]) => {
+        const v = p[k]; const dec = ['ptd', 'rtd', 'rectd', 'int', 'fl', 'xpa'].includes(k) ? 2 : 1; return `<td class="${m ? 'main' : ''}">${v ? fmt(v.mean, dec) : '–'}</td>`; }).join('') +
+        `<td>${p[mainKey] ? rangeBar(p[mainKey].p10, p[mainKey].p90, p[mainKey].mean, max, color(team)) : ''}</td></tr>`;
     });
-    h += '</table>';
+    out += '</table>';
   }
-  pl.innerHTML = h;
-  pl.querySelectorAll('.tb button').forEach(b => b.onclick = () => { ptab = b.dataset.t; renderPlayers(d); });
+  host.innerHTML = out;
+  host.querySelectorAll('.lnk').forEach(td => td.onclick = () => { const r = d.rows.find(x => x.id === td.dataset.id); if (r) showPlayer(r); });
+}
+
+/* fantasy table used by matchup (and reused for the slate) */
+function fantasyTable(host, id, rows, o = {}) {
+  const posOrder = {QB: 0, RB: 1, WR: 2, TE: 3, K: 4, DST: 5};
+  const mx = Math.max(...rows.map(r => P(r, 'hi') || 0), 1);
+  const cols = [
+    ...(o.rank ? [{k: 'rk', t: '#', v: r => r._rk, h: r => r._rk, w: '36px', first: 1}] : []),
+    {k: 'name', t: 'Player', v: r => r.name, first: 1, h: r => `<span class="pdot" style="background:${POSCOL[r.pos] || '#888'}"></span><span class="nm lnk">${r.name}</span>${badge(r.status)}<span class="p">${r.pos} · ${r.team}</span>`},
+    {k: 'pos', t: 'Pos', v: r => posOrder[r.pos], first: 1, h: r => `<span class="posb" style="color:${POSCOL[r.pos]}">${r.pos}${r._pr ? r._pr : ''}</span>`},
+    ...(o.opp ? [{k: 'opp', t: 'Opp', v: r => r.opp, first: 1, h: r => `<span class="sub2">${r.home ? 'vs' : '@'}</span> ${r.opp}`}] : []),
+    {k: 'proj', t: 'Proj', v: r => P(r, 'proj'), cls: 'main', h: r => fmt(P(r, 'proj'))},
+    {k: 'range', t: 'Range (10–90%)', v: r => P(r, 'hi'), w: '130px', h: r => `<span class="rtxt">${fmt(P(r, 'lo'), 0)}–${fmt(P(r, 'hi'), 0)}</span>` + rangeBar(Math.max(P(r, 'lo'), 0), P(r, 'hi'), P(r, 'proj'), mx, color(r.team), 90)},
+    {k: 'med', t: 'Median', v: r => P(r, 'med'), h: r => fmt(P(r, 'med'))},
+    {k: 'boom', t: 'Boom%', v: r => r.boom, h: r => r.boom == null ? '–' : `<span class="${r.boom >= .3 ? 'pos' : ''}">${pct(r.boom)}</span>`},
+    {k: 'bust', t: 'Bust%', v: r => r.bust, h: r => r.bust == null ? '–' : `<span class="${r.bust >= .35 ? 'neg' : ''}">${pct(r.bust)}</span>`},
+    {k: 'sd', t: 'SD', v: r => r.sd, h: r => fmt(r.sd)},
+    {k: 'avg', t: 'Season avg', v: r => avgF(r), h: r => fmt(avgF(r))},
+    {k: 'dlt', t: 'Proj vs avg', v: r => avgF(r) == null ? null : P(r, 'proj') - avgF(r), h: r => { const x = avgF(r) == null ? null : P(r, 'proj') - avgF(r); return x == null ? '–' : `<span class="${x > 1 ? 'pos' : x < -1 ? 'neg' : ''}">${sgn(x)}</span>`; }},
+    {k: 'opps', t: 'Opps', v: r => r.opps, h: r => fmt(r.opps)},
+    {k: 'td1', t: 'TD%', v: r => r.td1, h: r => r.pos === 'QB' || r.pos === 'K' || r.pos === 'DST' ? '–' : pct(r.td1)},
+    {k: 'trend', t: 'Last wks', v: null, h: r => spark((r.trend || []).map(w => Array.isArray(w) ? w[1] : w), P(r, 'proj'), color(r.team))},
+    ...(o.vor ? [{k: 'vor', t: 'VOR', v: r => r._vor, h: r => `<span class="${r._vor > 0 ? 'pos' : 'neg'}">${sgn(r._vor)}</span>`}] : []),
+    ...(o.tier ? [{k: 'tier', t: 'Tier', v: r => r._tier, first: 1, h: r => r._tier ? 'T' + r._tier : ''}] : []),
+  ];
+  renderTable(host, id, cols, rows, {sort: 'proj', limit: o.limit, onRow: r => showPlayer(r)});
+  if (o.note) host.insertAdjacentHTML('beforeend', `<div class="note">Proj = simulator mean, shrunk toward the field and blended with the player's season average (fit on a walk-forward backtest); range widened to cover ~80% of outcomes. Boom = ≥25 QB / ≥20 RB·WR / ≥15 TE; Bust = &lt;12 / &lt;7 / &lt;4. Half-PPR and Standard shift each player's receptions out (approximate). Click any player for the full breakdown.</div>`);
+}
+
+/* correlation heat map + stack finder */
+function corrCard(d) {
+  const c = d.corr, n = c.ids.length;
+  let t = `<table class="heat"><tr><th></th>${c.names.map((x, i) => `<th class="vh" style="color:${color(c.teams[i])}"><div>${x}</div></th>`).join('')}</tr>`;
+  for (let i = 0; i < n; i++) t += `<tr><th style="color:${color(c.teams[i])}">${c.names[i]} <span class="sub2">${c.pos[i]}</span></th>${c.m[i].map((v, j) => `<td style="background:${i === j ? '#1f2937' : heat(v)}" title="${c.names[i]} / ${c.names[j]}: ${v}">${i === j ? '' : v.toFixed(2).replace('0.', '.').replace('-0.', '−.')}</td>`).join('')}</tr>`;
+  t += '</table>';
+  const pairs = [];
+  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) pairs.push({a: i, b: j, v: c.m[i][j], same: c.teams[i] === c.teams[j]});
+  const li = p => `<tr><td>${c.names[p.a]} + ${c.names[p.b]}</td><td class="sub2">${p.same ? 'same team' : 'opposing'}</td><td class="${p.v > 0 ? 'pos' : 'neg'}">${p.v > 0 ? '+' : '−'}${Math.abs(p.v).toFixed(2)}</td></tr>`;
+  const top = [...pairs].sort((x, y) => y.v - x.v).slice(0, 6), bot = [...pairs].sort((x, y) => x.v - y.v).slice(0, 4);
+  return card(`<h3>Fantasy correlations <span class="sub2">· how players' scores move together across ${d.n.toLocaleString()} simulated games</span></h3>
+    <div class="grid2c"><div class="tscroll">${t}</div><div><div class="sub2" style="margin-bottom:4px">BEST STACKS (move together)</div><table class="st">${top.map(li).join('')}</table>
+    <div class="sub2" style="margin:12px 0 4px">ANTI-CORRELATED (one's gain is the other's loss)</div><table class="st">${bot.map(li).join('')}</table>
+    <div class="note">Correlation near +1 means they boom or bust together (same-team QB + his top receiver, or a shootout). Useful for DFS stacking, and for deciding who to start in head-to-head leagues where you want variance (trailing) or safety (leading).</div></div></div>`);
+}
+
+/* game-script analysis */
+function scriptCard(d) {
+  const rows = d.rows.filter(r => ['QB', 'RB', 'WR', 'TE'].includes(r.pos) && r.split && r.split.win != null).sort((a, b) => b.proj - a.proj).slice(0, 18);
+  const ratio = r => r.split.trail10 != null && r.split.lead10 != null && r.split.lead10 > 0 ? r.split.trail10 / r.split.lead10 : null;
+  const med = {}; for (const t of [d.home, d.away]) { const v = rows.filter(r => r.team === t).map(ratio).filter(x => x != null).sort((a, b) => a - b); med[t] = v.length ? v[Math.floor(v.length / 2)] : 0.7; }
+  const cell = (v, base) => v == null ? '<td>–</td>' : `<td class="${v - base > 1.2 ? 'pos' : v - base < -1.2 ? 'neg' : ''}">${fmt(v)}</td>`;
+  return card(`<h3>Game-script splits <span class="sub2">· average fantasy points by how the game plays out (PPR)</span></h3><div class="tscroll"><table class="st"><tr><th>Player</th><th>Overall</th><th>Team wins</th><th>Team loses</th><th>Leads by 10+</th><th>Trails by 10+</th><th>Script profile</th></tr>` +
+    rows.map(r => { const x = ratio(r), m = med[r.team];
+      return `<tr><td class="nm lnk" data-id="${r.id}"><span class="pdot" style="background:${POSCOL[r.pos]}"></span>${r.name}<span class="p">${r.pos} · ${r.team}</span></td><td>${fmt(r.proj)}</td>${cell(r.split.win, r.proj)}${cell(r.split.loss, r.proj)}${cell(r.split.lead10, r.proj)}${cell(r.split.trail10, r.proj)}
+      <td>${x == null ? '–' : x > m + 0.08 ? '<span class="pill hot">gains when trailing</span>' : x < m - 0.08 ? '<span class="pill">gains when leading</span>' : '<span class="pill">script-neutral</span>'}</td></tr>`; }).join('') +
+    `</table></div><div class="note">Profile compares each player with his own teammates: pass catchers usually hold value when their team trails; backs gain when it leads (clock-killing carries). Click a name for more.</div>`);
+}
+document.addEventListener('click', e => { const t = e.target.closest('td.lnk[data-id]'); if (t && st.last) { const r = st.last.rows.find(x => x.id === t.dataset.id); if (r) showPlayer(r); } });
+
+/* ================= player drawer ================= */
+const STATN = {pa: 'Pass att', pc: 'Completions', pyd: 'Pass yards', ptd: 'Pass TD', int: 'Interceptions', ra: 'Carries', ryd: 'Rush yards', rtd: 'Rush TD', tgt: 'Targets', rec: 'Receptions', recyd: 'Rec yards', rectd: 'Rec TD', fgm: 'FG made', fga: 'FG att', xpm: 'XP made', xpa: 'XP att', fl: 'Fumbles lost', sk: 'Sacked', sacks: 'Sacks (D)', tkw: 'Takeaways', pa_: 'Pts allowed'};
+const qnt = (a, p) => { const s = [...a].sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor(p * s.length))]; };
+const odds = p => p <= 0 || p >= 1 ? '–' : (p >= .5 ? '−' + Math.round(p / (1 - p) * 100) : '+' + Math.round((1 - p) / p * 100));
+
+function closeDrawer() { $('#drawer').classList.add('hide'); }
+function showPlayer(r) {
+  const d = rdelta(r), S = (r.samples || []).map(x => x - d);
+  const lo = P(r, 'lo'), hi = P(r, 'hi'), med = P(r, 'med'), pj = P(r, 'proj');
+  const dp = $('#dpanel'); const col = color(r.team);
+  const stat = r.stat_samples ? Object.keys(r.stat_samples) : [];
+  const mainStat = r.pos === 'QB' ? 'pyd' : r.pos === 'RB' ? 'ryd' : r.pos === 'K' ? 'fgm' : r.stat_samples && r.stat_samples.recyd ? 'recyd' : stat[0];
+  dp.innerHTML = `<button class="dx" id="dclose">✕</button>
+    <div class="dh"><div><div class="dnm">${r.name}${badge(r.status)}</div><div class="dsub"><span class="posb" style="color:${POSCOL[r.pos]}">${r.pos}</span> · <span style="color:${col}">${r.team}</span> ${r.opp ? (r.home ? 'vs' : '@') + ' ' + r.opp : ''}${r.game_total ? ` · game total ${fmt(r.game_total)} · team ${fmt(r.team_total)}` : ''}</div></div>
+      <div class="dbig"><b>${fmt(pj)}</b><span>${FMTN[st.fmt]} proj</span></div></div>
+    <div class="seg fseg" id="dfmt" style="margin:10px 0">${Object.keys(FMTN).map(k => `<button data-f="${k}" class="${st.fmt === k ? 'on' : ''}">${FMTN[k]}</button>`).join('')}</div>
+    <div class="kpis">
+      <div><span>Floor (10%)</span><b>${fmt(lo)}</b></div><div><span>Median</span><b>${fmt(med)}</b></div><div><span>Ceiling (90%)</span><b>${fmt(hi)}</b></div>
+      <div><span>Boom</span><b>${pct(r.boom)}</b></div><div><span>Bust</span><b>${pct(r.bust)}</b></div><div><span>Std dev</span><b>${fmt(r.sd)}</b></div>
+      <div><span>Season avg</span><b>${fmt(avgF(r))}</b></div><div><span>Proj vs avg</span><b>${avgF(r) == null ? '–' : sgn(pj - avgF(r))}</b></div><div><span>Opportunities</span><b>${fmt(r.opps)}</b></div>
+      <div><span>Anytime TD</span><b>${r.pos === 'QB' || r.pos === 'K' || r.pos === 'DST' ? '–' : pct(r.td1)}</b></div><div><span>2+ TD</span><b>${r.pos === 'QB' || r.pos === 'K' || r.pos === 'DST' ? '–' : pct(r.td2, 1)}</b></div><div><span>Raw sim</span><b>${fmt(r.sim - d)}</b></div></div>
+    <h4>Outcome distribution</h4>
+    ${hist(r.hist, {lo: -4, hi: Math.max(40, Math.ceil((hi + 6) / 2) * 2), w: 520, hgt: 150, colors: x => x + 1 < lo + d ? '#f87171' : x > hi + d ? '#4ade80' : '#5eead4', ticks: [0, 10, 20, 30, 40].map(x => x), marks: [{x: lo + d, c: '#f87171', t: 'P10'}, {x: med + d, c: '#fff', t: 'median'}, {x: hi + d, c: '#4ade80', t: 'P90'}].map(m => ({...m, x: m.x}))})}
+    <div class="note">Axis is PPR points; markers shown at your selected format's values are shifted by the receptions adjustment.</div>
+    <h4>Projected stat line</h4><div class="statline">${Object.entries(r.st || {}).map(([k, v]) => `<div><span>${STATN[k] || k}</span><b>${fmt(v, v < 10 ? 2 : 1)}</b></div>`).join('')}</div>
+    <h4>Prop calculator</h4>
+    <div class="props"><div class="prow"><label>Fantasy points</label><input type="number" step="0.5" id="pl_fp" value="${(Math.round(pj * 2) / 2 + 0.5).toFixed(1)}"><div id="pr_fp" class="pres"></div></div>
+      ${stat.length ? `<div class="prow"><select id="pl_stat">${stat.map(k => `<option value="${k}" ${k === mainStat ? 'selected' : ''}>${STATN[k] || k}</option>`).join('')}</select><input type="number" step="0.5" id="pl_line"><div id="pr_st" class="pres"></div></div><div id="ladder"></div>` : '<div class="note">Stat-level props are available from the Matchup tab (it simulates with full stat detail).</div>'}</div>
+    ${r.split && (r.split.win != null) ? `<h4>Game script</h4><div class="kpis k4"><div><span>Team wins</span><b>${fmt(r.split.win - d)}</b></div><div><span>Team loses</span><b>${fmt(r.split.loss - d)}</b></div><div><span>Leads 10+</span><b>${fmt(r.split.lead10 == null ? null : r.split.lead10 - d)}</b></div><div><span>Trails 10+</span><b>${fmt(r.split.trail10 == null ? null : r.split.trail10 - d)}</b></div></div>` : ''}
+    ${r.trend && r.trend.length && Array.isArray(r.trend[0]) ? histPanel(r, pj, col) : ''}`;
+  $('#drawer').classList.remove('hide');
+  $('#dclose').onclick = closeDrawer;
+  bindFmt('dfmt', () => showPlayer(r));
+  const fpUpd = () => { const L = +$('#pl_fp').value; const p = S.length ? S.filter(x => x > L).length / S.length : null; $('#pr_fp').innerHTML = p == null ? '' : `<b>Over ${pct(p, 0)}</b> <span>${odds(p)}</span> · Under ${pct(1 - p, 0)} <span>${odds(1 - p)}</span>`; };
+  $('#pl_fp').oninput = fpUpd; fpUpd();
+  if (stat.length) {
+    const upd = () => { const k = $('#pl_stat').value, a = r.stat_samples[k], L = +$('#pl_line').value; const p = a.filter(x => x > L).length / a.length;
+      $('#pr_st').innerHTML = `<b>Over ${pct(p, 0)}</b> <span>${odds(p)}</span> · Under ${pct(1 - p, 0)} <span>${odds(1 - p)}</span>`;
+      const mean = a.reduce((x, y) => x + y, 0) / a.length, steps = mean < 3 ? [0.5, 1.5, 2.5, 3.5] : [0.4, 0.7, 1, 1.3, 1.6].map(f => Math.round(mean * f) + 0.5);
+      $('#ladder').innerHTML = `<div class="ladder">${[...new Set(steps)].map(s => { const q = a.filter(x => x > s).length / a.length; return `<div><span>${STATN[k] || k} ${s}+</span><b>${pct(q)}</b><i style="width:${q * 100}%"></i></div>`; }).join('')}</div>`; };
+    const setDef = () => { const a = r.stat_samples[$('#pl_stat').value], m = a.reduce((x, y) => x + y, 0) / a.length; $('#pl_line').value = (Math.round(m * 2) / 2 + (Math.round(m * 2) / 2 === m ? 0 : 0)).toFixed(1).replace(/\.0$/, '.5') ; upd(); };
+    $('#pl_stat').onchange = setDef; $('#pl_line').oninput = upd; setDef();
+  }
+}
+function histPanel(r, pj, col) {
+  const rows = r.trend, f = FMTF[st.fmt];
+  const vals = rows.map(w => w[1] - f * w[4]), mx = Math.max(...vals, pj, 1);
+  const bw = 520 / rows.length;
+  let svg = `<svg viewBox="0 0 520 130" width="100%">` + rows.map((w, i) => { const h = Math.max(vals[i], 0) / mx * 96;
+    return `<rect x="${i * bw + 6}" y="${108 - h}" width="${bw - 12}" height="${h}" rx="3" fill="${col}" opacity=".8"/><text x="${i * bw + bw / 2}" y="${104 - h}" fill="#e7edf4" font-size="11" text-anchor="middle">${fmt(vals[i], 1)}</text><text x="${i * bw + bw / 2}" y="124" fill="#8696a9" font-size="10.5" text-anchor="middle">wk ${w[0]}</text>`; }).join('') +
+    `<line x1="0" x2="520" y1="${108 - pj / mx * 96}" y2="${108 - pj / mx * 96}" stroke="#fff" stroke-dasharray="4 3" stroke-opacity=".8"/><text x="516" y="${102 - pj / mx * 96}" fill="#fff" font-size="10.5" text-anchor="end">proj ${fmt(pj)}</text></svg>`;
+  const showCols = r.pos === 'QB' ? ['pyd'] : [];
+  return `<h4>Recent weeks</h4>${svg}<div class="tscroll"><table class="st"><tr><th>Wk</th><th>${FMTN[st.fmt]}</th><th>Carries</th><th>Targets</th><th>Rec</th><th>Rush yds</th><th>Rec yds</th>${r.pos === 'QB' ? '<th>Pass yds</th>' : ''}<th>TD</th><th>Snap %</th></tr>` +
+    rows.map(w => `<tr><td>${w[0]}</td><td class="main">${fmt(w[1] - f * w[4])}</td><td>${w[2]}</td><td>${w[3]}</td><td>${w[4]}</td><td>${w[5]}</td><td>${w[6]}</td>${r.pos === 'QB' ? `<td>${w[7]}</td>` : ''}<td>${w[8]}</td><td>${w[9] >= 0 ? Math.round(w[9] * 100) + '%' : '–'}</td></tr>`).join('') + `</table></div>`;
+}
+
+/* ================= slate rankings ================= */
+function renderSlateShell() {
+  const wk = st.sched.weeks.map(w => `<option value="${w}" ${w === st.week ? 'selected' : ''}>Week ${w}</option>`).join('');
+  $('#tab-slate').innerHTML = `<div class="card"><div class="ctl">
+      <div><label class="f">Week</label><select id="s_week">${wk}</select></div>
+      <div><label class="f">Sims / game</label><select id="s_n"><option value="500">500</option><option value="1000">1,000</option><option value="2000">2,000</option></select></div>
+      <div class="grow"><label class="f">Search</label><input id="s_q" class="inp" placeholder="Player or team…"></div>
+      <div><label class="f">Scoring</label>${fmtToggle('sfmt')}</div>
+      <div><button class="btn primary" id="s_run" style="margin-top:22px">Simulate week</button></div></div>
+    <div class="tb" id="s_pos" style="margin:12px 0 0">${['ALL', 'QB', 'RB', 'WR', 'TE', 'FLEX', 'K', 'DST'].map(p => `<button data-p="${p}" class="${st.pos === p ? 'on' : ''}">${p}</button>`).join('')}</div></div>
+    <div id="s_body"><div class="card empty"><b>Fantasy rankings for the whole slate</b>Simulates every game in the selected week, then ranks every player with floor, ceiling, boom/bust, value over replacement and tiers.</div></div>`;
+  $('#s_week').onchange = e => { st.week = +e.target.value; st.slate = null; loadSlate(); };
+  $('#s_n').onchange = e => { st.slateN = +e.target.value; st.slate = null; loadSlate(); };
+  $('#s_run').onclick = () => { st.slate = null; loadSlate(); };
+  $('#s_q').oninput = e => { st.q = e.target.value.toLowerCase(); if (st.slate) renderSlate(); };
+  $('#s_pos').onclick = e => { const b = e.target.closest('button'); if (!b) return; st.pos = b.dataset.p; [...$('#s_pos').children].forEach(x => x.classList.toggle('on', x === b)); if (st.slate) renderSlate(); };
+  bindFmt('sfmt', () => { document.querySelectorAll('#sfmt button').forEach(b => b.classList.toggle('on', b.dataset.f === st.fmt)); if (st.slate) renderSlate(); });
+}
+async function loadSlate(forLab) {
+  const body = $('#s_body'); busy($('#s_run'), true, 'Simulating…');
+  if (body && !forLab) body.innerHTML = `<div class="card empty"><span class="spin dark"></span> Simulating all games in week ${st.week}… (${st.slateN} sims each)</div>`;
+  if (forLab) $('#tab-lab').innerHTML = `<div class="card empty"><span class="spin dark"></span> Simulating week ${st.week} so the lineup lab has projections…</div>`;
+  try { st.slate = await post('/api/slate', {week: st.week, n: st.slateN}); st.lab.trials = null; renderSlate(); renderLab(); }
+  catch (e) { if (body) body.innerHTML = `<div class="card empty err">${e.message}</div>`; }
+  busy($('#s_run'), false);
+}
+const REPL = {QB: 11, RB: 23, WR: 29, TE: 11, K: 11, DST: 11};
+function prepSlate(rows) {
+  const by = {};
+  rows.forEach(r => (by[r.pos] = by[r.pos] || []).push(r));
+  for (const [p, arr] of Object.entries(by)) {
+    arr.sort((a, b) => P(b, 'proj') - P(a, 'proj'));
+    const base = P(arr[Math.min(REPL[p] ?? 11, arr.length - 1)], 'proj'), gap = Math.max(1.0, 0.07 * P(arr[0], 'proj'));
+    let tier = 1;
+    arr.forEach((r, i) => { r._pr = i + 1; r._vor = P(r, 'proj') - base; if (i && P(arr[i - 1], 'proj') - P(r, 'proj') > gap && i >= 3) tier++; r._tier = tier; });
+  }
+  [...rows].sort((a, b) => P(b, 'proj') - P(a, 'proj')).forEach((r, i) => r._rk = i + 1);
+}
+function renderSlate() {
+  const S = st.slate, host = $('#s_body'); if (!host) return;
+  prepSlate(S.rows);
+  let rows = S.rows.filter(r => (st.pos === 'ALL' || (st.pos === 'FLEX' ? ['RB', 'WR', 'TE'].includes(r.pos) : r.pos === st.pos)) &&
+    (!st.q || r.name.toLowerCase().includes(st.q) || r.team.toLowerCase() === st.q || (st.TEAMS[r.team] && st.TEAMS[r.team].name.toLowerCase().includes(st.q))));
+  if (st.pos === 'ALL') rows = rows.filter(r => r.pos !== 'K' && r.pos !== 'DST' || r.proj > 5);
+  host.innerHTML = `<div class="grid2c3"><div class="stack" id="s_left"></div></div>`;
+  const left = $('#s_left');
+  // games & edges
+  const g = S.games, hasMk = g.some(x => x.spread != null);
+  const gc = card(`<h3>Games this week <span class="sub2">· simulated ${S.n.toLocaleString()}× each in ${S.secs}s</span></h3><div id="gTable"></div>`);
+  left.appendChild(gc);
+  const gcols = [
+    {k: 'm', t: 'Game', v: x => x.away, first: 1, h: x => `<span style="color:${color(x.away)}">${x.away}</span> <span class="sub2">@</span> <span style="color:${color(x.home)}">${x.home}</span>${x.neutral ? ' <span class="sub2">(neutral)</span>' : ''}`},
+    {k: 'day', t: 'Kickoff', v: x => x.day + x.time, first: 1, h: x => `<span class="sub2">${x.day.slice(5)} ${x.time}</span>`},
+    {k: 'ms', t: 'Mkt spread', v: x => x.spread, h: x => x.spread == null ? '–' : `${x.home} ${x.spread > 0 ? '−' + x.spread : '+' + Math.abs(x.spread)}`},
+    {k: 'ss', t: 'Sim spread', v: x => x.sim_margin, h: x => `${x.home} ${x.sim_margin > 0 ? '−' + fmt(x.sim_margin) : '+' + fmt(Math.abs(x.sim_margin))}`},
+    {k: 'edge', t: 'Spread edge', v: x => x.spread == null ? null : Math.abs(x.sim_margin - x.spread), h: x => { if (x.spread == null) return '–'; const e = x.sim_margin - x.spread; return `<span class="${Math.abs(e) >= 3 ? 'hotc' : ''}">${Math.abs(e) < 1.5 ? '–' : (e > 0 ? x.home : x.away) + ' ' + fmt(Math.abs(e))}</span>`; }},
+    {k: 'mt', t: 'Mkt total', v: x => x.total, h: x => fmt(x.total)},
+    {k: 'st', t: 'Sim total', v: x => x.sim_total, cls: 'main', h: x => fmt(x.sim_total)},
+    {k: 'te', t: 'Total edge', v: x => x.total == null ? null : x.sim_total - x.total, h: x => x.total == null ? '–' : `<span class="${Math.abs(x.sim_total - x.total) >= 3 ? 'hotc' : ''}">${sgn(x.sim_total - x.total)}</span>`},
+    {k: 'ih', t: 'Implied (sim)', v: x => x.sim_home, h: x => `${x.away} ${fmt(x.sim_away, 0)} · ${x.home} ${fmt(x.sim_home, 0)}`},
+    {k: 'wp', t: 'Home win%', v: x => x.sim_home_win, h: x => pct(x.sim_home_win)},
+  ];
+  renderTable($('#gTable'), 'games', gcols, g, {sort: 'st', onRow: x => { st.home = x.home; st.away = x.away; $('#home').value = x.home; $('#away').value = x.away; $('#neutral').checked = x.neutral; st.neutral = x.neutral; renderLineups(); tab('proj'); runSim(); }});
+  $('#gTable').insertAdjacentHTML('beforeend', `<div class="note">Spread/total edges compare the simulator with the betting market; click a game to run the full matchup analysis. Positive total edge = sim projects more points than the market.</div>`);
+
+  // stack targets + movers
+  const sg = [...g].sort((a, b) => b.sim_total - a.sim_total).slice(0, 4);
+  const stackHtml = sg.map(x => { const pl = S.rows.filter(r => r.game === x.id && ['QB', 'WR', 'TE', 'RB'].includes(r.pos)).sort((a, b) => b.proj - a.proj).slice(0, 5);
+    return `<div class="stk"><div class="stkh"><b><span style="color:${color(x.away)}">${x.away}</span> @ <span style="color:${color(x.home)}">${x.home}</span></b><span class="sub2">total ${fmt(x.sim_total)}</span></div>${pl.map(r => `<div class="stkr" data-id="${r.id}"><span class="posb" style="color:${POSCOL[r.pos]}">${r.pos}</span> ${r.name} <b>${fmt(P(r, 'proj'))}</b></div>`).join('')}</div>`; }).join('');
+  const pool = S.rows.filter(r => ['QB', 'RB', 'WR', 'TE'].includes(r.pos) && r.avg != null && r.n >= 3 && r.proj >= 7);
+  const mv = [...pool].sort((a, b) => (P(b, 'proj') - avgF(b)) - (P(a, 'proj') - avgF(a)));
+  const mvRow = r => `<div class="stkr" data-id="${r.id}"><span class="posb" style="color:${POSCOL[r.pos]}">${r.pos}</span> ${r.name} <span class="sub2">${r.team} ${r.home ? 'vs' : '@'} ${r.opp}</span> <b class="${P(r, 'proj') - avgF(r) > 0 ? 'pos' : 'neg'}">${sgn(P(r, 'proj') - avgF(r))}</b></div>`;
+  const ins = el('div', 'grid3');
+  ins.appendChild(card(`<h3>Shootout stack targets</h3>${stackHtml}`));
+  ins.appendChild(card(`<h3>Projection above season avg</h3>${mv.slice(0, 9).map(mvRow).join('')}<div class="note">Players the matchup and usage lift above what they have averaged.</div>`));
+  ins.appendChild(card(`<h3>Projection below season avg</h3>${mv.slice(-9).reverse().map(mvRow).join('')}<div class="note">Tough matchup, lower implied total, or a shrinking role.</div>`));
+  left.appendChild(ins);
+  ins.querySelectorAll('.stkr').forEach(d => d.onclick = () => { const r = S.rows.find(x => x.id === d.dataset.id); if (r) showPlayer(r); });
+
+  const rk = card(`<h3>Rankings · ${st.pos} · ${FMTN[st.fmt]} <span class="sub2">· ${rows.length} players</span></h3><div id="rkTable"></div>`);
+  left.appendChild(rk);
+  fantasyTable($('#rkTable'), 'rank', rows, {rank: true, opp: true, vor: true, tier: true, limit: 150, note: true});
+}
+
+/* ================= lineup lab ================= */
+const SLOTS = [['QB', ['QB']], ['RB1', ['RB']], ['RB2', ['RB']], ['WR1', ['WR']], ['WR2', ['WR']], ['TE', ['TE']], ['FLEX', ['RB', 'WR', 'TE']]];
+const slotsAll = () => [...SLOTS, ...(st.lab.slotsK ? [['K', ['K']]] : []), ...(st.lab.slotsD ? [['DST', ['DST']]] : [])];
+const T = 3000;
+function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function labPool() { return st.slate ? Object.fromEntries(st.slate.rows.map(r => [r.id, r])) : {}; }
+function trials() {
+  if (st.lab.trials) return st.lab.trials;
+  const rnd = mulberry(20260);
+  const idx = {}; st.slate.games.forEach(g => { const a = new Uint16Array(T); for (let t = 0; t < T; t++) a[t] = Math.floor(rnd() * 300); idx[g.id] = a; });
+  st.lab.trials = {idx, cache: {}}; return st.lab.trials;
+}
+function arrFor(p) {
+  const tr = trials(); if (tr.cache[p.id]) return tr.cache[p.id];
+  const ix = tr.idx[p.game], a = new Float32Array(T), s = p.samples;
+  for (let t = 0; t < T; t++) a[t] = s[ix[t] % s.length];
+  return tr.cache[p.id] = a;
+}
+function lineupSum(ids) { const out = new Float32Array(T); ids.forEach(id => { const p = labPool()[id]; if (p) { const a = arrFor(p); for (let t = 0; t < T; t++) out[t] += a[t]; } }); return out; }
+function autoSet(roster) {
+  const pool = labPool(), used = new Set(), res = {};
+  const ps = roster.map(i => pool[i]).filter(Boolean).filter(p => p.status !== 'Out').sort((a, b) => b.proj - a.proj);
+  for (const [k, el_] of slotsAll()) { if (k === 'FLEX') continue; const p = ps.find(x => !used.has(x.id) && el_.includes(x.pos)); if (p) { res[k] = p.id; used.add(p.id); } }
+  const fl = ps.find(x => !used.has(x.id) && ['RB', 'WR', 'TE'].includes(x.pos)); if (fl) res.FLEX = fl.id;
+  return res;
+}
+function winProb(a, b) { const A = lineupSum(a), B = lineupSum(b); let w = 0; for (let t = 0; t < T; t++) w += A[t] > B[t] ? 1 : A[t] === B[t] ? .5 : 0; return w / T; }
+function optimizeWP(roster, set, oppIds) {
+  const pool = labPool(); let cur = {...set}; let best = winProb(Object.values(cur), oppIds);
+  for (let pass = 0; pass < 3; pass++) {
+    let improved = false;
+    for (const [k, el_] of slotsAll()) {
+      for (const id of roster) { const p = pool[id]; if (!p || !el_.includes(p.pos) || p.status === 'Out' || cur[k] === id) continue;
+        const t = {...cur}; const other = Object.keys(t).find(s => t[s] === id); if (other) { t[other] = cur[k]; if (!t[other]) delete t[other]; } t[k] = id;
+        const w = winProb(Object.values(t), oppIds); if (w > best + 1e-4) { best = w; cur = t; improved = true; } }
+    }
+    if (!improved) break;
+  }
+  return cur;
+}
+const save = () => { try { localStorage.setItem('gs_mine', JSON.stringify(st.lab.mine)); localStorage.setItem('gs_opp', JSON.stringify(st.lab.opp)); localStorage.setItem('gs_mineSet', JSON.stringify(st.lab.mineSet || {})); localStorage.setItem('gs_oppSet', JSON.stringify(st.lab.oppSet || {})); } catch (e) {} };
+try { st.lab.mineSet = JSON.parse(localStorage.getItem('gs_mineSet') || 'null'); st.lab.oppSet = JSON.parse(localStorage.getItem('gs_oppSet') || 'null'); } catch (e) {}
+
+function renderLab() {
+  const host = $('#tab-lab');
+  if (!st.slate) { host.innerHTML = `<div class="card empty"><b>Lineup lab</b>Build your lineup and your opponent's, then see your win probability, ranges, and the optimal lineup.<br><br><button class="btn primary" style="width:auto;padding:10px 22px" id="labLoad">Load week ${st.week} projections</button></div>`; $('#labLoad').onclick = () => loadSlate(true); return; }
+  const pool = labPool();
+  st.lab.mine = st.lab.mine.filter(i => pool[i]); st.lab.opp = st.lab.opp.filter(i => pool[i]);
+  const valid = (s, roster) => Object.fromEntries(Object.entries(s || {}).filter(([k, id]) => roster.includes(id) && slotsAll().some(x => x[0] === k && x[1].includes(pool[id].pos))));
+  st.lab.mineSet = valid(st.lab.mineSet, st.lab.mine); st.lab.oppSet = valid(st.lab.oppSet, st.lab.opp);
+  const side = (key, title, accent) => {
+    const roster = st.lab[key], set = st.lab[key + 'Set'];
+    const slotRows = slotsAll().map(([k, el_]) => {
+      const cur = set[k]; const opts = roster.filter(i => el_.includes(pool[i].pos) && (i === cur || !Object.values(set).includes(i)));
+      const p = cur ? pool[cur] : null;
+      return `<tr><td class="slot">${k}</td><td><select data-side="${key}" data-slot="${k}" class="sl"><option value="">— empty —</option>${opts.map(i => `<option value="${i}" ${i === cur ? 'selected' : ''}>${pool[i].name} (${pool[i].team}) ${fmt(pool[i].proj)}${pool[i].status ? ' · ' + pool[i].status[0] : ''}</option>`).join('')}</select></td><td>${p ? fmt(p.proj) : '–'}</td><td class="sub2">${p ? fmt(p.lo, 0) + '–' + fmt(p.hi, 0) : ''}</td></tr>`;
+    }).join('');
+    const bench = roster.filter(i => !Object.values(set).includes(i)).map(i => pool[i]);
+    return `<div class="card labside" style="border-top:3px solid ${accent}"><h3>${title}</h3>
+      <div class="srch"><input class="inp" data-q="${key}" placeholder="Add a player (search by name)…" autocomplete="off"><div class="sres hide" id="res_${key}"></div></div>
+      <table class="st lab"><tr><th>Slot</th><th>Player</th><th>Proj</th><th>Range</th></tr>${slotRows}</table>
+      <div class="bench"><span class="sub2">BENCH</span> ${bench.length ? bench.map(p => `<span class="chip2">${p.name} <i data-rm="${key}:${p.id}">×</i></span>`).join('') : '<span class="sub2">none</span>'}</div>
+      <div class="lbtns"><button class="btn ghost sm" data-auto="${key}">Auto-set best lineup</button>${key === 'mine' ? '<button class="btn ghost sm" data-opt="1">Optimize win probability</button>' : ''}<button class="btn ghost sm" data-clear="${key}">Clear</button></div></div>`;
+  };
+  host.innerHTML = `<div class="card"><div class="ctl"><div class="grow"><b>Lineup lab</b> <span class="sub2">· week ${st.week} projections (PPR) with correlated outcomes — players in the same game share the same simulated game, so stacks are priced correctly.</span></div>
+      <label class="chk"><input type="checkbox" id="kslot" ${st.lab.slotsK ? 'checked' : ''}> K slot</label><label class="chk"><input type="checkbox" id="dslot" ${st.lab.slotsD ? 'checked' : ''}> D/ST slot</label></div></div>
+    <div class="grid2">${side('mine', 'My team', '#5eead4')}${side('opp', 'Opponent', '#f87171')}</div><div id="labRes"></div><div id="ssCard"></div>`;
+  $('#kslot').onchange = e => { st.lab.slotsK = e.target.checked; renderLab(); };
+  $('#dslot').onchange = e => { st.lab.slotsD = e.target.checked; renderLab(); };
+  host.querySelectorAll('select.sl').forEach(s => s.onchange = () => { const set = st.lab[s.dataset.side + 'Set']; if (s.value) set[s.dataset.slot] = s.value; else delete set[s.dataset.slot]; save(); renderLab(); });
+  host.querySelectorAll('[data-auto]').forEach(b => b.onclick = () => { const k = b.dataset.auto; st.lab[k + 'Set'] = autoSet(st.lab[k]); save(); renderLab(); });
+  host.querySelectorAll('[data-clear]').forEach(b => b.onclick = () => { const k = b.dataset.clear; st.lab[k] = []; st.lab[k + 'Set'] = {}; save(); renderLab(); });
+  host.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { const [k, id] = b.dataset.rm.split(':'); st.lab[k] = st.lab[k].filter(x => x !== id); save(); renderLab(); });
+  const o = host.querySelector('[data-opt]'); if (o) o.onclick = () => { if (!st.lab.mine.length) return; o.textContent = 'Optimizing…'; setTimeout(() => { st.lab.mineSet = optimizeWP(st.lab.mine, Object.keys(st.lab.mineSet).length ? st.lab.mineSet : autoSet(st.lab.mine), Object.values(st.lab.oppSet)); save(); renderLab(); }, 30); };
+  host.querySelectorAll('input[data-q]').forEach(inp => {
+    const key = inp.dataset.q, box = $('#res_' + key);
+    inp.oninput = () => { const q = inp.value.toLowerCase().trim(); if (q.length < 2) { box.classList.add('hide'); return; }
+      const hits = Object.values(pool).filter(p => !st.lab.mine.includes(p.id) && !st.lab.opp.includes(p.id) && (p.name.toLowerCase().includes(q) || p.team.toLowerCase() === q) && (p.pos !== 'K' || st.lab.slotsK) && (p.pos !== 'DST' || st.lab.slotsD || true)).sort((a, b) => b.proj - a.proj).slice(0, 8);
+      box.innerHTML = hits.map(p => `<div data-add="${p.id}"><span class="posb" style="color:${POSCOL[p.pos]}">${p.pos}</span> ${p.name} <span class="sub2">${p.team} ${p.home ? 'vs' : '@'} ${p.opp}</span><b>${fmt(p.proj)}</b></div>`).join('') || '<div class="sub2">no matches</div>'; box.classList.remove('hide');
+      box.querySelectorAll('[data-add]').forEach(d => d.onclick = () => { st.lab[key].push(d.dataset.add); if (!Object.keys(st.lab[key + 'Set']).length || true) { const ns = autoSet(st.lab[key]); st.lab[key + 'Set'] = Object.keys(st.lab[key + 'Set']).length ? {...ns, ...st.lab[key + 'Set']} : ns; } save(); renderLab(); }); };
+  });
+  labResults(); startSit();
+}
+function labResults() {
+  const m = Object.values(st.lab.mineSet), o = Object.values(st.lab.oppSet), host = $('#labRes');
+  if (!m.length || !o.length) { host.innerHTML = `<div class="card empty" style="padding:30px"><b>Add players to both sides</b>Search above to build your roster and your opponent's, then hit "Auto-set best lineup". Your win probability shows up here.</div>`; return; }
+  const A = lineupSum(m), B = lineupSum(o); let w = 0, ta = 0, tb = 0; const diff = new Float32Array(T);
+  for (let t = 0; t < T; t++) { diff[t] = A[t] - B[t]; w += diff[t] > 0 ? 1 : diff[t] === 0 ? .5 : 0; ta += A[t]; tb += B[t]; }
+  const wp = w / T, ma = ta / T, mb = tb / T, sd = x => { const mu = x.reduce((a, b) => a + b, 0) / T; return Math.sqrt(x.reduce((a, b) => a + (b - mu) ** 2, 0) / T); };
+  const q = (x, p) => qnt(Array.from(x), p);
+  const step = 6, counts = new Array(Math.round(240 / step)).fill(0); diff.forEach(x => { counts[Math.max(0, Math.min(counts.length - 1, Math.floor((x + 120) / step)))]++; });
+  host.innerHTML = `<div class="card"><div class="sbhead"><div class="tm"><div class="ab" style="color:#5eead4">MY TEAM</div><div class="win">${pct(wp)}</div><div class="avg">win probability</div></div>
+      <div class="mid"><div class="wbar"><div style="width:${wp * 100}%;background:#5eead4"></div><div style="width:${(1 - wp) * 100}%;background:#f87171"></div></div><div class="line">Projected <b>${fmt(ma)}</b> to <b>${fmt(mb)}</b> · margin <b>${sgn(ma - mb)}</b></div></div>
+      <div class="tm r"><div class="ab" style="color:#f87171">OPPONENT</div><div class="win">${pct(1 - wp)}</div><div class="avg">win probability</div></div></div>
+      <div class="grid2" style="margin-top:16px"><div><h3>Margin distribution (mine − opp)</h3>${hist({lo: -120, step, counts}, {lo: -60, hi: 60, colors: x => x >= 0 ? '#5eead4' : '#f87171', split: 0, ticks: [-50, -25, 0, 25, 50]})}</div>
+      <div><h3>Score ranges</h3><table class="st"><tr><th></th><th>Mean</th><th>10%</th><th>90%</th><th>SD</th></tr><tr><td style="color:#5eead4">My team</td><td>${fmt(ma)}</td><td>${fmt(q(A, .1))}</td><td>${fmt(q(A, .9))}</td><td>${fmt(sd(A))}</td></tr><tr><td style="color:#f87171">Opponent</td><td>${fmt(mb)}</td><td>${fmt(q(B, .1))}</td><td>${fmt(q(B, .9))}</td><td>${fmt(sd(B))}</td></tr></table>
+      <div class="note">${wp > .6 ? 'You are the favorite: prefer high-floor, low-variance starters.' : wp < .4 ? 'You are the underdog: variance helps — favor high-ceiling players and stacks.' : 'Close matchup: small edges matter; check injury news before kickoff.'} ${sd(A) > sd(B) + 2 ? 'Your lineup is the higher-variance one.' : sd(A) < sd(B) - 2 ? 'Your lineup is the lower-variance one.' : ''}</div></div></div></div>`;
+}
+function startSit() {
+  const pool = labPool(), host = $('#ssCard'); if (!host) return;
+  host.innerHTML = `<div class="card"><h3>Start / sit head-to-head</h3><div class="ctl"><div class="grow"><input class="inp" id="ssA" placeholder="Player A…" list="ssList"></div><div class="grow"><input class="inp" id="ssB" placeholder="Player B…" list="ssList"></div></div>
+    <datalist id="ssList">${Object.values(pool).filter(p => !['K', 'DST'].includes(p.pos)).sort((a, b) => b.proj - a.proj).slice(0, 220).map(p => `<option value="${p.name} (${p.team})">`).join('')}</datalist><div id="ssOut" class="note">Type two player names (pick from the list) to see who is more likely to outscore the other.</div></div>`;
+  const find = v => Object.values(pool).find(p => `${p.name} (${p.team})` === v);
+  const upd = () => { const a = find($('#ssA').value), b = find($('#ssB').value); if (!a || !b || a.id === b.id) return;
+    const X = arrFor(a), Y = arrFor(b); let w = 0, ex = 0; for (let t = 0; t < T; t++) { w += X[t] > Y[t] ? 1 : X[t] === Y[t] ? .5 : 0; }
+    const better = a.proj >= b.proj ? a : b, other = better === a ? b : a, pw = better === a ? w / T : 1 - w / T;
+    $('#ssOut').innerHTML = `<div class="sbhead"><div class="tm"><div class="ab" style="color:${color(a.team)}">${a.name}</div><div class="win">${fmt(a.proj)}</div><div class="avg">${fmt(a.lo, 0)}–${fmt(a.hi, 0)} · boom ${pct(a.boom)} · bust ${pct(a.bust)}</div></div>
+      <div class="mid"><div class="line">Start <b>${better.name}</b> — outscores ${other.name} in <b>${pct(pw)}</b> of simulations</div></div>
+      <div class="tm r"><div class="ab" style="color:${color(b.team)}">${b.name}</div><div class="win">${fmt(b.proj)}</div><div class="avg">${fmt(b.lo, 0)}–${fmt(b.hi, 0)} · boom ${pct(b.boom)} · bust ${pct(b.bust)}</div></div></div>`; };
+  $('#ssA').oninput = upd; $('#ssB').oninput = upd; $('#ssA').onchange = upd; $('#ssB').onchange = upd;
 }
 
 /* ---------- game viewer ---------- */
@@ -489,6 +923,7 @@ function boxScore() {
   }
   $('#box').innerHTML = h;
 }
+
 init();
 </script>
 </body>

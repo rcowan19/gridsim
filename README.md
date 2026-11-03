@@ -1,5 +1,9 @@
 # GridSim
 
+Tabs: **Matchup** (win prob, model-vs-Vegas edges, matchup ratings, fantasy projections, correlations, game-script splits, prop calculator) ·
+**Fantasy rankings** (whole-week slate sim: floor/ceiling/boom/bust, VOR, tiers, stack targets) ·
+**Lineup lab** (your lineup vs opponent with correlated win probability, optimizer, start/sit) · **Game viewer**.
+
 Play-by-play NFL Monte Carlo simulator with a web UI.
 
     pip install -r requirements.txt

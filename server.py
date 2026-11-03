@@ -66,8 +66,38 @@ def teams():
         players = [dict(id=q["id"], name=q["name"], pos=q["pos"], active=q["active"], grp="QB", status=q.get("status")) for q in t["qbs"]]
         players += [dict(id=q["id"], name=q["name"], pos=q["pos"], active=q["active"], grp="skill", status=q.get("status"),
                          tgt=round(q["tgt"], 3), car=round(q["car"], 3)) for q in t["skill"]]
-        out[abbr] = {"name": nm, "color": col, "players": players, "kicker": t["k"]["name"], "punter": t["punter"]}
-    return {"teams": out, "meta": MODEL["meta"], "league": MODEL["league_actual"]}
+        out[abbr] = {"name": nm, "color": col, "players": players, "kicker": t["k"]["name"], "punter": t["punter"], "rates": t["rates"]}
+    keys = next(iter(MODEL["teams"].values()))["rates"].keys()
+    lg = {k: sum(t["rates"][k] for t in MODEL["teams"].values()) / len(MODEL["teams"]) for k in keys}
+    return {"teams": out, "meta": MODEL["meta"], "league": MODEL["league_actual"], "league_rates": lg}
+
+
+@app.get("/api/schedule")
+def schedule_():
+    weeks = sorted({g["week"] for g in sim.SCHEDULE})
+    nxt = next((w for w in weeks if any(g["week"] == w and not g["played"] for g in sim.SCHEDULE)), weeks[-1] if weeks else None)
+    return {"games": sim.SCHEDULE, "weeks": weeks, "next_week": nxt}
+
+
+class SlateReq(BaseModel):
+    week: int
+    n: int = 500
+
+
+SLATE_CACHE = {}
+
+
+@app.post("/api/slate")
+def slate(r: SlateReq):
+    import time
+    n = max(100, min(r.n, 2000))
+    key = (r.week, n)
+    if key not in SLATE_CACHE:
+        t0 = time.time()
+        res = sim.simulate_slate(r.week, n, pool=POOL, hist={k: v[-8:] for k, v in MODEL.get("hist", {}).items()})
+        res["secs"] = round(time.time() - t0, 1)
+        SLATE_CACHE[key] = res
+    return SLATE_CACHE[key]
 
 
 @app.post("/api/simulate")
@@ -76,7 +106,7 @@ def simulate(r: Req):
     n = max(50, min(r.n, 20000))
     seed = r.seed if r.seed is not None else random.randrange(10**6)
     res = sim.simulate(r.home, r.away, n, seed, r.overrides, r.neutral, pool=POOL)
-    return sim.summarize(res, r.home, r.away, r.overrides)
+    return sim.summarize(res, r.home, r.away, r.overrides, hist=MODEL.get("hist", {}))
 
 
 @app.post("/api/game")

@@ -80,13 +80,13 @@ def prev_season_diff():
     return out
 
 def main():
-    ap = argparse.ArgumentParser(); ap.add_argument("-s", type=int, default=3); ap.add_argument("-n", type=int, default=400)
+    ap = argparse.ArgumentParser(); ap.add_argument("-s", type=int, default=3); ap.add_argument("-n", type=int, default=400); ap.add_argument("-d", type=float, default=None); ap.add_argument("-p", type=float, default=None)
     a = ap.parse_args()
     G = games_table(); AP = actual_player_games(); pdiff = prev_season_diff()
     last = int(G.week.max()); t0 = time.time()
     games, players = [], []
     for wk in range(a.s, last + 1):
-        M = build_model.main(cutoff=wk, write=False, quiet=True)
+        M = build_model.main(cutoff=wk, write=False, quiet=True, usage_decay=a.d, w_prev_use=a.p)
         bm = baseline_margin(G, wk, pdiff)
         W = G[G.week == wk]
         with Pool(os.cpu_count() or 1, initializer=_init, initargs=(M,)) as pool:

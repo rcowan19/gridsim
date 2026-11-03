@@ -10,6 +10,8 @@ import pandas as pd
 
 RNG = np.random.default_rng(7)
 CUR, PREV = "data/pbp_2026.parquet", "data/pbp_2025.parquet"
+W_PREV_USE = 0.03      # per-play weight of last season when estimating *usage shares* (carries/targets)
+USAGE_DECAY = 0.7      # per-week decay of usage shares inside the current season
 W_PREV = 0.35          # weight of every previous-season play
 RECENCY = 0.85         # per-week decay inside the current season
 
@@ -28,17 +30,37 @@ def player_games(df):
     key = ["game_id", "week", "pid"]
     parts = []
     p = df[(df.pass_attempt == 1) & df.passer_player_id.notna()]
-    parts.append(p.groupby(["game_id", "week", "passer_player_id"]).agg(pyd=("passing_yards", "sum"), ptd=("pass_touchdown", "sum"), ints=("interception", "sum")).reset_index().rename(columns={"passer_player_id": "pid"}))
+    parts.append(p.groupby(["game_id", "week", "passer_player_id"]).agg(pyd=("passing_yards", "sum"), ptd=("pass_touchdown", "sum"), ints=("interception", "sum"), pa=("pass_attempt", "sum")).reset_index().rename(columns={"passer_player_id": "pid"}))
     r = df[(df.rush_attempt == 1) & df.rusher_player_id.notna()]
-    parts.append(r.groupby(["game_id", "week", "rusher_player_id"]).agg(ryd=("rushing_yards", "sum"), rtd=("rush_touchdown", "sum")).reset_index().rename(columns={"rusher_player_id": "pid"}))
+    parts.append(r.groupby(["game_id", "week", "rusher_player_id"]).agg(ryd=("rushing_yards", "sum"), rtd=("rush_touchdown", "sum"), ra=("rush_attempt", "sum")).reset_index().rename(columns={"rusher_player_id": "pid"}))
     t = df[(df.pass_attempt == 1) & df.receiver_player_id.notna()]
-    parts.append(t.groupby(["game_id", "week", "receiver_player_id"]).agg(rec=("complete_pass", "sum"), recyd=("receiving_yards", "sum"), rectd=("pass_touchdown", "sum")).reset_index().rename(columns={"receiver_player_id": "pid"}))
+    parts.append(t.groupby(["game_id", "week", "receiver_player_id"]).agg(rec=("complete_pass", "sum"), recyd=("receiving_yards", "sum"), rectd=("pass_touchdown", "sum"), tgt=("pass_attempt", "sum")).reset_index().rename(columns={"receiver_player_id": "pid"}))
     out = parts[0]
     for x in parts[1:]:
         out = out.merge(x, on=key, how="outer")
     out = out.fillna(0)
     out["ppr"] = (0.04 * out.pyd + 4 * out.ptd - 2 * out.ints + 0.1 * (out.ryd + out.recyd)
                   + 6 * (out.rtd + out.rectd) + out.rec)
+    return out
+
+
+def snap_pcts(cutoff=None):
+    """{gsis_id: {week: offense snap pct}} from nflverse snap counts (pfr id -> gsis id via rosters)."""
+    try:
+        s = pd.read_parquet("data/snap_counts_2026.parquet")
+    except FileNotFoundError:
+        return {}
+    m = {}
+    for f in ("data/roster_2025.parquet", "data/roster_2026.parquet"):
+        r = pd.read_parquet(f)
+        m.update({a: b for a, b in zip(r.pfr_id, r.gsis_id) if isinstance(a, str) and isinstance(b, str)})
+    if cutoff is not None:
+        s = s[s.week < cutoff]
+    out = {}
+    for pid, wk, pct in zip(s.pfr_player_id, s.week, s.offense_pct):
+        g = m.get(pid)
+        if g and pct == pct:
+            out.setdefault(g, {})[int(wk)] = float(pct)
     return out
 
 
@@ -73,9 +95,11 @@ def load(cutoff=None):
         cur = cur[cur.week < cutoff].copy()
     maxwk = int(cur.week.max())
     cur["w"] = RECENCY ** (maxwk - cur.week)
+    cur["wu"] = USAGE_DECAY ** (maxwk - cur.week)
     prev = pd.read_parquet(PREV, columns=COLS)
     prev = prev[prev.season_type == "REG"].copy()
     prev["w"] = W_PREV
+    prev["wu"] = W_PREV_USE
     cur["cur"] = 1
     prev["cur"] = 0
     d = pd.concat([prev, cur], ignore_index=True)
@@ -114,7 +138,10 @@ def air_bucket(a):
     return 0 if a < 0 else 1 if a < 5 else 2 if a < 10 else 3 if a < 15 else 4 if a < 20 else 5
 
 
-def main(cutoff=None, write=True, quiet=False):
+def main(cutoff=None, write=True, quiet=False, usage_decay=None, w_prev_use=None):
+    global USAGE_DECAY, W_PREV_USE
+    if usage_decay is not None: USAGE_DECAY = usage_decay
+    if w_prev_use is not None: W_PREV_USE = w_prev_use
     d, maxwk = load(cutoff)
     pos, rteam, rstatus = positions()
     M = {"meta": {"max_week": maxwk}}
@@ -380,7 +407,8 @@ def main(cutoff=None, write=True, quiet=False):
     for pid, g in rec.groupby("receiver_player_id"):
         p = pl(pid, g.receiver_player_name.iloc[-1])
         p["_tgt_w"] = float(g.w.sum())
-        p["_rz_tgt"] = float(g[g.yardline_100 <= 20].w.sum())
+        p["_tgt_u"] = float(g.wu.sum())
+        p["_rz_u"] = float(g[g.yardline_100 <= 20].wu.sum())
         p["_adot_x"] = float((g.air_yards.fillna(0) * g.w).sum())
         p["_cpoe_x"] = float((g.cpoe.fillna(0) * g.w).sum() / 100)
         c = g[g.complete_pass == 1]
@@ -393,7 +421,8 @@ def main(cutoff=None, write=True, quiet=False):
     for pid, g in des[des.rusher_player_id.notna()].groupby("rusher_player_id"):
         p = pl(pid, g.rusher_player_name.iloc[-1])
         p["_car_w"] = float(g.w.sum())
-        p["_gl_car"] = float(g[g.yardline_100 <= 5].w.sum())
+        p["_car_u"] = float(g.wu.sum())
+        p["_gl_u"] = float(g[g.yardline_100 <= 5].wu.sum())
         p["_ypc_x"] = float((g.yards_gained * g.w).sum())
         tm = g.sort_values(["season", "week"]).posteam.iloc[-1]
         p.setdefault("_team_pbp", tm)
@@ -450,8 +479,8 @@ def main(cutoff=None, write=True, quiet=False):
         o = pa[pa.posteam == t]
         d_ = des[des.posteam == t]
         team_tot[t] = {
-            "tgt": o.w.sum(), "rz_tgt": o[o.yardline_100 <= 20].w.sum(),
-            "car": d_.w.sum(), "gl": d_[d_.yardline_100 <= 5].w.sum(),
+            "tgt": o.wu.sum(), "rz_tgt": o[o.yardline_100 <= 20].wu.sum(),
+            "car": d_.wu.sum(), "gl": d_[d_.yardline_100 <= 5].wu.sum(),
         }
     pos_adot = M["adot_pos"]
     pos_yac = M["yac_pos"]
@@ -485,8 +514,8 @@ def main(cutoff=None, write=True, quiet=False):
             q["scr"] = shrink(p["_qb_scr_x"], p["_db_w"], lg["scr"], 120)
             out[rt]["qbs"].append(q)
             if "_car_w" in p:
-                q["car"] = p["_car_w"] / max(T0["car"], 1e-9)
-                q["gl"] = (p["_gl_car"] + 8 * q["car"]) / (T0["gl"] + 8)
+                q["car"] = p["_car_u"] / max(T0["car"], 1e-9)
+                q["gl"] = (p["_gl_u"] + 8 * q["car"]) / (T0["gl"] + 8)
                 q["ypc"] = shrink(p["_ypc_x"], p["_car_w"], lg["ypc"], 60) - lg["ypc"]
             continue
         if p["pos"] == "K":
@@ -504,16 +533,16 @@ def main(cutoff=None, write=True, quiet=False):
         q["pos"] = p["pos"] if p["pos"] in ("WR", "TE", "RB", "FB") else "WR"
         q["bpos"] = bucket
         tw = p.get("_tgt_w", 0)
-        q["tgt"] = tw / max(T0["tgt"], 1e-9)
-        q["rz_tgt"] = (p.get("_rz_tgt", 0) + 20 * q["tgt"]) / (T0["rz_tgt"] + 20)
+        q["tgt"] = p.get("_tgt_u", 0) / max(T0["tgt"], 1e-9)
+        q["rz_tgt"] = (p.get("_rz_u", 0) + 20 * q["tgt"]) / (T0["rz_tgt"] + 20)
         q["adot"] = shrink(p.get("_adot_x", 0), tw, pos_adot[bucket], 40) - pos_adot[bucket] if tw else 0.0
         q["cpoe"] = (shrink(p.get("_cpoe_x", 0), tw, lgc, 80) - lgc) * 0.5 if tw else 0.0
         rw = p.get("_rec_w", 0)
         pm = pos_yac[bucket]
         q["yac"] = shrink(p.get("_yac_x", 0), rw, pm, 30) / pm if rw else 1.0
         cw = p.get("_car_w", 0)
-        q["car"] = cw / max(T0["car"], 1e-9)
-        q["gl"] = (p.get("_gl_car", 0) + 8 * q["car"]) / (T0["gl"] + 8)
+        q["car"] = p.get("_car_u", 0) / max(T0["car"], 1e-9)
+        q["gl"] = (p.get("_gl_u", 0) + 8 * q["car"]) / (T0["gl"] + 8)
         q["ypc"] = shrink(p.get("_ypc_x", 0), cw, lg["ypc"], 80) - lg["ypc"] if cw else 0.0
         q["recent"] = p.get("_recent", 0)
         if q["tgt"] < 0.004 and q["car"] < 0.01:
@@ -557,6 +586,18 @@ def main(cutoff=None, write=True, quiet=False):
                     if isinstance(q[key], float):
                         q[key] = round(q[key], 5)
 
+    snaps = snap_pcts(cutoff)
+    hist = {}
+    keep = {q["id"] for t in teams for k in ("qbs", "skill") for q in out[t][k]}
+    for pid, g in pg.groupby("pid"):
+        if pid not in keep:
+            continue
+        rows = []
+        for r in g.sort_values("week").itertuples():
+            rows.append([int(r.week), round(r.ppr, 1), int(r.ra), int(r.tgt), int(r.rec), int(r.ryd), int(r.recyd), int(r.pyd),
+                         int(r.ptd + r.rtd + r.rectd), round(snaps.get(pid, {}).get(int(r.week), -1), 2)])
+        hist[pid] = rows
+    M["hist"] = hist
     if write:
         with open("model.json", "w") as f:
             json.dump(M, f, separators=(",", ":"))
