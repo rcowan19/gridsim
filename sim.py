@@ -36,14 +36,18 @@ def run_chunk(args):
     env = env_factors(**args[6]) if len(args) > 6 and args[6] else None
     e = get_engine()
     H, A = e.team(home, ov), e.team(away, ov)
-    pids = sorted(set(H.pids) | set(A.pids))
+    pids = sorted(set(H.pids) | set(A.pids) | set(e.extra_pids(home)) | set(e.extra_pids(away)))
     ix = {p: i for i, p in enumerate(pids)}
     ps = np.zeros((n, len(pids), len(PSTATS)), dtype=np.int16)
     ts = np.zeros((n, 2, len(TSTATS)), dtype=np.int16)
     sc = np.zeros((n, 2), dtype=np.int16)
     ot = np.zeros(n, dtype=bool)
+    import random as _r
+    av = _r.Random(seed * 7 + 11)
+    unc = bool(e.uncertain(home, ov) or e.uncertain(away, ov))
     for g in range(n):
-        r = e.game(H, A, seed=seed * 100003 + g, neutral=neutral, env=env)
+        h_, a_ = (e.team_draw(home, ov, av), e.team_draw(away, ov, av)) if unc else (H, A)
+        r = e.game(h_, a_, seed=seed * 100003 + g, neutral=neutral, env=env)
         sc[g] = r["score"]
         ot[g] = r["ot"]
         ts[g] = r["ts"]
@@ -105,8 +109,10 @@ def game_rows(res, home, away, ov, hist=None, ns=400, with_stats=False, c=None):
     rows, arrs = [], {}
     for side, cfg, opp in ((0, H, A), (1, A, H)):
         margin = sc[:, side] - sc[:, 1 - side]
-        for pid in cfg.pids:
-            q = cfg.players[pid]
+        tm = e.m["teams"][cfg.abbr]
+        extra = {q["id"]: q for q in tm["qbs"] if q["id"] in e.extra_pids(cfg.abbr, ov)}
+        for pid in list(cfg.pids) + [p for p in extra if p not in cfg.players and p in pids]:
+            q = cfg.players.get(pid) or extra[pid]
             pos = q.get("pos", "?")
             a = ps[:, pids.index(pid), :].astype(float)
             if a.sum() == 0:
@@ -124,7 +130,7 @@ def game_rows(res, home, away, ov, hist=None, ns=400, with_stats=False, c=None):
             r = {"id": pid, "name": q["name"], "pos": pos, "team": cfg.abbr, "opp": opp.abbr, "home": side == 0,
                  "proj": round(float(mean), 2), "lo": round(float(lo), 1), "hi": round(float(hi), 1),
                  "med": round(float(np.median(cal)), 1), "sd": round(float(cal.std()), 2), "sim": round(float(sim_mean), 2),
-                 "avg": q.get("ppr_avg"), "n": q.get("ppr_n"), "status": q.get("status"),
+                 "avg": q.get("ppr_avg"), "n": q.get("ppr_n"), "status": q.get("status"), "p_play": q.get("p_play"),
                  "boom": round(float((cal >= BOOM.get(pos, 99)).mean()), 3) if pos in BOOM else None,
                  "bust": round(float((cal < BUST.get(pos, -99)).mean()), 3) if pos in BUST else None,
                  "cs": round(q.get("car", 0), 3), "ts": round(q.get("tgt", 0), 3),

@@ -106,10 +106,35 @@ class Engine:
         self.punt = {int(k): v for k, v in m["punt_pool"].items()}
         self.tune = dict(self.DEFAULT_TUNE, **(tune or {}))
         self.teams = {}
+        self.tc_cache = {}
         self.trace = None
 
     def team(self, abbr, overrides=None):
         return TeamCfg(self.m, abbr, overrides or {})
+
+    def uncertain(self, abbr, ov=None):
+        """Active players with a chance of sitting out (Questionable), as [(id, p_play)]."""
+        ov, t = ov or {}, self.m["teams"][abbr]
+        return [(q["id"], q["p_play"]) for q in t["qbs"] + t["skill"]
+                if q.get("active") and q.get("p_play") is not None and q["id"] not in ov]
+
+    def extra_pids(self, abbr, ov=None):
+        """Backups who can enter when an uncertain QB sits."""
+        t, ids = self.m["teams"][abbr], set(p for p, _ in self.uncertain(abbr, ov))
+        qb = [q for q in t["qbs"] if q.get("active")]
+        if qb and qb[0]["id"] in ids:
+            return [q["id"] for q in t["qbs"] if not q.get("active")][:1]
+        return []
+
+    def team_draw(self, abbr, ov, rng):
+        """Team config for one simulated game: each Questionable player plays with his p_play."""
+        ov = ov or {}
+        sit = tuple(sorted(pid for pid, p in self.uncertain(abbr, ov) if rng.random() >= p))
+        key = (abbr, sit, tuple(sorted(ov.items())))
+        tc = self.tc_cache.get(key)
+        if tc is None:
+            tc = self.tc_cache[key] = TeamCfg(self.m, abbr, dict(ov, **{p: False for p in sit}))
+        return tc
 
     def game(self, home, away, seed=None, neutral=False, log=False, env=None):
         return Game(self, home, away, random.Random(seed), neutral, log, env).run()
@@ -121,7 +146,7 @@ class TeamCfg:
         la = m["league_actual"]
         self.abbr, self.r = abbr, t["rates"]
         on = lambda q: ov.get(q["id"], q["active"])
-        qbs = [q for q in t["qbs"] if on(q)] or t["qbs"][:1]
+        qbs = [q for q in t["qbs"] if on(q)] or [q for q in t["qbs"] if ov.get(q["id"]) is not False][:1] or t["qbs"][:1]
         self.qb = qbs[0] if qbs else {"id": "QB_" + abbr, "name": "QB." + abbr, "cpoe": 0, "int": la["int_rate"],
                                        "scr": la["scramble_rate"], "pos": "QB"}
         sk = [q for q in t["skill"] if on(q)]

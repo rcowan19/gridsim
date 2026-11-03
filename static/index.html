@@ -496,14 +496,14 @@ function renderLineups() {
       const on = p.id in st.ov ? st.ov[p.id] : p.active;
       const r = el('div', 'pl' + (on ? '' : ' off'));
       const share = p.grp === 'QB' ? '' : [p.tgt >= .01 ? `${Math.round(p.tgt * 100)}%t` : '', p.car >= .02 ? `${Math.round(p.car * 100)}%c` : ''].filter(Boolean).join(' ');
-      r.innerHTML = `<span class="ps">${p.pos}</span><span class="nm">${p.name}${badge(p.status)}</span><span class="sh">${share}</span><span class="sw"><input type="checkbox" ${on ? 'checked' : ''}><i></i></span>`;
+      r.innerHTML = `<span class="ps">${p.pos}</span><span class="nm">${p.name}${badge(p.status, p.p_play)}</span><span class="sh">${share}</span><span class="sw"><input type="checkbox" ${on ? 'checked' : ''}><i></i></span>`;
       r.querySelector('input').onchange = e => { if (e.target.checked === p.active) delete st.ov[p.id]; else st.ov[p.id] = e.target.checked; r.classList.toggle('off', !e.target.checked); };
       d.appendChild(r);
     });
     box.appendChild(d);
   }
 }
-const badge = s => s ? ` <em class="inj ${s[0]}">${s === 'Questionable' ? 'Q' : s === 'Doubtful' ? 'D' : 'OUT'}</em>` : '';
+const badge = (s, p) => s ? ` <em class="inj ${s[0]}" title="${s}${p != null ? ': plays in ' + Math.round(p * 100) + '% of simulations (based on practice status)' : ''}">${s === 'Questionable' ? 'Q' + (p != null ? ' ' + Math.round(p * 100) + '%' : '') : s === 'Doubtful' ? 'D' : 'OUT'}</em>` : '';
 st.cond = {mode: 'auto', roof: 'outdoors', wind: 0, temp: 60}; st.useWx = true;
 function body() { return {home: st.home, away: st.away, n: st.n, neutral: st.neutral, overrides: st.ov, cond_mode: st.cond.mode, roof: st.cond.roof, wind: +st.cond.wind, temp: +st.cond.temp}; }
 async function post(url, b) {
@@ -708,7 +708,7 @@ function fantasyTable(host, id, rows, o = {}) {
   const mx = Math.max(...rows.map(r => P(r, 'hi') || 0), 1);
   const cols = [
     ...(o.rank ? [{k: 'rk', t: '#', v: r => r._rk, h: r => r._rk, w: '36px', first: 1}] : []),
-    {k: 'name', t: 'Player', v: r => r.name, first: 1, h: r => `<span class="pdot" style="background:${POSCOL[r.pos] || C.muted}"></span><span class="nm lnk">${r.name}</span>${badge(r.status)}<span class="p">${r.pos} · ${r.team}</span>`},
+    {k: 'name', t: 'Player', v: r => r.name, first: 1, h: r => `<span class="pdot" style="background:${POSCOL[r.pos] || C.muted}"></span><span class="nm lnk">${r.name}</span>${badge(r.status, r.p_play)}<span class="p">${r.pos} · ${r.team}</span>`},
     ...(o.slot ? [{k: 'slot', t: 'ESPN slot', v: r => r._slot, first: 1, h: r => `<span class="pill">${r._slot}</span>`}] : []),
     {k: 'pos', t: 'Pos', v: r => posOrder[r.pos], first: 1, h: r => `<span class="posb" style="color:${POSCOL[r.pos]}">${r.pos}${r._pr ? r._pr : ''}</span>`},
     ...(o.opp ? [{k: 'opp', t: 'Opp', v: r => r.opp, first: 1, h: r => `<span class="sub2">${r.home ? 'vs' : '@'}</span> ${r.opp}`}] : []),
@@ -774,7 +774,7 @@ function showPlayer(r) {
   const stat = r.stat_samples ? Object.keys(r.stat_samples) : [];
   const mainStat = r.pos === 'QB' ? 'pyd' : r.pos === 'RB' ? 'ryd' : r.pos === 'K' ? 'fgm' : r.stat_samples && r.stat_samples.recyd ? 'recyd' : stat[0];
   dp.innerHTML = `<button class="dx" id="dclose">✕</button>
-    <div class="dh"><div><div class="dnm">${r.name}${badge(r.status)}</div><div class="dsub"><span class="posb" style="color:${POSCOL[r.pos]}">${r.pos}</span> · <span style="color:${col}">${r.team}</span> ${r.opp ? (r.home ? 'vs' : '@') + ' ' + r.opp : ''}${r.game_total ? ` · game total ${fmt(r.game_total)} · team ${fmt(r.team_total)}` : ''}</div></div>
+    <div class="dh"><div><div class="dnm">${r.name}${badge(r.status, r.p_play)}</div><div class="dsub"><span class="posb" style="color:${POSCOL[r.pos]}">${r.pos}</span> · <span style="color:${col}">${r.team}</span> ${r.opp ? (r.home ? 'vs' : '@') + ' ' + r.opp : ''}${r.game_total ? ` · game total ${fmt(r.game_total)} · team ${fmt(r.team_total)}` : ''}</div></div>
       <div class="dbig"><b>${fmt(pj)}</b><span>${FMTN[st.fmt]} proj</span></div></div>
     <div class="seg fseg" id="dfmt" style="margin:10px 0">${Object.keys(FMTN).map(k => `<button data-f="${k}" class="${st.fmt === k ? 'on' : ''}">${FMTN[k]}</button>`).join('')}</div>
     <div class="kpis">
@@ -1125,7 +1125,7 @@ function renderLeague() {
   fa.forEach(r => { const ids = [...me.ids, r.id], os = autoSet(ids), oi = Object.values(os); r._gain = sumP(oi) - base;
     const bench = ids.filter(i => !oi.includes(i)).map(i => pool[i]).filter(Boolean).sort((a, b) => a.proj - b.proj); r._drop = r._gain > 0.05 ? (bench[0] ? bench[0].name : '') : ''; });
   const wcols = [
-    {k: 'name', t: 'Player', v: r => r.name, first: 1, h: r => `<span class="pdot" style="background:${POSCOL[r.pos]}"></span><span class="nm">${r.name}</span>${badge(r.status)}<span class="p">${r.pos} · ${r.team} ${r.home ? 'vs' : '@'} ${r.opp}</span>`},
+    {k: 'name', t: 'Player', v: r => r.name, first: 1, h: r => `<span class="pdot" style="background:${POSCOL[r.pos]}"></span><span class="nm">${r.name}</span>${badge(r.status, r.p_play)}<span class="p">${r.pos} · ${r.team} ${r.home ? 'vs' : '@'} ${r.opp}</span>`},
     {k: 'proj', t: 'Proj', v: r => P(r, 'proj'), cls: 'main', h: r => fmt(P(r, 'proj'))}, {k: 'hi', t: 'Ceiling', v: r => P(r, 'hi'), h: r => fmt(P(r, 'hi'))},
     {k: 'boom', t: 'Boom%', v: r => r.boom, h: r => pct(r.boom)}, {k: 'gain', t: 'Adds to my lineup', v: r => r._gain, h: r => `<span class="${r._gain > 0.05 ? 'pos' : ''}">${r._gain > 0.05 ? '+' + fmt(r._gain) : '–'}</span>`},
     {k: 'drop', t: 'Drop', v: r => r._drop, first: 1, h: r => r._drop || ''}, {k: 'avg', t: 'Season avg', v: r => avgF(r), h: r => fmt(avgF(r))}];
@@ -1209,7 +1209,7 @@ function renderNflWeek() {
   gs.forEach(g => {
     if (st.nfl.sort === 'time' && g.day !== lastDay) { lastDay = g.day; wrap.appendChild(el('div', 'gday', new Date(g.day + 'T12:00:00').toLocaleDateString(undefined, {weekday: 'long', month: 'short', day: 'numeric'}))); }
     const rows = S.rows.filter(r => r.game === g.id && ['QB', 'RB', 'WR', 'TE'].includes(r.pos));
-    const top = t => rows.filter(r => r.team === t).sort((a, b) => b.proj - a.proj).slice(0, 3).map(r => `<div class="tp" data-id="${r.id}"><span class="posb" style="color:${POSCOL[r.pos]}">${r.pos}</span> ${r.name}${badge(r.status)}<b>${fmt(P(r, 'proj'))}</b></div>`).join('');
+    const top = t => rows.filter(r => r.team === t).sort((a, b) => b.proj - a.proj).slice(0, 3).map(r => `<div class="tp" data-id="${r.id}"><span class="posb" style="color:${POSCOL[r.pos]}">${r.pos}</span> ${r.name}${badge(r.status, r.p_play)}<b>${fmt(P(r, 'proj'))}</b></div>`).join('');
     const [ac, hc] = pairCols(g.away, g.home), wH = g.sim_home_win;
     const es = g.spread == null ? null : g.sim_margin - g.spread, et = g.total == null ? null : g.sim_total - g.total;
     const pillE = (e, a, b) => e == null || Math.abs(e) < 1.5 ? '' : `<span class="pill hot">lean ${e > 0 ? a : b}</span>`;
@@ -1311,7 +1311,7 @@ function wiTargetsDraw(ctx) {
   const T = st.wi.targets, out = $('#wiTargetsOut'); if (!out) return;
   const c = card(`<h3>Best additions <span class="sub2">how much each player would raise your best lineup this week</span></h3><div id="wiTT"></div>`); out.appendChild(c);
   if (!T.length) { c.querySelector('#wiTT').innerHTML = '<div class="note">No single player would improve your best lineup this week.</div>'; return; }
-  const cols = [{k: 'n', t: 'Player', v: r => r.p.name, first: 1, h: r => `<span class="pdot" style="background:${POSCOL[r.p.pos]}"></span><span class="nm">${r.p.name}</span>${badge(r.p.status)}<span class="p">${r.p.pos} · ${r.p.team} ${r.p.home ? 'vs' : '@'} ${r.p.opp}</span>`},
+  const cols = [{k: 'n', t: 'Player', v: r => r.p.name, first: 1, h: r => `<span class="pdot" style="background:${POSCOL[r.p.pos]}"></span><span class="nm">${r.p.name}</span>${badge(r.p.status, r.p.p_play)}<span class="p">${r.p.pos} · ${r.p.team} ${r.p.home ? 'vs' : '@'} ${r.p.opp}</span>`},
     ...(ctx.owners ? [{k: 'o', t: 'On', v: r => r.owner, first: 1, h: r => r.owner}] : []),
     {k: 'pj', t: 'Proj', v: r => P(r.p, 'proj'), cls: 'main', h: r => fmt(P(r.p, 'proj'))}, {k: 'bm', t: 'Boom%', v: r => r.p.boom, h: r => pct(r.p.boom)},
     {k: 'g', t: 'Adds to my lineup', v: r => r.gain, h: r => `<span class="pos">+${fmt(r.gain)}</span>`}, {k: 'a', t: '', v: null, h: r => `<button class="btn ghost sm" data-addt="${r.p.id}">Add</button>`}];

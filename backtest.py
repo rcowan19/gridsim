@@ -24,11 +24,13 @@ def _game(args):
     home, away, n, seed = args[:4]
     env = env_factors(**args[4]) if len(args) > 4 and args[4] else None
     H, A = E.team(home), E.team(away)
-    pids = sorted(set(H.pids) | set(A.pids)); ix = {p: i for i, p in enumerate(pids)}
+    pids = sorted(set(H.pids) | set(A.pids) | set(E.extra_pids(home)) | set(E.extra_pids(away))); ix = {p: i for i, p in enumerate(pids)}
     from engine import PSTATS
     ps = np.zeros((n, len(pids), len(PSTATS)), dtype=np.float32); sc = np.zeros((n, 2))
+    import random as _r
+    av = _r.Random(seed * 7 + 11)
     for g in range(n):
-        r = E.game(H, A, seed=seed * 7919 + g, env=env)
+        r = E.game(E.team_draw(home, {}, av), E.team_draw(away, {}, av), seed=seed * 7919 + g, env=env)
         sc[g] = r["score"]
         for pid, v in r["ps"].items():
             if pid in ix: ps[g, ix[pid]] = v

@@ -479,7 +479,7 @@ def main(cutoff=None, write=True, quiet=False, usage_decay=None, w_prev_use=None
         p["_fg_over"] = float(((g.field_goal_result == "made") * 1.0 - exp_fg).mul(g.w).sum())
 
     # injury report: statuses for the target week (backtest: that week's pre-game report; live: next week if published, else latest)
-    inj_status, inj_note = {}, "none"
+    inj_status, inj_prac, inj_note = {}, {}, "none"
     try:
         inj = pd.read_parquet("data/injuries_2026.parquet")
         inj = inj[inj.report_status.isin(["Out", "Doubtful", "Questionable"])]
@@ -487,11 +487,32 @@ def main(cutoff=None, write=True, quiet=False, usage_decay=None, w_prev_use=None
         wk_av = inj.week.max() if len(inj) else 0
         use = want if want in set(inj.week) else (None if cutoff is not None else wk_av)
         if use is not None:
-            inj_status = dict(zip(inj[inj.week == use].gsis_id, inj[inj.week == use].report_status))
+            iw = inj[inj.week == use]
+            inj_status = dict(zip(iw.gsis_id, iw.report_status))
+            inj_prac = dict(zip(iw.gsis_id, iw.practice_status.fillna("")))
             inj_note = f"week {int(use)}" + ("" if use == want else " (stale: next week not published yet)")
     except FileNotFoundError:
         pass
     M["meta"]["injuries"] = inj_note
+    # depth chart snapshot taken before the target week's first kickoff (backtest-safe); live: latest snapshot
+    depth, dnote = {}, "none"
+    try:
+        dc = pd.read_parquet("data/depth_charts_2026.parquet", columns=["dt", "team", "gsis_id", "pos_abb", "pos_rank"])
+        dc["dt"] = pd.to_datetime(dc.dt, utc=True)
+        lim = None
+        if cutoff is not None:
+            gm = pd.read_csv("data/games.csv"); gm = gm[(gm.season == 2026) & (gm.week == cutoff)]
+            if len(gm): lim = pd.Timestamp(gm.gameday.min()).tz_localize("UTC")
+        snaps = dc.dt if lim is None else dc.dt[dc.dt < lim]
+        if len(snaps):
+            s = dc[(dc.dt == snaps.max()) & dc.pos_abb.isin(["QB", "RB", "WR", "TE", "FB"]) & dc.gsis_id.notna()]
+            for r in s.itertuples():
+                depth.setdefault(r.team, {})[r.gsis_id] = (r.pos_abb, int(r.pos_rank))
+            dnote = str(snaps.max().date())
+    except (FileNotFoundError, KeyError):
+        pass
+    M["meta"]["depth_chart"] = dnote
+    PLAY_P = {"Did Not Participate In Practice": 0.46, "Limited Participation in Practice": 0.67, "Full Participation in Practice": 0.91}
     live = cutoff is None
     pg = player_games(d[d.cur == 1])
     ppr_avg = pg.groupby("pid").ppr.mean().to_dict()
@@ -525,6 +546,8 @@ def main(cutoff=None, write=True, quiet=False, usage_decay=None, w_prev_use=None
         q = {"id": pid, "name": p["name"], "pos": p["pos"]}
         if pid in inj_status:
             q["status"] = inj_status[pid]
+            if q["status"] == "Questionable":
+                q["p_play"] = PLAY_P.get(inj_prac.get(pid, ""), 0.67)
         if live and rstatus.get(pid) in ("RES", "CUT"):
             q["status"] = "Out"
         if pid in ppr_avg:
@@ -586,16 +609,29 @@ def main(cutoff=None, write=True, quiet=False, usage_decay=None, w_prev_use=None
         out[t]["mix"], out[t]["mix_rz"] = mix, mixz
     for t in teams:
         o = out[t]
-        o["qbs"].sort(key=lambda x: (-x["recent"], -x["db"]))
+        dch_ = depth.get(t, {})
+        o["qbs"].sort(key=lambda x: (0 if dch_.get(x["id"], ("", 99))[0] == "QB" and dch_[x["id"]][1] == 1 else 1, -x["recent"], -x["db"]))
         o["skill"].sort(key=lambda x: -(x["tgt"] + x["car"]))
         o["skill"] = o["skill"][:18]
         o["qbs"] = o["qbs"][:3]
         ok_ = lambda q: q.get("status") not in ("Out", "Doubtful")
-        first = next((q for q in o["qbs"] if ok_(q) and q["recent"] > 0), o["qbs"][0] if o["qbs"] else None)
+        dch = depth.get(t, {})
+        grp_n = {}
+        for pa_, _r in dch.values():
+            g_ = "RB" if pa_ in ("RB", "FB") else pa_
+            grp_n[g_] = grp_n.get(g_, 0) + 1
+        # only trust "missing from the chart" when that position group is actually listed in this snapshot
+        on_chart = lambda q: q["id"] in dch or grp_n.get(q.get("bpos", "WR"), 0) < 2
+        dq = sorted([q for q in o["qbs"] if ok_(q) and q["id"] in dch and dch[q["id"]][0] == "QB"], key=lambda q: dch[q["id"]][1])
+        first = dq[0] if dq else next((q for q in o["qbs"] if ok_(q) and q["recent"] > 0), o["qbs"][0] if o["qbs"] else None)
         for q in o["qbs"]:
             q["active"] = q is first
+            if q.get("p_play") is not None and q is not first:
+                q.pop("p_play")
         for q in o["skill"]:
-            q["active"] = bool(q["recent"] > 0 and ok_(q))
+            q["active"] = bool(q["recent"] > 0 and ok_(q) and on_chart(q))
+            if not q["active"]:
+                q.pop("p_play", None)
         if o["k"] is None:
             o["k"] = {"id": f"K_{t}", "name": "K." + t, "pos": "K", "fg_over": 0.0, "fga": 0, "cur": True}
         # punter name
