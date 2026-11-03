@@ -464,7 +464,7 @@ function ensureSlate(mode, after) { if (st.slate) { if (after) after(); return P
 function rerender() { if (st.slate) { renderNflWeek(); renderSlate(); } if (st.page === 'team') renderLeague(); if (st.last) renderProj(st.last); }
 function syncFmtUI() { document.querySelectorAll('#g_fmt button').forEach(b => b.classList.toggle('on', b.dataset.f === st.fmt)); }
 function setFmt(f) { st.fmt = f; if (st.lab.trials) st.lab.trials.cache = {}; syncFmtUI(); rerender(); }
-function reloadSlate() { st.tr.res = null; st.slate = null; st.wi.ros = null; st.wi.targets = null; if (st.lab.trials) st.lab.trials = null; const m = {games: 'games', players: 'players', team: 'team', lab: null}[st.page]; if (m) loadSlate(m); }
+function reloadSlate() { st.ss.res = null; st.tr.res = null; st.slate = null; st.wi.ros = null; st.wi.targets = null; if (st.lab.trials) st.lab.trials = null; const m = {games: 'games', players: 'players', team: 'team', lab: null}[st.page]; if (m) loadSlate(m); }
 
 /* ---------- lineups sidebar ---------- */
 function renderLineups() {
@@ -1120,7 +1120,7 @@ function renderLeague() {
   if (un.length) rc.insertAdjacentHTML('beforeend', `<div class="note">No projection this week for: ${un.map(m => `${m.e.name} (${m.e.team} ${m.e.pos}${m.e.slot !== 'BN' ? ', ' + m.e.slot : ''})`).join(', ')} on a bye, not on the schedule, or the name didn't match.</div>`);
   const owners = {}; D.teams.forEach(t => { if (t.id !== L.my) tms[t.id].ids.forEach(i => { owners[i] = t.name; }); });
   renderWhatIf({base: me.ids, entries: me.matched, opp: Object.values(opp.starters).filter(Boolean), owners, label: `${me.t.name} vs ${opp.t.name}`});
-  st.tr.res = st.tr.res && st.tr.res.stale ? null : st.tr.res; renderTrades({D, L, tms});
+  st.tr.res = st.tr.res && st.tr.res.stale ? null : st.tr.res; renderTrades({D, L, tms}); renderSeason({D, L, tms});
   renderLab(); setSub('team', st.sub.team);
 }
 
@@ -1422,6 +1422,51 @@ function renderTrades(c) {
   [['fTeam', 'team'], ['fGive', 'give'], ['fGet', 'get'], ['fShape', 'shape']].forEach(([id, k]) => $('#' + id).onchange = e => { T[k] = e.target.value; draw(); });
   $('#fMin').onchange = e => { T.minGain = +e.target.value; draw(); }; $('#fFair').onchange = e => { T.fair = e.target.checked; draw(); };
   draw();
+}
+
+/* ================= season outlook: playoff odds, power rankings, strength of schedule ================= */
+st.ss = {res: null, busy: null};
+function gauss(rng) { let u = 0, v = 0; while (!u) u = rng(); v = rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+async function runSeason(c) {
+  const S = st.ss, D = c.D, set = D.settings || {}; S.busy = 'Loading projections…'; S.res = null; renderSeason(c);
+  const R = await ensureRos(r => { S.busy = `Simulating week ${st.slate.week + r.done - 1} of ${r.weeks[r.weeks.length - 1]}…`; const el = $('#ssBusy'); if (el) el.textContent = S.busy; });
+  if (R.error) { S.busy = null; S.res = {err: R.error}; renderSeason(c); return; }
+  S.busy = 'Running 5,000 seasons…'; renderSeason(c); await new Promise(r => setTimeout(r, 30));
+  const w0 = st.slate.week, last = set.regular_weeks || 14, n = D.teams.length, ids = D.teams.map(t => t.id), ix = Object.fromEntries(ids.map((id, i) => [id, i]));
+  const pt = Math.min(set.playoff_teams || Math.min(6, Math.floor(n / 2)), n), bye = pt >= 6 ? 2 : 0;
+  const weeks = R.weeks.filter(w => w >= w0 && w <= last), mu = {}, sd = {};
+  weeks.forEach(w => { const pw = R.pools[w], ig = w !== w0; mu[w] = []; sd[w] = [];
+    D.teams.forEach(t => { const lu = Object.values(autoSet(c.tms[t.id].ids, pw, ig)).filter(i => pw[i]).map(i => pw[i]);
+      mu[w].push(lu.reduce((a, p) => a + P(p, 'proj'), 0)); sd[w].push(1.15 * Math.sqrt(lu.reduce((a, p) => a + (((p.p90 - p.p10) / 2.56) || 5) ** 2, 0)) || 20); }); });
+  const games = D.schedule.filter(m => m.week >= w0 && m.week <= last && ix[m.home] != null && ix[m.away] != null);
+  const rec = ids.map(id => { const r = D.teams.find(t => t.id === id).record || {}; return {w: (r.wins || 0) + (r.ties || 0) / 2, pf: r.pointsFor || 0}; });
+  const N = 5000, rng = mulberry(12345), po = new Array(n).fill(0), by = new Array(n).fill(0), ew = new Array(n).fill(0), rk = ids.map(() => new Array(n).fill(0));
+  for (let s = 0; s < N; s++) {
+    const w = rec.map(r => r.w), pf = rec.map(r => r.pf);
+    for (const g of games) { const h = ix[g.home], a = ix[g.away], sh = mu[g.week] ? mu[g.week][h] + sd[g.week][h] * gauss(rng) : 0, sa = mu[g.week] ? mu[g.week][a] + sd[g.week][a] * gauss(rng) : 0;
+      pf[h] += sh; pf[a] += sa; if (sh > sa) w[h]++; else if (sa > sh) w[a]++; else { w[h] += .5; w[a] += .5; } }
+    const ord = ids.map((_, i) => i).sort((x, y) => w[y] - w[x] || pf[y] - pf[x]);
+    ord.forEach((t, r) => { rk[t][r]++; if (r < pt) po[t]++; if (r < bye) by[t]++; ew[t] += w[t]; });
+  }
+  const avgMu = weeks.length ? weeks.reduce((a, w) => a + mu[w].reduce((x, y) => x + y, 0) / n, 0) / weeks.length : 0;
+  S.res = {rows: D.teams.map((t, i) => { const opp = games.filter(g => g.home === t.id || g.away === t.id).map(g => ({w: g.week, o: ix[g.home === t.id ? g.away : g.home]}));
+    return {t, ew: ew[i] / N, po: po[i] / N, by: by[i] / N, rec: rec[i].w, power: weeks.length ? weeks.reduce((a, w) => a + mu[w][i], 0) / weeks.length : 0,
+      sos: opp.length ? opp.reduce((a, x) => a + (mu[x.w] ? mu[x.w][x.o] : avgMu), 0) / opp.length - avgMu : 0, left: opp.length}; }), pt, weeks, N};
+  S.busy = null; renderSeason(c);
+}
+function renderSeason(c) {
+  let host = $('#ssHost'); if (!host) { host = document.createElement('div'); host.id = 'ssHost'; $('#tm-league').prepend(host); } const S = st.ss;
+  host.innerHTML = ''; const cd = card(`<h3>Season outlook <span class="sub2">playoff odds, rest-of-season power rankings and schedule strength</span></h3>
+    <div class="trf"><button class="btn" style="width:auto" id="ssRun" ${S.busy ? 'disabled' : ''}>${S.res ? 'Run again' : 'Simulate the season'}</button><span class="sub2" id="ssBusy">${S.busy || ''}</span></div><div id="ssTbl"></div>`); host.appendChild(cd);
+  $('#ssRun').onclick = () => runSeason(c);
+  if (!S.res) return; if (S.res.err) { $('#ssTbl').innerHTML = `<div class="note err">${S.res.err}</div>`; return; }
+  const me = c.L.my, rows = S.res.rows, hasGames = rows.some(r => r.left);
+  const cols = [{k: 'n', t: 'Team', v: r => r.t.name, first: 1, h: r => `<span class="nm" ${r.t.id === me ? 'style="font-weight:700"' : ''}>${r.t.name}</span>`},
+    {k: 'rec', t: 'Wins now', v: r => r.rec, h: r => fmt(r.rec, r.rec % 1 ? 1 : 0)}, {k: 'ew', t: 'Proj. wins', v: r => r.ew, h: r => fmt(r.ew)},
+    {k: 'po', t: 'Playoffs', v: r => r.po, cls: 'main', h: r => pct(r.po, 0)}, ...(S.res.rows.some(r => r.by) ? [{k: 'by', t: 'Bye', v: r => r.by, h: r => pct(r.by, 0)}] : []),
+    {k: 'pw', t: 'Power (pts/wk)', v: r => r.power, h: r => fmt(r.power)}, {k: 'sos', t: 'Schedule left', v: r => r.sos, h: r => `<span class="${r.sos > 1 ? 'neg' : r.sos < -1 ? 'pos' : ''}">${r.left ? sgn(r.sos) : '–'}</span>`}];
+  renderTable($('#ssTbl'), 'ssn', cols, rows, {sort: 'po', limit: 20, step: 20});
+  $('#ssTbl').insertAdjacentHTML('beforeend', `<div class="note">${S.res.N.toLocaleString()} simulated seasons; top ${S.res.pt} make the playoffs. Weekly scores use each team's best projected lineup (bye weeks included) with realistic week-to-week spread. “Schedule left” is the average points per week your remaining opponents project above the league average, so positive means harder. ${hasGames ? '' : 'The league schedule has no remaining games to simulate.'} Current injuries are assumed to persist, and other managers are assumed to set their best lineups.</div>`);
 }
 
 /* ---------- game viewer ---------- */
