@@ -75,6 +75,19 @@ def simulate(home, away, n=2000, seed=1, overrides=None, neutral=False, pool=Non
             "sc": np.concatenate([p[3] for p in parts]), "ot": np.concatenate([p[4] for p in parts])}
 
 
+def apply_blend(res, spread, total, beta=None, seed=0):
+    """Reweight simulated games toward the betting line (see vegas.py). Returns (res, info)."""
+    import vegas
+    b = vegas.BETA if beta is None else beta
+    raw = res["sc"].mean(0)
+    idx, info = vegas.blend_index(res["sc"], spread, total, beta=b, seed=seed)
+    if info is None:
+        return res, None
+    out = dict(res, ps=res["ps"][idx], ts=res["ts"][idx], sc=res["sc"][idx], ot=res["ot"][idx])
+    info.update(beta=b, sim_home=round(float(raw[0]), 1), sim_away=round(float(raw[1]), 1))
+    return out, info
+
+
 def _q(a):
     a = np.asarray(a, float)
     return {"mean": round(float(a.mean()), 2), "p10": round(float(np.percentile(a, 10)), 1),
@@ -246,13 +259,14 @@ def simulate_slate(week, n=500, pool=None, hist=None, ns=300, weather=None):
     c = calib.load()
     for g, p in zip(games, parts):
         res = {"pids": p[0], "ps": p[1], "ts": p[2], "sc": p[3], "ot": p[4]}
+        res, binfo = apply_blend(res, g.get("spread"), g.get("total"), seed=g["week"])
         gr, _ = game_rows(res, g["home"], g["away"], ov, hist, ns=ns, with_stats=False, c=c)
         sc = res["sc"].astype(int)
         m = {"id": g["id"], "home": g["home"], "away": g["away"], "day": g["day"], "time": g["time"], "neutral": g["neutral"],
              "sim_home_win": round(float((sc[:, 0] > sc[:, 1]).mean()), 3), "sim_margin": round(float((sc[:, 0] - sc[:, 1]).mean()), 1),
              "sim_total": round(float(sc.sum(1).mean()), 1), "sim_home": round(float(sc[:, 0].mean()), 1), "sim_away": round(float(sc[:, 1].mean()), 1),
              "spread": g["spread"], "total": g["total"], "played": g["played"], "roof": g.get("roof"), "cond": conds[len(meta)],
-             "ot": round(float(res["ot"].mean()), 3), "away_sc": _q(sc[:, 1]), "home_sc": _q(sc[:, 0]),
+             "ot": round(float(res["ot"].mean()), 3), "blend": binfo, "away_sc": _q(sc[:, 1]), "home_sc": _q(sc[:, 0]),
              "hist_margin": _hist(sc[:, 0] - sc[:, 1], -40, 40, 4), "hist_total": _hist(sc.sum(1), 10, 90, 4),
              "p_home_by7": round(float(((sc[:, 0] - sc[:, 1]) >= 7).mean()), 3), "p_away_by7": round(float(((sc[:, 1] - sc[:, 0]) >= 7).mean()), 3)}
         for r in gr:

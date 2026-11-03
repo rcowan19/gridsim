@@ -503,6 +503,7 @@ function renderLineups() {
     box.appendChild(d);
   }
 }
+const rawM = g => g.blend ? g.blend.sim_home - g.blend.sim_away : g.sim_margin, rawT = g => g.blend ? g.blend.sim_home + g.blend.sim_away : g.sim_total;
 const badge = (s, p) => s ? ` <em class="inj ${s[0]}" title="${s}${p != null ? ': plays in ' + Math.round(p * 100) + '% of simulations (based on practice status)' : ''}">${s === 'Questionable' ? 'Q' + (p != null ? ' ' + Math.round(p * 100) + '%' : '') : s === 'Doubtful' ? 'D' : 'OUT'}</em>` : '';
 st.cond = {mode: 'auto', roof: 'outdoors', wind: 0, temp: 60}; st.useWx = true;
 function body() { return {home: st.home, away: st.away, n: st.n, neutral: st.neutral, overrides: st.ov, cond_mode: st.cond.mode, roof: st.cond.roof, wind: +st.cond.wind, temp: +st.cond.temp}; }
@@ -609,6 +610,7 @@ function renderProj(d) {
   const H = d.home, A = d.away, w = d.win, [ac, hc] = pairCols(A, H);
   const fav = d.margin.median > 0 ? H : d.margin.median < 0 ? A : null;
   const spread = fav ? `${fav} −${Math.abs(d.margin.median)}` : 'Pick’em';
+  if (d.blend_note) OV.appendChild(el('div', 'note', d.blend ? `Blended ${Math.round(d.blend.beta * 100)}% toward the betting line. Sim alone: ${A} ${fmt(d.blend.sim_away)} · ${H} ${fmt(d.blend.sim_home)}.` : d.blend_note === 'off: lineup changed' ? 'Betting-line blend is off because you changed a lineup; this is the pure simulation.' : ''));
   OV.appendChild(card(`<div class="sbhead">
     <div class="tm"><div class="ab" style="color:${ac}">${A} · AWAY</div><div class="nm">${st.TEAMS[A].name}</div><div class="win">${fmt(w.away * 100)}%</div><div class="avg">${fmt(d.score.away.mean)} avg pts</div></div>
     <div class="mid"><div class="line">win probability</div>
@@ -1183,10 +1185,10 @@ function gamesTable(host, games) {
     {k: 'day', t: 'Kickoff', v: x => x.day + x.time, first: 1, h: x => `<span class="sub2">${x.day.slice(5)} ${x.time}</span>`},
     {k: 'ms', t: 'Mkt spread', v: x => x.spread, h: x => x.spread == null ? '–' : `${x.home} ${x.spread > 0 ? '−' + x.spread : '+' + Math.abs(x.spread)}`},
     {k: 'ss', t: 'Sim spread', v: x => x.sim_margin, h: x => `${x.home} ${x.sim_margin > 0 ? '−' + fmt(x.sim_margin) : '+' + fmt(Math.abs(x.sim_margin))}`},
-    {k: 'edge', t: 'Spread edge', v: x => x.spread == null ? null : Math.abs(x.sim_margin - x.spread), h: x => { if (x.spread == null) return '–'; const e = x.sim_margin - x.spread; return `<span class="${Math.abs(e) >= 3 ? 'hotc' : ''}">${Math.abs(e) < 1.5 ? '–' : (e > 0 ? x.home : x.away) + ' ' + fmt(Math.abs(e))}</span>`; }},
+    {k: 'edge', t: 'Spread edge', v: x => x.spread == null ? null : Math.abs(rawM(x) - x.spread), h: x => { if (x.spread == null) return '–'; const e = rawM(x) - x.spread; return `<span class="${Math.abs(e) >= 3 ? 'hotc' : ''}">${Math.abs(e) < 1.5 ? '–' : (e > 0 ? x.home : x.away) + ' ' + fmt(Math.abs(e))}</span>`; }},
     {k: 'mt', t: 'Mkt total', v: x => x.total, h: x => fmt(x.total)},
     {k: 'st', t: 'Sim total', v: x => x.sim_total, cls: 'main', h: x => fmt(x.sim_total)},
-    {k: 'te', t: 'Total edge', v: x => x.total == null ? null : x.sim_total - x.total, h: x => x.total == null ? '–' : `<span class="${Math.abs(x.sim_total - x.total) >= 3 ? 'hotc' : ''}">${sgn(x.sim_total - x.total)}</span>`},
+    {k: 'te', t: 'Total edge', v: x => x.total == null ? null : rawT(x) - x.total, h: x => x.total == null ? '–' : `<span class="${Math.abs(rawT(x) - x.total) >= 3 ? 'hotc' : ''}">${sgn(rawT(x) - x.total)}</span>`},
     {k: 'ih', t: 'Implied (sim)', v: x => x.sim_home, h: x => `${x.away} ${fmt(x.sim_away, 0)} · ${x.home} ${fmt(x.sim_home, 0)}`},
     {k: 'wp', t: 'Home win%', v: x => x.sim_home_win, h: x => pct(x.sim_home_win)},
     {k: 'cond', t: 'Conditions', v: x => x.cond && x.cond.wind, h: x => `<span class="sub2">${condText(x.cond, x.roof)}</span>`},
@@ -1197,7 +1199,7 @@ function gamesTable(host, games) {
 function renderNflWeek() {
   const host = $('#nflBody'); if (!host || !st.slate) return;
   const S = st.slate; let gs = S.games.filter(g => st.nfl.slot === 'All' || nflSlot(g) === st.nfl.slot);
-  const edge = g => g.spread == null ? 0 : Math.max(Math.abs(g.sim_margin - g.spread), Math.abs(g.total == null ? 0 : g.sim_total - g.total));
+  const edge = g => g.spread == null ? 0 : Math.max(Math.abs(rawM(g) - g.spread), Math.abs(g.total == null ? 0 : rawT(g) - g.total));
   const key = {time: g => g.day + g.time, total: g => -g.sim_total, close: g => Math.abs(g.sim_home_win - .5), edge: g => -edge(g)}[st.nfl.sort];
   gs = [...gs].sort((a, b) => key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0);
   if (st.nfl.view === 'table') {
@@ -1211,7 +1213,7 @@ function renderNflWeek() {
     const rows = S.rows.filter(r => r.game === g.id && ['QB', 'RB', 'WR', 'TE'].includes(r.pos));
     const top = t => rows.filter(r => r.team === t).sort((a, b) => b.proj - a.proj).slice(0, 3).map(r => `<div class="tp" data-id="${r.id}"><span class="posb" style="color:${POSCOL[r.pos]}">${r.pos}</span> ${r.name}${badge(r.status, r.p_play)}<b>${fmt(P(r, 'proj'))}</b></div>`).join('');
     const [ac, hc] = pairCols(g.away, g.home), wH = g.sim_home_win;
-    const es = g.spread == null ? null : g.sim_margin - g.spread, et = g.total == null ? null : g.sim_total - g.total;
+    const es = g.spread == null ? null : rawM(g) - g.spread, et = g.total == null ? null : rawT(g) - g.total;
     const pillE = (e, a, b) => e == null || Math.abs(e) < 1.5 ? '' : `<span class="pill hot">lean ${e > 0 ? a : b}</span>`;
     const windy = g.cond && g.cond.wind != null && g.cond.wind >= 10 && g.roof !== 'dome' && g.roof !== 'closed';
     const c = el('div', 'gcard',
@@ -1220,9 +1222,9 @@ function renderNflWeek() {
          <div class="gat">@</div>
          <div class="gt r"><div class="gab" style="color:${hc}">${g.home}</div><div class="gnm">${st.TEAMS[g.home].name}</div><div class="gsc">${fmt(g.sim_home)}</div><div class="gwp">${pct(wH)}</div></div></div>
        <div class="wbar"><div style="width:${(1 - wH) * 100}%;background:${ac}"></div><div style="width:${wH * 100}%;background:${hc}"></div></div>
-       <table class="st gl"><tr><td></td><th>Market</th><th>GridSim</th><th></th></tr>
-         <tr><td>Spread (${g.home})</td><td>${g.spread == null ? '–' : g.spread > 0 ? '−' + g.spread : '+' + Math.abs(g.spread)}</td><td>${g.sim_margin > 0 ? '−' + fmt(g.sim_margin) : '+' + fmt(Math.abs(g.sim_margin))}</td><td>${pillE(es, g.home, g.away)}</td></tr>
-         <tr><td>Total</td><td>${g.total == null ? '–' : fmt(g.total)}</td><td>${fmt(g.sim_total)}</td><td>${pillE(et, 'over', 'under')}</td></tr></table>
+       <table class="st gl"><tr><td></td><th>Market</th><th title="Play-by-play sim alone, before blending with the line">Sim alone</th><th title="What GridSim uses: the sim reweighted ${g.blend ? Math.round(g.blend.beta * 100) + '%' : ''} toward the line">Blended</th><th></th></tr>
+         <tr><td>Spread (${g.home})</td><td>${g.spread == null ? '–' : g.spread > 0 ? '−' + g.spread : '+' + Math.abs(g.spread)}</td><td>${rawM(g) > 0 ? '−' + fmt(rawM(g)) : '+' + fmt(Math.abs(rawM(g)))}</td><td>${g.sim_margin > 0 ? '−' + fmt(g.sim_margin) : '+' + fmt(Math.abs(g.sim_margin))}</td><td>${pillE(es, g.home, g.away)}</td></tr>
+         <tr><td>Total</td><td>${g.total == null ? '–' : fmt(g.total)}</td><td>${fmt(rawT(g))}</td><td>${fmt(g.sim_total)}</td><td>${pillE(et, 'over', 'under')}</td></tr></table>
        ${hist(g.hist_margin, {lo: -34, hi: 34, w: 320, hgt: 64, colors: x => x >= 0 ? hc : ac, split: 0, ticks: [-20, 0, 20]})}
        <div class="sub2" style="text-align:center;margin-top:-2px">margin distribution · ${fmt(g.p_away_by7 * 100, 0)}% ${g.away} by 7+ · ${fmt(g.p_home_by7 * 100, 0)}% ${g.home} by 7+ · ${fmt(g.ot * 100, 0)}% OT</div>
        <div class="gplayers"><div><div class="sub2" style="color:${ac}">${g.away} TOP FANTASY</div>${top(g.away)}</div><div><div class="sub2" style="color:${hc}">${g.home} TOP FANTASY</div>${top(g.home)}</div></div>

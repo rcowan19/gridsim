@@ -19,6 +19,7 @@ def _init(model):
 
 from engine import ppr_points as _ppr
 import calib
+import vegas
 
 def _game(args):
     home, away, n, seed = args[:4]
@@ -34,6 +35,9 @@ def _game(args):
         sc[g] = r["score"]
         for pid, v in r["ps"].items():
             if pid in ix: ps[g, ix[pid]] = v
+    if len(args) > 5 and args[5] is not None:
+        idx, _ = vegas.blend_index(sc, args[5][0], args[5][1], seed=seed)
+        ps, sc = ps[idx], sc[idx]
     pp = _ppr(ps)
     return {"home": home, "away": away, "sc": sc, "pids": pids, "ppr_mean": pp.mean(0), "ppr_p10": np.percentile(pp, 10, axis=0),
             "ppr_p90": np.percentile(pp, 90, axis=0), "stat_mean": ps.mean(0),
@@ -83,9 +87,11 @@ def prev_season_diff():
     return out
 
 def main():
-    ap = argparse.ArgumentParser(); ap.add_argument("-s", type=int, default=3); ap.add_argument("-n", type=int, default=400); ap.add_argument("--env", action="store_true", help="apply actual wind/roof of each game"); ap.add_argument("-d", type=float, default=None); ap.add_argument("-p", type=float, default=None)
+    ap = argparse.ArgumentParser(); ap.add_argument("-s", type=int, default=3); ap.add_argument("-n", type=int, default=400); ap.add_argument("--env", action="store_true", help="apply actual wind/roof of each game"); ap.add_argument("-d", type=float, default=None); ap.add_argument("-p", type=float, default=None); ap.add_argument("--novegas", action="store_true")
     a = ap.parse_args()
-    G = games_table(); AP = actual_player_games(); pdiff = prev_season_diff()
+    G = games_table()
+    gl = pd.read_csv("data/games.csv"); gl = gl[gl.season == 2026][["week", "home_team", "away_team", "spread_line", "total_line"]]
+    G = G.merge(gl, on=["week", "home_team", "away_team"], how="left"); AP = actual_player_games(); pdiff = prev_season_diff()
     last = int(G.week.max()); t0 = time.time()
     games, players = [], []
     for wk in range(a.s, last + 1):
@@ -93,7 +99,7 @@ def main():
         bm = baseline_margin(G, wk, pdiff)
         W = G[G.week == wk]
         with Pool(os.cpu_count() or 1, initializer=_init, initargs=(M,)) as pool:
-            res = pool.map(_game, [(r.home_team, r.away_team, a.n, int(r.week) * 100 + i, ({'roof': r.roof, 'wind': None if r.wind != r.wind else r.wind, 'temp': None} if a.env else None)) for i, r in enumerate(W.itertuples())])
+            res = pool.map(_game, [(r.home_team, r.away_team, a.n, int(r.week) * 100 + i, ({'roof': r.roof, 'wind': None if r.wind != r.wind else r.wind, 'temp': None} if a.env else None), (None if a.novegas else (r.spread_line, r.total_line))) for i, r in enumerate(W.itertuples())])
         base_ppr, base_n = {}, {}
         for tm in M["teams"].values():
             for q in tm["qbs"] + tm["skill"]:

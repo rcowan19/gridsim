@@ -53,6 +53,7 @@ class Req(BaseModel):
     roof: str | None = None          # manual: dome | outdoors
     wind: float | None = None        # manual mph
     temp: float | None = None        # manual F
+    vegas: bool = True               # blend toward the betting line (scheduled games, no lineup overrides)
 
 
 def check(r):
@@ -145,7 +146,15 @@ def simulate(r: Req):
     seed = r.seed if r.seed is not None else random.randrange(10**6)
     cond, src = resolve_conditions(r)
     res = sim.simulate(r.home, r.away, n, seed, r.overrides, r.neutral, pool=POOL, cond=cond)
+    binfo, note = None, "off"
+    g = sim.vegas_for(r.home, r.away)
+    if r.vegas and g and not r.overrides and not r.neutral:
+        res, binfo = sim.apply_blend(res, g.get("spread"), g.get("total"), seed=seed)
+        note = "on" if binfo else "no line"
+    elif r.vegas and r.overrides:
+        note = "off: lineup changed"
     out = sim.summarize(res, r.home, r.away, r.overrides, hist=MODEL.get("hist", {}))
+    out["blend"] = binfo; out["blend_note"] = note
     out["cond"] = {**(cond or {}), "src": src}
     return out
 
