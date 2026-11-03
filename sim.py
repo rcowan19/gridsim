@@ -105,10 +105,18 @@ BUST = {"QB": 12, "RB": 7, "WR": 7, "TE": 4, "FB": 7}
 SAMPLE_STATS = ["pa", "pc", "pyd", "ptd", "int", "ra", "ryd", "rtd", "tgt", "rec", "recyd", "rectd", "fgm", "fga"]
 
 
-def _dst_points(sacks, forced, allowed):
-    tier = np.select([allowed == 0, allowed <= 6, allowed <= 13, allowed <= 20, allowed <= 27, allowed <= 34],
-                     [10, 7, 4, 1, 0, -1], default=-4)
-    return sacks + 2 * forced + tier
+# ESPN default D/ST scoring
+def _dst_points(sacks, forced, allowed, tds=0, saf=0, yds=None):
+    pa = np.select([allowed == 0, allowed <= 6, allowed <= 13, allowed <= 17, allowed <= 27, allowed <= 34, allowed <= 45],
+                   [5, 4, 3, 1, 0, -1, -3], default=-5)
+    ya = 0 if yds is None else np.select([yds < 100, yds < 200, yds < 300, yds < 350, yds < 400, yds < 450, yds < 500, yds < 550],
+                                          [5, 3, 2, 0, -1, -3, -5, -6], default=-7)
+    return sacks + 2 * forced + 6 * tds + 2 * saf + pa + ya
+
+
+def _k_points(fgm, fga, xpm, xpa, fgb):
+    """ESPN default kicker scoring: FG 3/4/5 by distance, missed FG -1, XP 1, missed XP -1."""
+    return 3 * fgm + fgb - (fga - fgm) + xpm - (xpa - xpm)
 
 
 def game_rows(res, home, away, ov, hist=None, ns=400, with_stats=False, c=None):
@@ -131,7 +139,7 @@ def game_rows(res, home, away, ov, hist=None, ns=400, with_stats=False, c=None):
             if a.sum() == 0:
                 continue
             if pos == "K":
-                pp = 3 * a[:, PIDX["fgm"]] + a[:, PIDX["xpm"]]
+                pp = _k_points(a[:, PIDX["fgm"]], a[:, PIDX["fga"]], a[:, PIDX["xpm"]], a[:, PIDX["xpa"]], a[:, PIDX["fgb"]])
                 cal, mean, lo, hi = pp, pp.mean(), np.percentile(pp, 10), np.percentile(pp, 90)
                 sim_mean = mean
             else:
@@ -164,7 +172,8 @@ def game_rows(res, home, away, ov, hist=None, ns=400, with_stats=False, c=None):
             rows.append(r)
             arrs[pid] = cal
         # team defense / special teams scoring
-        d = _dst_points(ts[:, 1 - side, TIDX["sacks"]].astype(float), ts[:, 1 - side, TIDX["to"]].astype(float), sc[:, 1 - side])
+        d = _dst_points(ts[:, 1 - side, TIDX["sacks"]].astype(float), ts[:, 1 - side, TIDX["to"]].astype(float), sc[:, 1 - side],
+                        ts[:, side, TIDX["dtd"]].astype(float), ts[:, side, TIDX["saf"]].astype(float), ts[:, 1 - side, TIDX["yds"]].astype(float))
         rows.append({"id": f"DST_{cfg.abbr}", "name": f"{cfg.abbr} D/ST", "pos": "DST", "team": cfg.abbr, "opp": opp.abbr, "home": side == 0,
                      "proj": round(float(d.mean()), 2), "lo": round(float(np.percentile(d, 10)), 1), "hi": round(float(np.percentile(d, 90)), 1),
                      "med": round(float(np.median(d)), 1), "sd": round(float(d.std()), 2), "sim": round(float(d.mean()), 2), "avg": None, "n": None,
@@ -275,7 +284,45 @@ def simulate_slate(week, n=500, pool=None, hist=None, ns=300, weather=None):
             r["team_total"] = m["sim_home"] if r["home"] else m["sim_away"]
         rows += gr
         meta.append(m)
-    return {"week": week, "n": n, "games": meta, "rows": rows}
+    return {"week": week, "n": n, "games": meta, "rows": rows, "rows_idle": idle_rows(week, games, rows, hist)}
+
+
+def idle_rows(week, games, rows, hist=None):
+    """Zero-point entries for rostered players who will not play this week (bye, out, inactive, backup),
+    so they can still be found, kept on rosters and moved around in the app."""
+    e = get_engine()
+    have = {r["id"] for r in rows}
+    opp = {}
+    for g in games:
+        opp[g["home"]] = (g["away"], True, g["id"]); opp[g["away"]] = (g["home"], False, g["id"])
+    out = []
+    for abbr, t in e.m["teams"].items():
+        o = opp.get(abbr)
+        cands = [dict(q, pos=q.get("pos", "QB")) for q in t["qbs"]] + list(t["skill"])
+        if t.get("k"):
+            cands.append(dict(t["k"], pos="K"))
+        cands.append({"id": f"DST_{abbr}", "name": f"{abbr} D/ST", "pos": "DST"})
+        for q in cands:
+            if q["id"] in have:
+                continue
+            if o is None:
+                why = "BYE"
+            elif q.get("status") in ("Out", "Doubtful"):
+                why = q["status"].upper()
+            else:
+                why = "INACTIVE"
+            r = {"id": q["id"], "name": q["name"], "pos": q["pos"], "team": abbr, "opp": o[0] if o else None, "home": bool(o and o[1]),
+                 "proj": 0.0, "lo": 0.0, "hi": 0.0, "med": 0.0, "sd": 0.0, "sim": 0.0, "avg": q.get("ppr_avg"), "n": q.get("ppr_n"),
+                 "status": "Out" if why in ("OUT", "DOUBTFUL") else q.get("status"), "p_play": None, "inj_note": q.get("note"),
+                 "boom": 0.0 if q["pos"] in BOOM else None, "bust": 1.0 if q["pos"] in BUST else None,
+                 "cs": round(q.get("car", 0), 3), "ts": round(q.get("tgt", 0), 3), "st": {}, "td1": 0.0, "td2": 0.0, "opps": 0.0,
+                 "hist": _hist(np.zeros(10), -4, 60, 2), "split": {}, "samples": [], "game": None, "game_total": None, "team_total": None,
+                 "idle": why}
+            if hist and q["id"] in hist:
+                r["trend"] = hist[q["id"]]
+            out.append(r)
+            have.add(q["id"])
+    return out
 
 
 def _load_schedule():

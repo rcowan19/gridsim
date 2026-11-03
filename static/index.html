@@ -68,6 +68,7 @@ summary small{color:var(--dim);font-weight:400;margin-left:auto}
 .inj{font-style:normal;font-size:10px;font-weight:700;padding:1px 5px;border-radius:var(--r-sm);margin-left:4px;vertical-align:1px}
 .inj.Q{background:var(--warn-bg);color:var(--warn)}
 .inj.D,.inj.O{background:var(--bad-bg);color:var(--bad)}
+.inj.B{background:var(--ink-bg);color:var(--muted)}
 .pl.off .nm{color:var(--dim);text-decoration:line-through}
 .note{color:var(--dim);font-size:12px;margin-top:10px}
 .hide{display:none!important}
@@ -496,7 +497,7 @@ function renderLineups() {
       const on = p.id in st.ov ? st.ov[p.id] : p.active;
       const r = el('div', 'pl' + (on ? '' : ' off'));
       const share = p.grp === 'QB' ? '' : [p.tgt >= .01 ? `${Math.round(p.tgt * 100)}%t` : '', p.car >= .02 ? `${Math.round(p.car * 100)}%c` : ''].filter(Boolean).join(' ');
-      r.innerHTML = `<span class="ps">${p.pos}</span><span class="nm">${p.name}${badge(p.status, p.p_play, p.inj_note)}</span><span class="sh">${share}</span><span class="sw"><input type="checkbox" ${on ? 'checked' : ''}><i></i></span>`;
+      r.innerHTML = `<span class="ps">${p.pos}</span><span class="nm">${p.name}${badge(p.status, p.p_play, p.inj_note, p.idle)}</span><span class="sh">${share}</span><span class="sw"><input type="checkbox" ${on ? 'checked' : ''}><i></i></span>`;
       r.querySelector('input').onchange = e => { if (e.target.checked === p.active) delete st.ov[p.id]; else st.ov[p.id] = e.target.checked; r.classList.toggle('off', !e.target.checked); };
       d.appendChild(r);
     });
@@ -504,7 +505,7 @@ function renderLineups() {
   }
 }
 const rawM = g => g.blend ? g.blend.sim_home - g.blend.sim_away : g.sim_margin, rawT = g => g.blend ? g.blend.sim_home + g.blend.sim_away : g.sim_total;
-const badge = (s, p, nt) => s ? ` <em class="inj ${s[0]}" title="${nt ? nt + '. ' : ''}${s}${p != null ? ': plays in ' + Math.round(p * 100) + '% of simulations (based on practice status)' : ''}">${s === 'Questionable' ? 'Q' + (p != null ? ' ' + Math.round(p * 100) + '%' : '') : s === 'Doubtful' ? 'D' : 'OUT'}</em>` : '';
+const badge = (s, p, nt, idle) => idle === 'BYE' ? ' <em class="inj B" title="On bye this week">BYE</em>' : idle === 'INACTIVE' ? ' <em class="inj B" title="Not expected to play this week (backup or off the depth chart)">INACT</em>' : s ? ` <em class="inj ${s[0]}" title="${nt ? nt + '. ' : ''}${s}${p != null ? ': plays in ' + Math.round(p * 100) + '% of simulations (based on practice status)' : ''}">${s === 'Questionable' ? 'Q' + (p != null ? ' ' + Math.round(p * 100) + '%' : '') : s === 'Doubtful' ? 'D' : 'OUT'}</em>` : '';
 st.cond = {mode: 'auto', roof: 'outdoors', wind: 0, temp: 60}; st.useWx = true;
 function body() { return {home: st.home, away: st.away, n: st.n, neutral: st.neutral, overrides: st.ov, cond_mode: st.cond.mode, roof: st.cond.roof, wind: +st.cond.wind, temp: +st.cond.temp}; }
 async function post(url, b) {
@@ -710,7 +711,7 @@ function fantasyTable(host, id, rows, o = {}) {
   const mx = Math.max(...rows.map(r => P(r, 'hi') || 0), 1);
   const cols = [
     ...(o.rank ? [{k: 'rk', t: '#', v: r => r._rk, h: r => r._rk, w: '36px', first: 1}] : []),
-    {k: 'name', t: 'Player', v: r => r.name, first: 1, h: r => `<span class="pdot" style="background:${POSCOL[r.pos] || C.muted}"></span><span class="nm lnk">${r.name}</span>${badge(r.status, r.p_play, r.inj_note)}<span class="p">${r.pos} · ${r.team}</span>`},
+    {k: 'name', t: 'Player', v: r => r.name, first: 1, h: r => `<span class="pdot" style="background:${POSCOL[r.pos] || C.muted}"></span><span class="nm lnk">${r.name}</span>${badge(r.status, r.p_play, r.inj_note, r.idle)}<span class="p">${r.pos} · ${r.team}</span>`},
     ...(o.slot ? [{k: 'slot', t: 'ESPN slot', v: r => r._slot, first: 1, h: r => `<span class="pill">${r._slot}</span>`}] : []),
     {k: 'pos', t: 'Pos', v: r => posOrder[r.pos], first: 1, h: r => `<span class="posb" style="color:${POSCOL[r.pos]}">${r.pos}${r._pr ? r._pr : ''}</span>`},
     ...(o.opp ? [{k: 'opp', t: 'Opp', v: r => r.opp, first: 1, h: r => `<span class="sub2">${r.home ? 'vs' : '@'}</span> ${r.opp}`}] : []),
@@ -776,7 +777,7 @@ function showPlayer(r) {
   const stat = r.stat_samples ? Object.keys(r.stat_samples) : [];
   const mainStat = r.pos === 'QB' ? 'pyd' : r.pos === 'RB' ? 'ryd' : r.pos === 'K' ? 'fgm' : r.stat_samples && r.stat_samples.recyd ? 'recyd' : stat[0];
   dp.innerHTML = `<button class="dx" id="dclose">✕</button>
-    <div class="dh"><div><div class="dnm">${r.name}${badge(r.status, r.p_play, r.inj_note)}</div><div class="dsub"><span class="posb" style="color:${POSCOL[r.pos]}">${r.pos}</span> · <span style="color:${col}">${r.team}</span> ${r.opp ? (r.home ? 'vs' : '@') + ' ' + r.opp : ''}${r.game_total ? ` · game total ${fmt(r.game_total)} · team ${fmt(r.team_total)}` : ''}</div></div>
+    <div class="dh"><div><div class="dnm">${r.name}${badge(r.status, r.p_play, r.inj_note, r.idle)}</div><div class="dsub"><span class="posb" style="color:${POSCOL[r.pos]}">${r.pos}</span> · <span style="color:${col}">${r.team}</span> ${r.opp ? (r.home ? 'vs' : '@') + ' ' + r.opp : ''}${r.game_total ? ` · game total ${fmt(r.game_total)} · team ${fmt(r.team_total)}` : ''}</div></div>
       <div class="dbig"><b>${fmt(pj)}</b><span>${FMTN[st.fmt]} proj</span></div></div>
     <div class="seg fseg" id="dfmt" style="margin:10px 0">${Object.keys(FMTN).map(k => `<button data-f="${k}" class="${st.fmt === k ? 'on' : ''}">${FMTN[k]}</button>`).join('')}</div>
     <div class="kpis">
@@ -884,7 +885,7 @@ try { const c = JSON.parse(localStorage.getItem('gs_counts') || 'null'); if (c) 
 function slotsAll() { const out = []; for (const k of ['QB', 'RB', 'WR', 'TE', 'FLEX', 'OP', 'K', 'DST']) { const n = st.lab.counts[k] || 0; for (let i = 0; i < n; i++) out.push([n > 1 ? k + (i + 1) : k, ELIG[k], k]); } return out; }
 const T = 3000;
 function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
-function labPool() { return st.slate ? Object.fromEntries(st.slate.rows.map(r => [r.id, r])) : {}; }
+function labPool() { if (!st.slate) return {}; if (!st.slate._pool) st.slate._pool = Object.fromEntries([...(st.slate.rows_idle || []), ...st.slate.rows].map(r => [r.id, r])); return st.slate._pool; }
 function trials() {
   if (st.lab.trials) return st.lab.trials;
   const rnd = mulberry(20260);
@@ -894,13 +895,14 @@ function trials() {
 function arrFor(p) {
   const tr = trials(), ck = p.id + '|' + st.fmt; if (tr.cache[ck]) return tr.cache[ck];
   const ix = tr.idx[p.game], a = new Float32Array(T), s = p.samples, d = rdelta(p);
+  if (!ix || !s || !s.length) return tr.cache[ck] = a;      // not playing this week
   for (let t = 0; t < T; t++) a[t] = s[ix[t] % s.length] - d;
   return tr.cache[ck] = a;
 }
 function lineupSum(ids) { const out = new Float32Array(T); ids.forEach(id => { const p = labPool()[id]; if (p) { const a = arrFor(p); for (let t = 0; t < T; t++) out[t] += a[t]; } }); return out; }
 function autoSet(roster, poolOv, ignoreStatus) {
   const pool = poolOv || labPool(), used = new Set(), res = {};
-  const ps = roster.map(i => pool[i]).filter(Boolean).filter(p => ignoreStatus || (p.status !== 'Out' && p.injury !== 'OUT')).sort((a, b) => P(b, 'proj') - P(a, 'proj'));
+  const ps = roster.map(i => pool[i]).filter(Boolean).filter(p => !p.idle && (ignoreStatus || (p.status !== 'Out' && p.injury !== 'OUT'))).sort((a, b) => P(b, 'proj') - P(a, 'proj'));
   const all = slotsAll();
   for (const [k, el_, kind] of all.filter(s => s[2] !== 'FLEX' && s[2] !== 'OP')) { const p = ps.find(x => !used.has(x.id) && el_.includes(x.pos)); if (p) { res[k] = p.id; used.add(p.id); } }
   for (const [k, el_] of all.filter(s => s[2] === 'OP' || s[2] === 'FLEX').sort((a, b) => b[1].length - a[1].length)) { const p = ps.find(x => !used.has(x.id) && el_.includes(x.pos)); if (p) { res[k] = p.id; used.add(p.id); } }
@@ -995,7 +997,7 @@ function startSit() {
 /* ================= my league (ESPN) ================= */
 st.lg = null;
 const normN = s => s.toLowerCase().replace(/[^a-z ]/g, ' ').split(/\s+/).filter(t => t && !['jr', 'sr', 'ii', 'iii', 'iv', 'v'].includes(t));
-function slotIndex() { const idx = {}; (st.slate ? st.slate.rows : []).forEach(r => (idx[r.team + '|' + r.pos] = idx[r.team + '|' + r.pos] || []).push(r)); return idx; }
+function slotIndex() { const idx = {}; (st.slate ? [...st.slate.rows, ...(st.slate.rows_idle || [])] : []).forEach(r => (idx[r.team + '|' + r.pos] = idx[r.team + '|' + r.pos] || []).push(r)); return idx; }
 function matchRow(p, idx) {
   const rows = idx[p.team + '|' + p.pos] || [];
   if (p.pos === 'DST' || p.pos === 'K') return rows[0] || null;
@@ -1127,7 +1129,7 @@ function renderLeague() {
   fa.forEach(r => { const ids = [...me.ids, r.id], os = autoSet(ids), oi = Object.values(os); r._gain = sumP(oi) - base;
     const bench = ids.filter(i => !oi.includes(i)).map(i => pool[i]).filter(Boolean).sort((a, b) => a.proj - b.proj); r._drop = r._gain > 0.05 ? (bench[0] ? bench[0].name : '') : ''; });
   const wcols = [
-    {k: 'name', t: 'Player', v: r => r.name, first: 1, h: r => `<span class="pdot" style="background:${POSCOL[r.pos]}"></span><span class="nm">${r.name}</span>${badge(r.status, r.p_play, r.inj_note)}<span class="p">${r.pos} · ${r.team} ${r.home ? 'vs' : '@'} ${r.opp}</span>`},
+    {k: 'name', t: 'Player', v: r => r.name, first: 1, h: r => `<span class="pdot" style="background:${POSCOL[r.pos]}"></span><span class="nm">${r.name}</span>${badge(r.status, r.p_play, r.inj_note, r.idle)}<span class="p">${r.pos} · ${r.team} ${r.home ? 'vs' : '@'} ${r.opp}</span>`},
     {k: 'proj', t: 'Proj', v: r => P(r, 'proj'), cls: 'main', h: r => fmt(P(r, 'proj'))}, {k: 'hi', t: 'Ceiling', v: r => P(r, 'hi'), h: r => fmt(P(r, 'hi'))},
     {k: 'boom', t: 'Boom%', v: r => r.boom, h: r => pct(r.boom)}, {k: 'gain', t: 'Adds to my lineup', v: r => r._gain, h: r => `<span class="${r._gain > 0.05 ? 'pos' : ''}">${r._gain > 0.05 ? '+' + fmt(r._gain) : '–'}</span>`},
     {k: 'drop', t: 'Drop', v: r => r._drop, first: 1, h: r => r._drop || ''}, {k: 'avg', t: 'Season avg', v: r => avgF(r), h: r => fmt(avgF(r))}];
@@ -1211,7 +1213,7 @@ function renderNflWeek() {
   gs.forEach(g => {
     if (st.nfl.sort === 'time' && g.day !== lastDay) { lastDay = g.day; wrap.appendChild(el('div', 'gday', new Date(g.day + 'T12:00:00').toLocaleDateString(undefined, {weekday: 'long', month: 'short', day: 'numeric'}))); }
     const rows = S.rows.filter(r => r.game === g.id && ['QB', 'RB', 'WR', 'TE'].includes(r.pos));
-    const top = t => rows.filter(r => r.team === t).sort((a, b) => b.proj - a.proj).slice(0, 3).map(r => `<div class="tp" data-id="${r.id}"><span class="posb" style="color:${POSCOL[r.pos]}">${r.pos}</span> ${r.name}${badge(r.status, r.p_play, r.inj_note)}<b>${fmt(P(r, 'proj'))}</b></div>`).join('');
+    const top = t => rows.filter(r => r.team === t).sort((a, b) => b.proj - a.proj).slice(0, 3).map(r => `<div class="tp" data-id="${r.id}"><span class="posb" style="color:${POSCOL[r.pos]}">${r.pos}</span> ${r.name}${badge(r.status, r.p_play, r.inj_note, r.idle)}<b>${fmt(P(r, 'proj'))}</b></div>`).join('');
     const [ac, hc] = pairCols(g.away, g.home), wH = g.sim_home_win;
     const es = g.spread == null ? null : rawM(g) - g.spread, et = g.total == null ? null : rawT(g) - g.total;
     const pillE = (e, a, b) => e == null || Math.abs(e) < 1.5 ? '' : `<span class="pill hot">lean ${e > 0 ? a : b}</span>`;
@@ -1313,7 +1315,7 @@ function wiTargetsDraw(ctx) {
   const T = st.wi.targets, out = $('#wiTargetsOut'); if (!out) return;
   const c = card(`<h3>Best additions <span class="sub2">how much each player would raise your best lineup this week</span></h3><div id="wiTT"></div>`); out.appendChild(c);
   if (!T.length) { c.querySelector('#wiTT').innerHTML = '<div class="note">No single player would improve your best lineup this week.</div>'; return; }
-  const cols = [{k: 'n', t: 'Player', v: r => r.p.name, first: 1, h: r => `<span class="pdot" style="background:${POSCOL[r.p.pos]}"></span><span class="nm">${r.p.name}</span>${badge(r.p.status, r.p.p_play, r.p.inj_note)}<span class="p">${r.p.pos} · ${r.p.team} ${r.p.home ? 'vs' : '@'} ${r.p.opp}</span>`},
+  const cols = [{k: 'n', t: 'Player', v: r => r.p.name, first: 1, h: r => `<span class="pdot" style="background:${POSCOL[r.p.pos]}"></span><span class="nm">${r.p.name}</span>${badge(r.p.status, r.p.p_play, r.p.inj_note, r.p.idle)}<span class="p">${r.p.pos} · ${r.p.team} ${r.p.home ? 'vs' : '@'} ${r.p.opp}</span>`},
     ...(ctx.owners ? [{k: 'o', t: 'On', v: r => r.owner, first: 1, h: r => r.owner}] : []),
     {k: 'pj', t: 'Proj', v: r => P(r.p, 'proj'), cls: 'main', h: r => fmt(P(r.p, 'proj'))}, {k: 'bm', t: 'Boom%', v: r => r.p.boom, h: r => pct(r.p.boom)},
     {k: 'g', t: 'Adds to my lineup', v: r => r.gain, h: r => `<span class="pos">+${fmt(r.gain)}</span>`}, {k: 'a', t: '', v: null, h: r => `<button class="btn ghost sm" data-addt="${r.p.id}">Add</button>`}];
@@ -1326,9 +1328,9 @@ async function loadRos(ctx) {
   const W = st.wi, last = Math.max(...st.sched.weeks), weeks = []; for (let w = st.slate.week; w <= last; w++) weeks.push(w);
   W.ros = {weeks, pools: {}, any: {}, idx: {}, loading: true, done: 0};
   const add = (w, rows) => { W.ros.pools[w] = Object.fromEntries(rows.map(r => [r.id, r])); rows.forEach(r => { if (!W.ros.any[r.id]) W.ros.any[r.id] = r; const k = r.team + '|' + r.pos; (W.ros.idx[k] = W.ros.idx[k] || []); if (!W.ros.idx[k].some(x => x.id === r.id)) W.ros.idx[k].push(r); }); };
-  add(st.slate.week, st.slate.rows); W.ros.done = 1; renderWhatIf(ctx);
+  add(st.slate.week, [...(st.slate.rows_idle || []), ...st.slate.rows]); W.ros.done = 1; renderWhatIf(ctx);
   try {
-    for (const w of weeks.slice(1)) { const d = await post('/api/slate', {week: w, n: Math.min(DEPTH[st.depth].slate, 1000), weather: false}); add(w, d.rows); W.ros.done++; renderWhatIf(ctx); }
+    for (const w of weeks.slice(1)) { const d = await post('/api/slate', {week: w, n: Math.min(DEPTH[st.depth].slate, 1000), weather: false}); add(w, [...(d.rows_idle || []), ...d.rows]); W.ros.done++; renderWhatIf(ctx); }
   } catch (e) { W.ros.error = e.message; }
   W.ros.loading = false; renderWhatIf(ctx);
 }
@@ -1338,7 +1340,7 @@ function wiRosDraw(ctx, base, after) {
   if (R.loading) { out.appendChild(card(`<h3>Rest of season</h3><div class="empty" style="padding:var(--s4)"><span class="spin dark"></span><span>Simulating week ${st.slate.week + R.done - 1} of ${R.weeks[R.weeks.length - 1]}</span></div>`)); return; }
   const rows = R.weeks.map(w => { const pw = R.pools[w], ig = w !== st.slate.week;
     const b = sumPIn(pw, Object.values(autoSet(base, pw, ig))), a = sumPIn(pw, Object.values(autoSet(after, pw, ig)));
-    return {w, b, a, d: a - b, byes: after.filter(i => !pw[i]).map(i => wiName(i, labPool()))}; });
+    return {w, b, a, d: a - b, byes: after.filter(i => !pw[i] || pw[i].idle === 'BYE').map(i => wiName(i, labPool()))}; });
   const tb = rows.reduce((s, r) => s + r.b, 0), ta = rows.reduce((s, r) => s + r.a, 0), td = ta - tb, changed = st.wi.add.length || st.wi.drop.length;
   const mx = Math.max(...rows.map(r => Math.abs(r.d)), 1), bw = 1000 / rows.length;
   const svg = `<svg viewBox="0 0 1000 150" width="100%" style="max-height:170px">` + rows.map((r, i) => { const h = Math.abs(r.d) / mx * 50, up = r.d >= 0;
@@ -1360,8 +1362,8 @@ async function ensureRos(tick) {
   const last = Math.max(...st.sched.weeks), weeks = []; for (let w = st.slate.week; w <= last; w++) weeks.push(w);
   const R = W.ros = {weeks, pools: {}, any: {}, idx: {}, loading: true, done: 0};
   const add = (w, rows) => { R.pools[w] = Object.fromEntries(rows.map(r => [r.id, r])); rows.forEach(r => { if (!R.any[r.id]) R.any[r.id] = r; const k = r.team + '|' + r.pos; (R.idx[k] = R.idx[k] || []); if (!R.idx[k].some(x => x.id === r.id)) R.idx[k].push(r); }); };
-  add(st.slate.week, st.slate.rows); R.done = 1; tick && tick(R);
-  try { for (const w of weeks.slice(1)) { const d = await post('/api/slate', {week: w, n: Math.min(DEPTH[st.depth].slate, 1000), weather: false}); add(w, d.rows); R.done++; tick && tick(R); } }
+  add(st.slate.week, [...(st.slate.rows_idle || []), ...st.slate.rows]); R.done = 1; tick && tick(R);
+  try { for (const w of weeks.slice(1)) { const d = await post('/api/slate', {week: w, n: Math.min(DEPTH[st.depth].slate, 1000), weather: false}); add(w, [...(d.rows_idle || []), ...d.rows]); R.done++; tick && tick(R); } }
   catch (e) { R.error = e.message; }
   R.loading = false; return R;
 }

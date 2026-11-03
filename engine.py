@@ -11,9 +11,9 @@ from collections import defaultdict
 from itertools import accumulate
 
 PSTATS = ["pa", "pc", "pyd", "ptd", "int", "sk", "ra", "ryd", "rtd", "tgt", "rec", "recyd", "rectd",
-          "fl", "fga", "fgm", "xpa", "xpm"]
+          "fl", "fga", "fgm", "xpa", "xpm", "fgb"]     # fgb: ESPN distance bonus (+1 for 40-49, +2 for 50+)
 PIDX = {k: i for i, k in enumerate(PSTATS)}
-TSTATS = ["pts", "plays", "pass", "rush", "yds", "pyd", "ryd", "sacks", "to", "pen", "fd", "punts", "fga", "td", "poss"]
+TSTATS = ["pts", "plays", "pass", "rush", "yds", "pyd", "ryd", "sacks", "to", "pen", "fd", "punts", "fga", "td", "poss", "dtd", "saf"]   # dtd: defensive / return TDs, saf: safeties scored
 TIDX = {k: i for i, k in enumerate(TSTATS)}
 
 
@@ -291,6 +291,7 @@ class Game:
         if rng.random() < e.m["ko_td"]:
             self.add_pts(rec, 6)
             self.ts[rec][TIDX["td"]] += 1
+            self.ts[rec][TIDX["dtd"]] += 1
             self.say("kickoff", f"{self.names[kicker]} kicks off; returned for a TOUCHDOWN", scoring=True, o=kicker)
             self.extra_point(rec)
             if self.period == 3 or self.clock_over():
@@ -327,7 +328,9 @@ class Game:
         else:
             self.say("xp", f"{k['name']} extra point NO GOOD", o=side)
 
-    def touchdown(self, side, text, x0, x1):
+    def touchdown(self, side, text, x0, x1, defensive=False):
+        if defensive:
+            self.ts[side][TIDX["dtd"]] += 1
         self.add_pts(side, 6)
         self.ts[side][TIDX["td"]] += 1
         self.say("td", text + " TOUCHDOWN", scoring=True, x0=x0, x1=x1, o=side)
@@ -504,7 +507,7 @@ class Game:
         if self.rng.random() < self.e.tune["fum_td"]:
             self.drive_off = 1 - o
             self.say("td", "Fumble recovered", 0, self.xp(Y2, o), None, o=1 - o)
-            self.touchdown(1 - o, "Fumble returned for", self.xp(Y2, o), self.xp(100, o))
+            self.touchdown(1 - o, "Fumble returned for", self.xp(Y2, o), self.xp(100, o), defensive=True)
             self.dscore = "DEF"
             return
         self.give_ball(1 - o, 100 - Y2)
@@ -643,7 +646,7 @@ class Game:
             if ydef <= 0:
                 self.drive_off = 1 - o
                 self.say("int", f"{qb['name']} pass INTERCEPTED (intended for {tgt['name']}), returned {ret} yards", 0, x0, None)
-                self.touchdown(1 - o, "Interception returned for", self.xp(s, o), self.xp(100, o))
+                self.touchdown(1 - o, "Interception returned for", self.xp(s, o), self.xp(100, o), defensive=True)
                 self.dscore = "DEF"
                 return
             self.say("int", f"{qb['name']} pass INTERCEPTED (intended for {tgt['name']}), returned {ret} yards", 0, x0, self.xp(100 - ydef, 1 - o))
@@ -691,6 +694,7 @@ class Game:
 
     def safety(self, o, text, pid=None):
         self.add_pts(1 - o, 2)
+        self.ts[1 - o][TIDX["saf"]] += 1
         self.say("safety", text + " - SAFETY", scoring=True, o=o)
         self.dscore = "DEF"
         # conceding team free-kicks; model as a punt from its own 20
@@ -757,7 +761,7 @@ class Game:
         if rng.random() < e.tune["punt_td"]:
             self.drive_off = o
             self.say("punt", f"{O.punter} punt; returned for a touchdown", 0, self.xp(Y, o), None)
-            self.touchdown(1 - o, "Punt returned for", self.xp(Y, o), self.xp(100, o))
+            self.touchdown(1 - o, "Punt returned for", self.xp(Y, o), self.xp(100, o), defensive=True)
             self.dscore = "DEF"
             return
         self.say("punt", f"{O.punter} punt; {self.names[1 - o]} take over at "
@@ -779,6 +783,7 @@ class Game:
         self.elapse("run", o, fixed=5)
         if rng.random() < p:
             st[PIDX["fgm"]] += 1
+            st[PIDX["fgb"]] += 2 if dist >= 50 else 1 if dist >= 40 else 0
             self.add_pts(o, 3)
             self.say("fg", f"{k['name']} {dist}-yard field goal GOOD", scoring=True, x0=self.xp(Y, o))
             self.pending_kick = o
