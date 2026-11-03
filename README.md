@@ -1,8 +1,10 @@
 # GridSim
 
-Tabs: **Matchup** (win prob, model-vs-Vegas edges, matchup ratings, fantasy projections, correlations, game-script splits, prop calculator) ·
-**Fantasy rankings** (whole-week slate sim: floor/ceiling/boom/bust, VOR, tiers, stack targets) ·
-**Lineup lab** (your lineup vs opponent with correlated win probability, optimizer, start/sit) · **Game viewer**.
+Navigation: **Games** (every game of the week: cards or table, market edges, weather) ·
+**Players** (rankings with floor/ceiling/boom/bust/tiers, trends, stack targets) ·
+**My Team** (ESPN league: lineup advice, waivers, league matchups, sandbox lineup lab) ·
+**Game Lab** (any two teams: overview, fantasy, matchup ratings and correlations, play-by-play).
+Week, scoring format and simulation depth are global controls in the top bar.
 
 Play-by-play NFL Monte Carlo simulator with a web UI.
 
