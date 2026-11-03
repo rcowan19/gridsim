@@ -317,6 +317,26 @@ tr.chg td{background:var(--ink-bg)}tr.tot td{font-weight:700;border-top:1px soli
 .trf{display:flex;flex-wrap:wrap;gap:var(--s3);align-items:flex-end;margin:var(--s3) 0}
 .trf label{display:flex;flex-direction:column;gap:2px;font-size:12px;color:var(--muted)}.trf label.ck{flex-direction:row;align-items:center;color:var(--ink);font-size:13px}
 .needs{display:grid;gap:var(--s2);margin-top:var(--s2)}.need{padding:var(--s2) var(--s3);background:var(--surface-2);border-radius:var(--r-sm)}
+.tgrid{display:grid;grid-template-columns:1fr 1fr;gap:var(--s4);margin-top:var(--s4)}
+.thead{display:flex;justify-content:space-between;align-items:baseline;gap:var(--s3);margin-bottom:var(--s3)}.thead h3{margin:0}
+.pgrp{margin-top:var(--s3)}.ptiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:var(--s2);margin-top:4px}
+.ptile{position:relative;display:flex;align-items:center;justify-content:space-between;gap:var(--s2);padding:8px 10px 8px 14px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface);cursor:pointer;text-align:left;font:inherit;color:inherit;transition:border-color .12s,background .12s,transform .12s}
+.ptile:hover{border-color:var(--line-strong);transform:translateY(-1px)}
+.ptile .stripe{position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--pc);border-radius:var(--r-sm) 0 0 var(--r-sm)}
+.ptile.on{background:var(--surface-2);border-color:var(--pc);box-shadow:inset 0 0 0 1px var(--pc)}
+.ptile .tn{display:flex;flex-direction:column;min-width:0}.ptile .tn b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px}
+.ptile .tv{display:flex;flex-direction:column;align-items:flex-end;font-variant-numeric:tabular-nums}.ptile .tv b{font-size:15px}
+.pills{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:var(--s2)}.pill{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 12px;font:inherit;font-size:12.5px;cursor:pointer;color:var(--ink)}
+.pill:hover{border-color:var(--line-strong)}.pill.on{background:var(--text);color:var(--surface);border-color:var(--text)}
+.tdeal{display:grid;grid-template-columns:1fr auto 1fr;gap:var(--s4);align-items:center;margin:var(--s3) 0;padding:var(--s3) var(--s4);background:var(--surface-2);border-radius:var(--r-sm)}
+.tdeal div{display:flex;flex-direction:column;gap:2px}.tdeal b{font:700 16px/1.3 var(--serif)}.tdeal .arr{font-size:22px;color:var(--muted)}
+.tgains{display:grid;grid-template-columns:1fr 1fr;gap:var(--s3)}.gbox{display:flex;flex-direction:column;padding:var(--s3) var(--s4);border:1px solid var(--line);border-radius:var(--r-sm)}.gbox b{font:700 28px/1.2 var(--serif);font-variant-numeric:tabular-nums}
+.balance{margin-top:var(--s4)}.bbar{height:10px;border-radius:6px;background:var(--accent);overflow:hidden;margin:6px 0}.bbar i{display:block;height:100%;background:#4a453c}.blab{display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted)}
+.chipv{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;border:1px solid var(--line-strong)}.chipv.good{color:var(--good);border-color:var(--good);background:var(--good-bg)}.chipv.ok{color:var(--warn);border-color:var(--warn)}.chipv.bad{color:var(--bad);border-color:var(--bad);background:var(--bad-bg)}
+.sgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:var(--s3);margin-top:var(--s3)}
+.sug{display:flex;flex-direction:column;gap:4px;text-align:left;padding:var(--s3) var(--s4);border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface);cursor:pointer;font:inherit;color:inherit}.sug:hover{border-color:var(--line-strong);transform:translateY(-1px)}
+.sug .line i{font-style:normal;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-right:6px}.sfoot{display:flex;gap:var(--s3);align-items:center;margin-top:4px}.sfoot b{font-size:16px}
+@media(max-width:900px){.tgrid,.tdeal,.tgains{grid-template-columns:1fr}.tdeal .arr{display:none}}
 /* ===== responsive ===== */
 @media(max-width:900px){
   .top-in{padding:var(--s3) var(--s4);gap:var(--s3)}
@@ -464,7 +484,7 @@ function ensureSlate(mode, after) { if (st.slate) { if (after) after(); return P
 function rerender() { if (st.slate) { renderNflWeek(); renderSlate(); } if (st.page === 'team') renderLeague(); if (st.last) renderProj(st.last); }
 function syncFmtUI() { document.querySelectorAll('#g_fmt button').forEach(b => b.classList.toggle('on', b.dataset.f === st.fmt)); }
 function setFmt(f) { st.fmt = f; if (st.lab.trials) st.lab.trials.cache = {}; syncFmtUI(); rerender(); }
-function reloadSlate() { st.ss.res = null; st.tr.res = null; st.slate = null; st.wi.ros = null; st.wi.targets = null; if (st.lab.trials) st.lab.trials = null; const m = {games: 'games', players: 'players', team: 'team', lab: null}[st.page]; if (m) loadSlate(m); }
+function reloadSlate() { st.ss.res = null; st.tr.px = null; st.tr.sugg = null; st.slate = null; st.wi.ros = null; st.wi.targets = null; if (st.lab.trials) st.lab.trials = null; const m = {games: 'games', players: 'players', team: 'team', lab: null}[st.page]; if (m) loadSlate(m); }
 
 /* ---------- lineups sidebar ---------- */
 function renderLineups() {
@@ -1120,7 +1140,7 @@ function renderLeague() {
   if (un.length) rc.insertAdjacentHTML('beforeend', `<div class="note">No projection this week for: ${un.map(m => `${m.e.name} (${m.e.team} ${m.e.pos}${m.e.slot !== 'BN' ? ', ' + m.e.slot : ''})`).join(', ')} on a bye, not on the schedule, or the name didn't match.</div>`);
   const owners = {}; D.teams.forEach(t => { if (t.id !== L.my) tms[t.id].ids.forEach(i => { owners[i] = t.name; }); });
   renderWhatIf({base: me.ids, entries: me.matched, opp: Object.values(opp.starters).filter(Boolean), owners, label: `${me.t.name} vs ${opp.t.name}`});
-  st.tr.res = st.tr.res && st.tr.res.stale ? null : st.tr.res; renderTrades({D, L, tms}); renderSeason({D, L, tms});
+  st.tr.res = st.tr.res && st.tr.res.stale ? null : st.tr.res; if (st.tr.partner === L.my) st.tr.partner = null; renderTrades({D, L, tms}); renderSeason({D, L, tms});
   renderLab(); setSub('team', st.sub.team);
 }
 
@@ -1330,8 +1350,8 @@ function wiRosDraw(ctx, base, after) {
     <div class="note">Each week uses that week's simulated projections with the current injury picture, so future injuries and trades are not known. Weeks where a player is on bye count as zero for him.</div>`));
 }
 
-/* ================= trade finder ================= */
-st.tr = {mode: 'ros', team: 'all', give: 'any', get: 'any', shape: 'all', minGain: 0.5, fair: true, res: null, busy: null};
+/* ================= trade machine ================= */
+st.tr = {mode: 'ros', partner: null, give: [], get: [], px: null, pxBusy: null, sugg: null, sBusy: null};
 async function ensureRos(tick) {
   const W = st.wi; if (W.ros && !W.ros.loading && !W.ros.error) return W.ros;
   if (W.ros && W.ros.loading) { while (W.ros.loading) await new Promise(r => setTimeout(r, 200)); return W.ros; }
@@ -1351,87 +1371,101 @@ const trWeeks = (mode, R) => {
 const trVal = (ids, W) => W.reduce((s, x) => s + x.wt * sumPIn(x.pool, Object.values(autoSet(ids, x.pool, x.ig))), 0);
 const combos = (a, k) => k === 1 ? a.map(x => [x]) : a.flatMap((x, i) => a.slice(i + 1).map(y => [x, y]));
 
-async function findTrades(c) {
-  const T = st.tr, ui = $('#trRun'); T.busy = 'Loading projections…'; T.res = null; renderTrades(c);
-  let R = null; if (T.mode !== 'week') R = await ensureRos(r => { T.busy = `Simulating week ${st.slate.week + r.done - 1} of ${r.weeks[r.weeks.length - 1]}…`; const el = $('#trBusy'); if (el) el.textContent = T.busy; });
-  if (R && R.error) { T.busy = null; T.res = {err: R.error}; renderTrades(c); return; }
-  const W = trWeeks(T.mode, R), pool0 = labPool(), res = [], mine = c.tms[c.L.my];
-  const row = id => pool0[id] || (R && R.any[id]);
-  const score = id => W.reduce((s, x) => s + x.wt * (x.pool[id] ? P(x.pool[id], 'proj') : 0), 0);
-  const TP = new Set(['QB', 'RB', 'WR', 'TE']), rostered = new Set(); Object.values(c.tms).forEach(t => t.ids.forEach(i => rostered.add(i)));
-  // replacement level = 3rd best free agent at each position; free agents also refill a roster spot when a side gives up more players than it gets
+/* everything a trade evaluation needs, built once per (mode, slate) */
+async function trPrep(c) {
+  const T = st.tr; if (T.px && T.px.mode === T.mode && T.px.week === st.slate.week) return T.px;
+  T.pxBusy = 'Loading projections…'; renderTrades(c);
+  let R = null;
+  if (T.mode !== 'week') { R = await ensureRos(r => { T.pxBusy = `Simulating week ${st.slate.week + r.done - 1} of ${r.weeks[r.weeks.length - 1]}…`; const el = $('#trEval .busy'); if (el) el.textContent = T.pxBusy; }); if (R.error) { T.pxBusy = null; T.px = {err: R.error}; renderTrades(c); return T.px; } }
+  const W = trWeeks(T.mode, R), pool0 = labPool(), TP = new Set(['QB', 'RB', 'WR', 'TE']), rostered = new Set(); Object.values(c.tms).forEach(t => t.ids.forEach(i => rostered.add(i)));
+  const row = id => pool0[id] || (R && R.any[id]), score = id => W.reduce((s, x) => s + x.wt * (x.pool[id] ? P(x.pool[id], 'proj') : 0), 0);
   const fas = Object.values(R ? R.any : pool0).filter(r => TP.has(r.pos) && !rostered.has(r.id) && r.status !== 'Out').map(r => ({id: r.id, pos: r.pos, s: score(r.id)})).sort((a, b) => b.s - a.s);
   const repl = {}; TP.forEach(p => { const l = fas.filter(f => f.pos === p); repl[p] = l.length ? l[Math.min(2, l.length - 1)].s : 0; });
   const vor = id => Math.max(0, score(id) - (repl[(row(id) || {}).pos] || 0));
-  const top = (ids, n) => ids.filter(i => row(i) && TP.has(row(i).pos)).sort((a, b) => vor(b) - vor(a)).slice(0, n);
-  const fix = (ids, protect, delta) => { // delta>0: need to drop that many; delta<0: pick up that many free agents
-    let r = ids.slice(); if (delta > 0) { const cand = r.filter(i => !protect.includes(i)).sort((a, b) => score(a) - score(b)); for (let k = 0; k < delta && cand.length; k++) r.splice(r.indexOf(cand[k]), 1); }
-    else if (delta < 0) { const add = fas.filter(f => !r.includes(f.id)).slice(0, -delta); r.push(...add.map(f => f.id)); } return r; };
-  const vMe = trVal(mine.ids, W), teams = c.D.teams.filter(t => t.id !== c.L.my);
+  const fix = (ids, protect, delta) => { let r = ids.slice();
+    if (delta > 0) { const cand = r.filter(i => !protect.includes(i)).sort((a, b) => score(a) - score(b)); for (let k = 0; k < delta && cand.length; k++) r.splice(r.indexOf(cand[k]), 1); }
+    else if (delta < 0) r.push(...fas.filter(f => !r.includes(f.id)).slice(0, -delta).map(f => f.id)); return r; };
+  const base = {}; c.D.teams.forEach(t => { base[t.id] = trVal(c.tms[t.id].ids, W); });
+  T.px = {mode: T.mode, week: st.slate.week, W, R, row, score, vor, fix, TP, base, repl}; T.pxBusy = null; renderTrades(c); return T.px;
+}
+function trEval(c, give, get, tid) {
+  const x = st.tr.px, me = c.tms[c.L.my], th = c.tms[tid], vg = give.reduce((s, i) => s + x.vor(i), 0), vq = get.reduce((s, i) => s + x.vor(i), 0);
+  const m2 = x.fix([...me.ids.filter(i => !give.includes(i)), ...get], get, get.length - give.length), t2 = x.fix([...th.ids.filter(i => !get.includes(i)), ...give], give, give.length - get.length);
+  const mA = trVal(m2, x.W), tA = trVal(t2, x.W);
+  return {myGain: mA - x.base[c.L.my], theirGain: tA - x.base[tid], mB: x.base[c.L.my], mA, tB: x.base[tid], tA, vg, vq, bal: vq > 0 ? vg / vq : 9, m2, t2};
+}
+const trOk = e => e.theirGain > 0.3 && e.bal >= 0.8 && e.bal <= 1.6;
+const trVerdict = e => e.bal < .8 ? ['They give up more', 'bad'] : e.bal > 1.6 ? ['You give up more', 'bad'] : e.theirGain <= .3 ? ['Hurts their lineup', 'bad'] : e.myGain <= .3 ? ['No help for you', 'bad'] : (e.bal >= .9 && e.bal <= 1.25 ? ['Fair, likely accepted', 'good'] : ['Both gain', 'ok']);
+
+async function trSuggest(c, kind) {
+  const T = st.tr; T.sBusy = 'Searching…'; T.sugg = null; renderTrades(c); const x = await trPrep(c); if (x.err) { T.sBusy = null; return; }
+  const me = c.tms[c.L.my], out = [], teams = c.D.teams.filter(t => t.id !== c.L.my && (!T.partner || t.id === T.partner));
+  const top = (ids, n) => ids.filter(i => x.row(i) && x.TP.has(x.row(i).pos)).sort((a, b) => x.vor(b) - x.vor(a)).slice(0, n);
   for (let ti = 0; ti < teams.length; ti++) {
-    const t = teams[ti], th = c.tms[t.id]; T.busy = `Searching trades with ${t.name} (${ti + 1} of ${teams.length})…`; const el = $('#trBusy'); if (el) el.textContent = T.busy;
-    await new Promise(r => setTimeout(r, 0));
-    const vT = trVal(th.ids, W), mc = top(mine.ids, 6), tc = top(th.ids, 6), shapes = [[1, 1], [2, 1], [1, 2]];
-    for (const [g, k] of shapes) for (const give of combos(mc, g)) for (const get of combos(tc, k)) {
-      const vg = give.reduce((s, i) => s + vor(i), 0), vq = get.reduce((s, i) => s + vor(i), 0); if (vq <= 0) continue;
-      const m2 = fix([...mine.ids.filter(i => !give.includes(i)), ...get], get, get.length - give.length), t2 = fix([...th.ids.filter(i => !get.includes(i)), ...give], give, give.length - get.length);
-      const myGain = trVal(m2, W) - vMe; if (myGain < 0.3) continue;
-      res.push({team: t, give, get, myGain, theirGain: trVal(t2, W) - vT, shape: g + 'for' + k, bal: vg / vq});
+    const t = teams[ti], th = c.tms[t.id]; T.sBusy = `Searching ${t.name} (${ti + 1} of ${teams.length})…`; const el = $('#trSugg .busy'); if (el) el.textContent = T.sBusy; await new Promise(r => setTimeout(r, 0));
+    const myPool = T.give.length && kind !== 'offer' ? [T.give] : combos(top(me.ids, 7), 1).concat(combos(top(me.ids, 7), 2)).map(a => a);
+    const getPool = T.get.length && kind !== 'returns' && T.partner === t.id ? [T.get] : combos(top(th.ids, 7), 1).concat(combos(top(th.ids, 7), 2));
+    const givePool = kind === 'returns' ? [T.give] : kind === 'offer' ? myPool : T.give.length ? [T.give] : myPool;
+    const gP = kind === 'returns' ? getPool.filter(g => !T.get.length || true) : kind === 'offer' ? [T.get] : T.get.length && T.partner === t.id ? [T.get] : getPool;
+    for (const give of givePool) for (const get of gP) {
+      if (give.length > 2 || get.length > 2 || (give.length === 2 && get.length === 2)) continue;
+      const e = trEval(c, give, get, t.id); if (e.myGain > 0.3 && trOk(e)) out.push({t, give, get, e});
     }
   }
-  res.sort((a, b) => b.myGain - a.myGain); T.res = {rows: res.slice(0, 600), mode: T.mode, W}; T.busy = null; renderTrades(c);
-}
-
-function tradeNeeds(c) {
-  const pool = labPool(), pos = ['QB', 'RB', 'WR', 'TE'], me = c.tms[c.L.my], starters = id => Object.values(autoSet(c.tms[id].ids)).filter(Boolean).map(i => pool[i]).filter(Boolean);
-  const mineS = starters(c.L.my), all = c.D.teams.map(t => starters(t.id));
-  const gaps = pos.map(p => { const m = mineS.filter(x => x.pos === p), L = all.flat().filter(x => x.pos === p), av = a => a.reduce((s, x) => s + P(x, 'proj'), 0) / Math.max(a.length, 1);
-    return {p, mine: av(m), lg: av(L), gap: av(m) - av(L), worst: m.sort((a, b) => P(a, 'proj') - P(b, 'proj'))[0]}; }).sort((a, b) => a.gap - b.gap);
-  const out = gaps.slice(0, 2).map(g => {
-    const spare = c.D.teams.filter(t => t.id !== c.L.my).map(t => { const ids = c.tms[t.id].ids, st0 = Object.values(autoSet(ids)), bn = ids.map(i => pool[i]).filter(p => p && p.pos === g.p && !st0.includes(p.id)).sort((a, b) => P(b, 'proj') - P(a, 'proj'))[0]; return bn && g.worst && P(bn, 'proj') > P(g.worst, 'proj') ? {t, bn} : null; }).filter(Boolean).sort((a, b) => P(b.bn, 'proj') - P(a.bn, 'proj')).slice(0, 3);
-    return {...g, spare}; });
-  return out;
+  out.sort((a, b) => b.e.myGain - a.e.myGain); T.sugg = out.slice(0, 8); T.sBusy = null; renderTrades(c);
 }
 
 function renderTrades(c) {
-  const host = $('#tm-trades'); if (!host) return; c = c || st.trc; if (!c) return; st.trc = c; const T = st.tr, pool = labPool();
+  const host = $('#tm-trades'); if (!host) return; c = c || st.trc; if (!c) return; st.trc = c; const T = st.tr, pool = labPool(), x = T.px && !T.px.err ? T.px : null;
   if (!st.slate) { host.innerHTML = `<div class="card empty"><b>Projections are still loading</b></div>`; return; }
-  const nm = ids => ids.map(i => { const p = pool[i] || (st.wi.ros && st.wi.ros.any[i]); return p ? `<b>${p.name}</b> <span class="sub2">${p.pos}</span>` : i; }).join(' + ');
-  const needs = tradeNeeds(c), opts = (a, cur) => a.map(([v, l]) => `<option value="${v}" ${String(cur) === String(v) ? 'selected' : ''}>${l}</option>`).join('');
-  const posOpts = [['any', 'Any'], ['QB', 'QB'], ['RB', 'RB'], ['WR', 'WR'], ['TE', 'TE']];
-  host.innerHTML = `<div class="card"><h3>Trade finder</h3>
-    <div class="note" style="margin-top:0">Searches every other team for trades that raise your best lineup. Each trade is scored for both sides, assuming each manager sets their best lineup.</div>
-    <div class="sub2" style="margin-top:var(--s3)">YOUR WEAKEST SPOTS</div>
-    <div class="needs">${needs.map(n => `<div class="need"><b>${n.p}</b> <span class="sub2">your starters average ${fmt(n.mine)} vs ${fmt(n.lg)} league-wide</span>${n.spare.length ? `<div class="sub2">Spare ${n.p}s that beat your worst starter: ${n.spare.map(s => `${s.bn.name} (${fmt(P(s.bn, 'proj'))}, ${s.t.name})`).join('; ')}</div>` : ''}</div>`).join('')}</div>
-    <div class="trf"><label>Value over<select id="trMode">${opts([['ros', 'Rest of season'], ['week', 'This week only'], ['playoff', 'Playoff-weighted']], T.mode)}</select></label>
-      <button class="btn" style="width:auto" id="trRun" ${T.busy ? 'disabled' : ''}>${T.res ? 'Search again' : 'Find trades'}</button></div>
-    <div id="trBusy" class="sub2">${T.busy || ''}</div></div><div id="trOut"></div>`;
-  $('#trMode').onchange = e => { T.mode = e.target.value; T.res = null; renderTrades(c); };
-  $('#trRun').onclick = () => findTrades(c);
-  if (!T.res) return;
-  if (T.res.err) { $('#trOut').innerHTML = `<div class="card"><div class="note err">${T.res.err}</div></div>`; return; }
-  const filt = () => T.res.rows.filter(r => (T.team === 'all' || String(r.team.id) === String(T.team)) && (T.shape === 'all' || r.shape === T.shape) &&
-    (T.give === 'any' || r.give.some(i => (pool[i] || st.wi.ros.any[i]).pos === T.give)) && (T.get === 'any' || r.get.some(i => (pool[i] || st.wi.ros.any[i]).pos === T.get)) &&
-    r.myGain >= T.minGain && (!T.fair || (r.theirGain > 0.3 && r.bal >= 0.8 && r.bal <= 1.6)));
-  const out = $('#trOut'), cd = card(`<h3>Trades <span class="sub2" id="trCnt"></span></h3>
-    <div class="trf"><label>Partner<select id="fTeam">${opts([['all', 'All teams'], ...c.D.teams.filter(t => t.id !== c.L.my).map(t => [t.id, t.name])], T.team)}</select></label>
-      <label>You give<select id="fGive">${opts(posOpts, T.give)}</select></label><label>You get<select id="fGet">${opts(posOpts, T.get)}</select></label>
-      <label>Type<select id="fShape">${opts([['all', 'All'], ['1for1', '1 for 1'], ['2for1', '2 for 1'], ['1for2', '1 for 2']], T.shape)}</select></label>
-      <label>Min gain<select id="fMin">${opts([[0.3, '0.3'], [0.5, '0.5'], [1, '1'], [2, '2'], [4, '4']], T.minGain)}</select></label>
-      <label class="ck"><input type="checkbox" id="fFair" ${T.fair ? 'checked' : ''}>Reasonable for both sides</label></div><div id="trTbl"></div>
-    <div class="note">Gains are projected points ${T.res.mode === 'week' ? 'this week' : T.res.mode === 'playoff' ? 'over the rest of the season, playoff weeks counted extra' : 'summed over the rest of the season'}, from each team's best lineup. “Reasonable” means the other side's lineup improves and the two sides trade similar value over a free-agent replacement. If one side gives up more players than it gets, it refills the spot from free agents (and the other side drops its worst bench player). Injuries and bye weeks are included only as they show in the projections.</div>`);
-  out.appendChild(cd);
-  const draw = () => { const rows = filt(); $('#trCnt').textContent = `${rows.length} found`;
-    const hid = T.res.rows.filter(r => r.myGain >= T.minGain).length - rows.length; $('#trCnt').textContent += hid > 0 && T.fair ? ` · ${hid} more help only you (untick “Reasonable for both sides”)` : '';
-    const cols = [{k: 't', t: 'Partner', v: r => r.team.name, first: 1, h: r => r.team.name},
-      {k: 'g', t: 'You give', v: r => nm(r.give), first: 1, h: r => nm(r.give)}, {k: 'r', t: 'You get', v: r => nm(r.get), first: 1, h: r => nm(r.get)},
-      {k: 'mg', t: 'Your gain', v: r => r.myGain, cls: 'main', h: r => `<span class="pos">+${fmt(r.myGain)}</span>`},
-      {k: 'tg', t: 'Their gain', v: r => r.theirGain, h: r => `<span class="${r.theirGain > .3 ? 'pos' : r.theirGain < -.3 ? 'neg' : ''}">${sgn(r.theirGain)}</span>`},
-      {k: 'v', t: 'Fairness', v: r => -Math.abs(Math.log(r.bal || 1)), h: r => r.bal < .8 ? 'They give up more' : r.bal > 1.6 ? 'You give up more' : r.theirGain > .3 ? (r.bal >= .9 && r.bal <= 1.25 ? 'Likely accepted' : 'Both gain') : 'Hurts them'}];
-    renderTable($('#trTbl'), 'trd', cols, rows, {sort: 'mg', limit: 15, step: 15}); };
-  [['fTeam', 'team'], ['fGive', 'give'], ['fGet', 'get'], ['fShape', 'shape']].forEach(([id, k]) => $('#' + id).onchange = e => { T[k] = e.target.value; draw(); });
-  $('#fMin').onchange = e => { T.minGain = +e.target.value; draw(); }; $('#fFair').onchange = e => { T.fair = e.target.checked; draw(); };
-  draw();
+  const me = c.tms[c.L.my], rowOf = id => pool[id] || (x && x.row(id)) || (st.wi.ros && st.wi.ros.any[id]);
+  const wk = id => { const r = rowOf(id); return r ? P(r, 'proj') : null; };
+  const TPOS = ['QB', 'RB', 'WR', 'TE'], tile = (id, side) => { const r = rowOf(id); if (!r) return ''; const on = (side === 'give' ? T.give : T.get).includes(id), v = x ? x.vor(id) : null;
+    return `<button class="ptile ${on ? 'on' : ''}" data-${side}="${id}" style="--pc:${POSCOL[r.pos]}"><i class="stripe"></i><span class="tn"><b>${r.name}</b><span class="sub2">${r.pos} · ${r.team}${r.status && r.status !== 'Active' ? ' · ' + r.status : ''}</span></span><span class="tv"><b>${pool[id] ? fmt(wk(id)) : 'bye'}</b>${v != null ? `<span class="sub2">+${fmt(v, 0)} vs repl.</span>` : ''}</span></button>`; };
+  const roster = (ids, side) => TPOS.map(p => { const l = ids.filter(i => { const r = rowOf(i); return r && r.pos === p; }).sort((a, b) => (x ? x.vor(b) - x.vor(a) : (wk(b) || 0) - (wk(a) || 0))); return l.length ? `<div class="pgrp"><div class="sub2">${p}</div><div class="ptiles">${l.map(i => tile(i, side)).join('')}</div></div>` : ''; }).join('');
+  const others = c.D.teams.filter(t => t.id !== c.L.my), partner = T.partner ? c.tms[T.partner] : null;
+  const pills = others.map(t => `<button class="pill ${T.partner === t.id ? 'on' : ''}" data-partner="${t.id}">${t.name}</button>`).join('');
+  const nSel = T.give.length + T.get.length;
+  host.innerHTML = `<div class="card"><div class="ctl"><div class="grow"><h3 style="margin:0">Trade machine</h3><div class="sub2">Pick the players you give and the players you get. It scores the trade for both sides as you go.</div></div>
+      <div class="seg" id="trMode">${[['week', 'This week'], ['ros', 'Rest of season'], ['playoff', 'Playoffs']].map(([k, l]) => `<button data-m="${k}" class="${T.mode === k ? 'on' : ''}">${l}</button>`).join('')}</div></div></div>
+    <div class="tgrid"><div class="card"><div class="thead"><h3>You give</h3><span class="sub2">${c.D.teams.find(t => t.id === c.L.my).name}</span></div>${roster(me.ids, 'give')}</div>
+      <div class="card"><div class="thead"><h3>You get</h3><span class="sub2">${partner ? c.D.teams.find(t => t.id === T.partner).name : 'choose a team'}</span></div><div class="pills">${pills}</div>
+        ${partner ? roster(partner.ids, 'get') : '<div class="note" style="margin-top:var(--s3)">Pick a team to browse their roster, or leave it open and let the finder search every team.</div>'}</div></div>
+    <div class="card" id="trEval"></div><div id="trSugg"></div>`;
+  // events
+  host.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { T.mode = b.dataset.m; T.sugg = null; trPrep(c); });
+  host.querySelectorAll('[data-partner]').forEach(b => b.onclick = () => { const id = +b.dataset.partner; if (T.partner !== id) { T.partner = id; T.get = []; T.sugg = null; } renderTrades(c); });
+  host.querySelectorAll('[data-give]').forEach(b => b.onclick = () => { const id = b.dataset.give; T.give = T.give.includes(id) ? T.give.filter(i => i !== id) : [...T.give, id]; T.sugg = null; renderTrades(c); });
+  host.querySelectorAll('[data-get]').forEach(b => b.onclick = () => { const id = b.dataset.get; T.get = T.get.includes(id) ? T.get.filter(i => i !== id) : [...T.get, id]; T.sugg = null; renderTrades(c); });
+  // evaluation
+  const ev = $('#trEval'); if (!T.px && !T.pxBusy) { trPrep(c); return; }
+  if (T.pxBusy) { ev.innerHTML = `<div class="empty" style="padding:var(--s4)"><span class="spin dark"></span><span class="busy">${T.pxBusy}</span></div>`; return; }
+  if (T.px && T.px.err) { ev.innerHTML = `<div class="note err">${T.px.err}</div>`; return; }
+  const btn = (id, l, cls = 'ghost') => `<button class="btn ${cls} sm" id="${id}">${l}</button>`;
+  const actions = `<div class="lbtns" style="margin-top:var(--s3)">${nSel ? btn('trClear', 'Clear') : ''}${T.give.length ? btn('trRet', 'Find what I could get for these') : ''}${T.get.length && T.partner ? btn('trOff', 'Find what to offer for these') : ''}${btn('trAny', 'Find the best trades for me', T.give.length || T.get.length ? 'ghost' : '')}</div>`;
+  if (!T.give.length || !T.get.length || !T.partner) {
+    ev.innerHTML = `<h3>Evaluation</h3><div class="note" style="margin-top:0">${!T.partner ? 'Choose a team on the right.' : !T.give.length ? 'Select at least one player to give.' : 'Select at least one player to get.'} Or let the finder suggest trades.</div>${actions}`;
+  } else {
+    const e = trEval(c, T.give, T.get, T.partner), [vt, vc] = trVerdict(e), tn = c.D.teams.find(t => t.id === T.partner).name, tot = Math.max(e.vg + e.vq, 1e-6), nm = ids => ids.map(i => (rowOf(i) || {}).name).join(' + ');
+    const lw = st.slate.week, dp = labPool(), setB = autoSet(me.ids), setA = autoSet(e.m2), slots = slotsAll().filter(([k]) => setB[k] !== setA[k]);
+    const gcls = v => Math.abs(v) < .05 ? '' : v > 0 ? 'pos' : 'neg';
+    ev.innerHTML = `<div class="thead"><h3>Evaluation</h3><span class="chipv ${vc}">${vt}</span></div>
+      <div class="tdeal"><div><span class="sub2">YOU SEND</span><b>${nm(T.give)}</b></div><span class="arr">⇄</span><div><span class="sub2">YOU RECEIVE · ${tn}</span><b>${nm(T.get)}</b></div></div>
+      <div class="tgains"><div class="gbox"><span class="sub2">YOUR TEAM</span><b class="${gcls(e.myGain)}">${sgn(e.myGain)}</b><span class="sub2">${fmt(e.mB, 0)} → ${fmt(e.mA, 0)} pts</span></div>
+        <div class="gbox"><span class="sub2">${tn.toUpperCase()}</span><b class="${gcls(e.theirGain)}">${sgn(e.theirGain)}</b><span class="sub2">${fmt(e.tB, 0)} → ${fmt(e.tA, 0)} pts</span></div></div>
+      <div class="balance"><div class="sub2">VALUE OVER FREE-AGENT REPLACEMENT</div><div class="bbar"><i style="width:${e.vg / tot * 100}%"></i></div><div class="blab"><span>You send ${fmt(e.vg, 0)}</span><span>You receive ${fmt(e.vq, 0)}</span></div></div>
+      ${slots.length ? `<div class="sub2" style="margin-top:var(--s3)">YOUR LINEUP CHANGES THIS WEEK (week ${lw})</div><table class="st"><tr><th class="l">Slot</th><th class="l">Before</th><th class="l">After</th></tr>${slots.map(([k]) => `<tr><td class="slot">${k}</td><td class="l">${setB[k] ? (dp[setB[k]] || {}).name || '' : 'empty'}</td><td class="l strong">${setA[k] ? (dp[setA[k]] || {}).name || '' : 'empty'}</td></tr>`).join('')}</table>` : `<div class="note">Your starting lineup this week would not change.</div>`}
+      <div class="note">Points are best-lineup totals ${x.mode === 'week' ? 'for this week' : x.mode === 'playoff' ? 'over the rest of the season, playoff weeks counted extra' : 'summed over the rest of the season'}. A side that gives up more players than it gets refills the spot from free agents; a side that gets more drops its worst bench player. A trade is “reasonable” when the other lineup improves and both sides trade similar value.</div>${actions}`;
+  }
+  const g = id => $('#' + id); g('trClear') && (g('trClear').onclick = () => { T.give = []; T.get = []; T.sugg = null; renderTrades(c); });
+  g('trRet') && (g('trRet').onclick = () => trSuggest(c, 'returns')); g('trOff') && (g('trOff').onclick = () => trSuggest(c, 'offer')); g('trAny') && (g('trAny').onclick = () => trSuggest(c, 'any'));
+  const sg = $('#trSugg');
+  if (T.sBusy) { sg.innerHTML = `<div class="card"><div class="empty" style="padding:var(--s4)"><span class="spin dark"></span><span class="busy">${T.sBusy}</span></div></div>`; return; }
+  if (T.sugg) {
+    sg.innerHTML = `<div class="card"><h3>Suggested trades <span class="sub2">${T.sugg.length ? 'tap one to load it above' : ''}</span></h3>${T.sugg.length ? `<div class="sgrid">${T.sugg.map((s, i) => { const [vt, vc] = trVerdict(s.e);
+      return `<button class="sug" data-sug="${i}"><span class="sub2">${s.t.name}</span><span class="line"><i>Give</i> ${s.give.map(id => (rowOf(id) || {}).name).join(' + ')}</span><span class="line"><i>Get</i> ${s.get.map(id => (rowOf(id) || {}).name).join(' + ')}</span><span class="sfoot"><b class="pos">${sgn(s.e.myGain)}</b><span class="sub2">them ${sgn(s.e.theirGain)}</span><span class="chipv ${vc}">${vt}</span></span></button>`; }).join('')}</div>` : '<div class="note">No reasonable trade found for that. Try different players or a different value window.</div>'}</div>`;
+    sg.querySelectorAll('[data-sug]').forEach(b => b.onclick = () => { const s = T.sugg[+b.dataset.sug]; T.partner = s.t.id; T.give = s.give.slice(); T.get = s.get.slice(); renderTrades(c); window.scrollTo({top: $('#trEval').offsetTop - 80, behavior: 'smooth'}); });
+  }
 }
 
 /* ================= season outlook: playoff odds, power rankings, strength of schedule ================= */
