@@ -390,6 +390,23 @@ def main(cutoff=None, write=True, quiet=False, usage_decay=None, w_prev_use=None
         pace = o[(o.no_huddle.fillna(0) == 0) & o.index.isin(ok.index)]
         r["pace"] = float(shrink((pace.el * pace.w).sum(), pace.w.sum(), M["clock_mean"], 250) / M["clock_mean"])
         T[t] = r
+    # opponent adjustment: re-estimate each rating from plays net of the opposing unit's current rating (alternating, damped by shrinkage)
+    specs = [("ypc_off", "ypc_def", lambda x: (x.db == 0) & (x.rush_attempt == 1), "yards_gained", 200, lg["ypc"], False),
+             ("sack_off", "sack_def", lambda x: x.db == 1, "sack", 120, lg["sack"], True)]
+    for off_k, def_k, mask, col, kk, base, absolute in specs:
+        sub = sc[mask(sc)]
+        for _ in range(4):
+            dd_ = {t: T[t][def_k] - (base if absolute else 0) for t in teams}
+            do_ = {t: T[t][off_k] - (base if absolute else 0) for t in teams}
+            yo = sub[col] - sub.defteam.map(dd_).fillna(0)
+            yd = sub[col] - sub.posteam.map(do_).fillna(0)
+            new = {}
+            for t in teams:
+                mo, md = sub.posteam == t, sub.defteam == t
+                new[t] = (shrink((yo[mo] * sub.w[mo]).sum(), sub.w[mo].sum(), base, kk) - (0 if absolute else base),
+                          shrink((yd[md] * sub.w[md]).sum(), sub.w[md].sum(), base, kk) - (0 if absolute else base))
+            for t in teams:
+                T[t][off_k], T[t][def_k] = new[t]
     M["team_rates"] = T
 
     # ---------------- players ----------------

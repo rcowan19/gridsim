@@ -81,7 +81,7 @@ def stoch_round(v, rng):
 class Engine:
     # knobs that calibrate.py can tune
     DEFAULT_TUNE = {"hfa_comp": 0.006, "hfa_ypc": 0.06, "pass_scale": 1.0, "ypc_scale": 1.0,
-                    "comp_add": 0.0, "pen_scale": 1.0, "yac_scale": 0.95, "air_scale": 1.0, "air_add": 0.0, "air_mult": 1.0, "air_tail": 1.0, "yds_mult": 1.18, "pace_mult": 1.03, "run_add": 0.0, "gl_add": 0.25}
+                    "comp_add": 0.0, "pen_scale": 1.0, "yac_scale": 0.95, "air_scale": 1.0, "air_add": -0.3, "air_mult": 1.0, "air_tail": 1.0, "yds_mult": 1.18, "pace_mult": 1.015, "run_add": 0.0, "gl_add": 0.4, "punt_td": 0.0055, "fum_td": 0.035, "eoh_fg": 0.9}
 
     def __init__(self, model, tune=None):
         self.m = m = model
@@ -430,6 +430,9 @@ class Game:
                     if self.drive_no != d0:
                         return
                     continue
+            if self.down < 4 and lt <= 15 and self.Y + 17 <= 58 and (self.period == 1 or (self.period == 2 and -3 <= sd <= 0)) \
+                    and rng.random() < e.tune["eoh_fg"]:
+                return self.do_fg(O)             # kick on any down when the half is about to end
             if self.down == 4:
                 ch = self.fourth_choice()
                 if ch == "punt":
@@ -471,6 +474,12 @@ class Game:
 
     def lose_ball(self, o, Y2):
         self.ts[o][TIDX["to"]] += 1
+        if self.rng.random() < self.e.tune["fum_td"]:
+            self.drive_off = 1 - o
+            self.say("td", "Fumble recovered", 0, self.xp(Y2, o), None, o=1 - o)
+            self.touchdown(1 - o, "Fumble returned for", self.xp(Y2, o), self.xp(100, o))
+            self.dscore = "DEF"
+            return
         self.give_ball(1 - o, 100 - Y2)
 
     def rush(self, o, O, D):
@@ -689,6 +698,12 @@ class Game:
         rs = rng.choice(pool)
         self.ts[o][TIDX["punts"]] += 1
         self.elapse("run", o, fixed=rng.randint(6, 13))
+        if rng.random() < e.tune["punt_td"]:
+            self.drive_off = o
+            self.say("punt", f"{O.punter} punt; returned for a touchdown", 0, self.xp(Y, o), None)
+            self.touchdown(1 - o, "Punt returned for", self.xp(Y, o), self.xp(100, o))
+            self.dscore = "DEF"
+            return
         self.say("punt", f"{O.punter} punt; {self.names[1 - o]} take over at "
                          f"{spot_txt(rs, self.names[1 - o], self.names[o])}", 0, self.xp(Y, o), None)
         self.give_ball(1 - o, rs)
