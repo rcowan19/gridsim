@@ -15,17 +15,17 @@ from engine import PSTATS, TSTATS, env_factors
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 TEAMS = {
-    "ARI": ("Arizona Cardinals", "#97233F"), "ATL": ("Atlanta Falcons", "#A71930"), "BAL": ("Baltimore Ravens", "#7B5FBF"),
-    "BUF": ("Buffalo Bills", "#2F6FD0"), "CAR": ("Carolina Panthers", "#0085CA"), "CHI": ("Chicago Bears", "#E8793A"),
-    "CIN": ("Cincinnati Bengals", "#FB4F14"), "CLE": ("Cleveland Browns", "#FF5B1F"), "DAL": ("Dallas Cowboys", "#5A87C8"),
-    "DEN": ("Denver Broncos", "#FB4F14"), "DET": ("Detroit Lions", "#0076B6"), "GB": ("Green Bay Packers", "#2E8B57"),
-    "HOU": ("Houston Texans", "#C8374A"), "IND": ("Indianapolis Colts", "#3A7BD5"), "JAX": ("Jacksonville Jaguars", "#00A3B0"),
-    "KC": ("Kansas City Chiefs", "#E31837"), "LA": ("Los Angeles Rams", "#3D6FD1"), "LAC": ("Los Angeles Chargers", "#2FA7E0"),
-    "LV": ("Las Vegas Raiders", "#A5ACAF"), "MIA": ("Miami Dolphins", "#00A6A6"), "MIN": ("Minnesota Vikings", "#7E57C2"),
-    "NE": ("New England Patriots", "#3C6AB5"), "NO": ("New Orleans Saints", "#D3BC8D"), "NYG": ("New York Giants", "#2E6DD6"),
-    "NYJ": ("New York Jets", "#2E8B6E"), "PHI": ("Philadelphia Eagles", "#1E8F7A"), "PIT": ("Pittsburgh Steelers", "#F2B705"),
-    "SEA": ("Seattle Seahawks", "#69BE28"), "SF": ("San Francisco 49ers", "#D1303A"), "TB": ("Tampa Bay Buccaneers", "#D50A0A"),
-    "TEN": ("Tennessee Titans", "#4B92DB"), "WAS": ("Washington Commanders", "#B03A4F"),
+    "ARI": ("Arizona Cardinals", "#97233F"), "ATL": ("Atlanta Falcons", "#A71930"), "BAL": ("Baltimore Ravens", "#3B2A8C"),
+    "BUF": ("Buffalo Bills", "#00338D"), "CAR": ("Carolina Panthers", "#0085CA"), "CHI": ("Chicago Bears", "#C83803"),
+    "CIN": ("Cincinnati Bengals", "#E04E10"), "CLE": ("Cleveland Browns", "#C2410C"), "DAL": ("Dallas Cowboys", "#003594"),
+    "DEN": ("Denver Broncos", "#D9480F"), "DET": ("Detroit Lions", "#0076B6"), "GB": ("Green Bay Packers", "#2A5A45"),
+    "HOU": ("Houston Texans", "#A71930"), "IND": ("Indianapolis Colts", "#1E4C9A"), "JAX": ("Jacksonville Jaguars", "#00747F"),
+    "KC": ("Kansas City Chiefs", "#C8102E"), "LA": ("Los Angeles Rams", "#1F4DB0"), "LAC": ("Los Angeles Chargers", "#0072B8"),
+    "LV": ("Las Vegas Raiders", "#4B5156"), "MIA": ("Miami Dolphins", "#00858E"), "MIN": ("Minnesota Vikings", "#4F2683"),
+    "NE": ("New England Patriots", "#1B3A6B"), "NO": ("New Orleans Saints", "#8C7335"), "NYG": ("New York Giants", "#0B2265"),
+    "NYJ": ("New York Jets", "#125740"), "PHI": ("Philadelphia Eagles", "#00636C"), "PIT": ("Pittsburgh Steelers", "#A87900"),
+    "SEA": ("Seattle Seahawks", "#3F7D1A"), "SF": ("San Francisco 49ers", "#AA0000"), "TB": ("Tampa Bay Buccaneers", "#B80A0A"),
+    "TEN": ("Tennessee Titans", "#2C6FB5"), "WAS": ("Washington Commanders", "#6B1D2A"),
 }
 MODEL = sim.load_model()
 POOL = None
@@ -107,7 +107,7 @@ SLATE_CACHE = {}
 @app.post("/api/slate")
 def slate(r: SlateReq):
     import time
-    n = max(100, min(r.n, 2000))
+    n = max(100, min(r.n, 10000))
     key = (r.week, n, r.weather)
     if key not in SLATE_CACHE:
         t0 = time.time()

@@ -222,8 +222,20 @@ def simulate_slate(week, n=500, pool=None, hist=None, ns=300, weather=None):
     ov = {}
     weather = weather or {}
     conds = [{"roof": g.get("roof"), "wind": (weather.get(g["id"]) or {}).get("wind"), "temp": (weather.get(g["id"]) or {}).get("temp")} for g in games]
-    jobs = [(g["home"], g["away"], n, 7000 + i, ov, g["neutral"], conds[i]) for i, g in enumerate(games)]
-    parts = pool.map(run_chunk, jobs) if pool is not None else [run_chunk(j) for j in jobs]
+    # split every game into chunks so large simulation counts spread evenly across all CPU cores
+    CH = 2500
+    jobs, owner = [], []
+    for i, g in enumerate(games):
+        left, c = n, 0
+        while left > 0:
+            sz = min(CH, left)
+            jobs.append((g["home"], g["away"], sz, 7000 + i * 97 + c, ov, g["neutral"], conds[i])); owner.append(i)
+            left -= sz; c += 1
+    out = pool.map(run_chunk, jobs) if pool is not None else [run_chunk(j) for j in jobs]
+    parts = []
+    for i in range(len(games)):
+        mine = [o for o, k in zip(out, owner) if k == i]
+        parts.append((mine[0][0], np.concatenate([x[1] for x in mine]), np.concatenate([x[2] for x in mine]), np.concatenate([x[3] for x in mine]), np.concatenate([x[4] for x in mine])))
     rows, meta = [], []
     c = calib.load()
     for g, p in zip(games, parts):

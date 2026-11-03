@@ -11,18 +11,22 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230b0f14'/%3E%3Cpath d='M8 22V10h9a4 4 0 0 1 0 8h-5' fill='none' stroke='%235eead4' stroke-width='3'/%3E%3C/svg%3E">
 <style>
 /* ===== design tokens ===== */
+/* Palette: warm paper and ink, with football-derived semantics
+   leather = primary action, turf = positive, brick = negative, flag gold = caution */
 :root{
-  --bg:#0b0f14;--surface:#111720;--surface-2:#161d28;--line:#202b3a;--text:#e8eef5;--muted:#93a1b3;--dim:#66768a;
-  --accent:#5eead4;--accent-ink:#052e2a;--good:#4ade80;--bad:#f87171;--warn:#fbbf24;
+  --bg:#f2eee4;--surface:#fbf8f1;--surface-2:#ebe5d8;--line:#d8d0bf;--line-strong:#b9ae96;--line-soft:#e6dfcf;
+  --text:#1d1b17;--muted:#5f584c;--dim:#6e6657;
+  --accent:#8f4524;--accent-ink:#fbf8f1;--good:#2c6a3c;--bad:#a8372a;--warn:#8a5d08;
+  --good-bg:rgba(44,106,60,.10);--bad-bg:rgba(168,55,42,.10);--warn-bg:rgba(138,93,8,.12);--ink-bg:rgba(29,27,23,.06);
   --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;
-  --r-sm:8px;--r-lg:12px;--pill:999px;
-  --font:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --r-sm:6px;--r-lg:10px;--pill:999px;
+  --font:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--serif:Palatino,"Palatino Linotype","Book Antiqua",Georgia,serif;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   --panel:var(--surface);--panel2:var(--surface-2);--r:var(--r-lg);
 }
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 var(--font)}
 button,select,input{font:inherit;color:inherit}
-:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+:focus-visible{outline:2px solid var(--text);outline-offset:2px}
 /*legacy*/:root.__x{
   --bg:#0a0e13; --panel:#111720; --panel2:#151c27; --line:#1f2937; --text:#e7edf4; --muted:#8696a9; --dim:#5b6b7e;
   --accent:#5eead4; --good:#4ade80; --bad:#f87171; --away:#60a5fa; --home:#f87171;
@@ -33,15 +37,15 @@ button,select,input{font:inherit;color:inherit}
 button,select,input{font:inherit;color:inherit}
 .spacer{flex:1}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);padding:16px}
-.card h3{margin:0 0 12px;font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.card h3{margin:0 0 var(--s3);font:700 17px/1.3 var(--serif);color:var(--text);letter-spacing:0;text-transform:none}
 label.f{display:block;font-size:12px;color:var(--muted);margin:10px 0 5px}
 select{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:var(--r-sm);padding:9px 10px;outline:none}
 select:focus{border-color:var(--accent)}
 .seg{display:flex;background:var(--panel2);border:1px solid var(--line);border-radius:var(--r-sm);padding:3px;gap:3px}
 .seg button{flex:1;background:none;border:0;padding:6px 0;border-radius:var(--r-sm);color:var(--muted);cursor:pointer}
-.seg button.on{background:var(--line);color:var(--text)}
+.seg button.on{background:var(--surface);color:var(--text);box-shadow:0 0 0 1px var(--line-strong)}
 .btn{width:100%;border:0;border-radius:var(--r-sm);padding:11px 14px;font-weight:650;cursor:pointer;}
-.btn.primary{background:var(--accent);color:#04201c}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border:0}
 .btn.primary:hover{filter:brightness(1.08)}
 .btn.ghost{background:var(--panel2);border:1px solid var(--line)}
 .btn.ghost:hover{border-color:var(--dim)}
@@ -49,9 +53,9 @@ select:focus{border-color:var(--accent)}
 .sw{position:relative;width:34px;height:20px;flex:none}
 .sw input{opacity:0;position:absolute;inset:0;margin:0;cursor:pointer;z-index:2}
 .sw i{position:absolute;inset:0;background:var(--line);border-radius:var(--pill);}
-.sw i:after{content:"";position:absolute;left:3px;top:3px;width:14px;height:14px;border-radius:50%;background:#aab6c5;}
-.sw input:checked+i{background:var(--accent)}
-.sw input:checked+i:after{left:17px;background:#04201c}
+.sw i:after{content:"";position:absolute;left:3px;top:3px;width:14px;height:14px;border-radius:50%;background:var(--surface);box-shadow:0 0 0 1px var(--line-strong);}
+.sw input:checked+i{background:var(--text)}
+.sw input:checked+i:after{left:17px;background:var(--surface)}
 details{border-top:1px solid var(--line);padding-top:10px;margin-top:10px}
 summary{cursor:pointer;color:var(--text);font-weight:600;list-style:none;display:flex;align-items:center;gap:8px}
 summary::-webkit-details-marker{display:none}
@@ -62,8 +66,8 @@ summary small{color:var(--dim);font-weight:400;margin-left:auto}
 .pl .ps{color:var(--dim);font-size:11px;width:22px}
 .pl .sh{color:var(--dim);font-size:11px;font-family:var(--mono)}
 .inj{font-style:normal;font-size:10px;font-weight:700;padding:1px 5px;border-radius:var(--r-sm);margin-left:4px;vertical-align:1px}
-.inj.Q{background:#facc1533;color:#facc15}
-.inj.D,.inj.O{background:#f8717133;color:#f87171}
+.inj.Q{background:var(--warn-bg);color:var(--warn)}
+.inj.D,.inj.O{background:var(--bad-bg);color:var(--bad)}
 .pl.off .nm{color:var(--dim);text-decoration:line-through}
 .note{color:var(--dim);font-size:12px;margin-top:10px}
 .hide{display:none!important}
@@ -87,7 +91,7 @@ summary small{color:var(--dim);font-weight:400;margin-left:auto}
 svg text{font-family:inherit}
 table{width:100%;border-collapse:collapse;font-size:13px}
 th{font-weight:600;color:var(--muted);font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;text-align:right;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
-td{padding:7px 8px;text-align:right;border-bottom:1px solid #18202b;font-variant-numeric:tabular-nums}
+td{padding:7px 8px;text-align:right;border-bottom:1px solid var(--line-soft);font-variant-numeric:tabular-nums}
 th:first-child,td:first-child{text-align:left}
 tr:last-child td{border-bottom:0}
 td.nm{font-weight:550}
@@ -98,7 +102,7 @@ td.main{font-weight:700}
 .pill{display:inline-block;padding:2px 8px;border-radius:var(--pill);background:var(--panel2);border:1px solid var(--line);font-size:11.5px;color:var(--muted)}
 .tb{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
 .tb button{background:var(--panel2);border:1px solid var(--line);border-radius:var(--pill);padding:5px 13px;color:var(--muted);cursor:pointer;font-size:12.5px}
-.tb button.on{color:var(--text);border-color:var(--accent)}
+.tb button.on{background:var(--text);color:var(--surface);border-color:var(--text)}
 .gv{display:grid;grid-template-columns:1fr 380px;gap:16px}
 @media(max-width:1200px){.gv{grid-template-columns:1fr}}
 .sb{display:flex;align-items:center;justify-content:center;gap:26px;padding:6px 0 12px}
@@ -116,23 +120,23 @@ td.main{font-weight:700}
 .ctrl{display:flex;align-items:center;gap:8px;margin-top:14px}
 .ctrl button{background:var(--panel2);border:1px solid var(--line);border-radius:var(--r-sm);width:40px;height:34px;cursor:pointer}
 .ctrl button:hover{border-color:var(--dim)}
-.ctrl button.play{width:64px;background:var(--accent);color:#04201c;border:0;font-weight:700}
+.ctrl button.play{width:64px;background:var(--accent);color:var(--accent-ink);border:0;font-weight:700}
 .ctrl input[type=range]{flex:1;accent-color:var(--accent)}
 .ctrl select{width:auto;padding:6px 8px}
 .banner{margin-top:12px;padding:10px 14px;border-radius:var(--r-sm);background:var(--panel2);border:1px solid var(--line);min-height:42px;font-size:14px}
-.banner.score{border-color:var(--accent);background:rgba(94,234,212,.07)}
-.banner.to{border-color:#f8717166;background:rgba(248,113,113,.07)}
+.banner.score{border-color:var(--good);background:var(--good-bg)}
+.banner.to{border-color:var(--bad);background:var(--bad-bg)}
 .plays{max-height:560px;overflow:auto;padding:0;scroll-behavior:smooth}
 .plays .dh{position:sticky;top:0;background:var(--panel);padding:8px 14px;font-size:11.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--line);z-index:1}
-.pr{display:grid;grid-template-columns:62px 1fr;gap:8px;padding:7px 14px;border-bottom:1px solid #18202b;cursor:pointer;font-size:12.8px}
+.pr{display:grid;grid-template-columns:62px 1fr;gap:8px;padding:7px 14px;border-bottom:1px solid var(--line-soft);cursor:pointer;font-size:12.8px}
 .pr:hover{background:var(--panel2)}
-.pr.cur{background:rgba(94,234,212,.1);box-shadow:inset 3px 0 0 var(--accent)}
+.pr.cur{background:var(--ink-bg);box-shadow:inset 3px 0 0 var(--text)}
 .pr .c{color:var(--dim);font-family:var(--mono);font-size:11.5px}
 .pr .d{color:var(--muted);font-size:11.5px;margin-top:1px}
 .pr.sc .t{color:var(--accent);font-weight:600}
 .pr.k{opacity:.55}
 .pr.to .t{color:var(--bad)}
-.spin{display:inline-block;width:14px;height:14px;border:2px solid #04201c55;border-top-color:#04201c;border-radius:50%;animation:s .7s linear infinite;vertical-align:-2px;margin-right:6px}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line-strong);border-top-color:var(--text);border-radius:50%;animation:s .7s linear infinite;vertical-align:-2px;margin-right:6px}
 @keyframes s{to{transform:rotate(360deg)}}
 .err{color:var(--bad);margin-top:10px;font-size:13px}
 .tscroll{overflow-x:auto}
@@ -145,14 +149,14 @@ tr.clk:hover td{background:var(--panel2)}
 .posb{font-weight:700;font-size:12px}
 .pos{color:var(--good)}
 .neg{color:var(--bad)}
-.hotc{color:#fbbf24;font-weight:700}
-.pill.hot{background:rgba(251,191,36,.12);border-color:#fbbf2466;color:#fbbf24}
+.hotc{color:var(--warn);font-weight:700}
+.pill.hot{background:var(--warn-bg);border-color:var(--warn);color:var(--warn)}
 .lnk{cursor:pointer}
 .lnk:hover{color:var(--accent)}
 .rtxt{display:block;text-align:right;font-size:11px;color:var(--dim);line-height:1.1}
 .lgc{color:var(--dim)}
 .mb td.pos,.mb td.neg{font-weight:700}
-.spin.dark{border-color:#5eead455;border-top-color:var(--accent);margin-right:8px}
+.spin.dark{margin-right:8px}
 .grid2c{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:18px}
 @media(max-width:1100px){.grid2c{grid-template-columns:1fr}}
 .grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
@@ -161,7 +165,7 @@ table.heat{border-collapse:separate;border-spacing:2px;width:auto;font-size:11px
 table.heat th{text-align:right;padding:2px 6px;border:0;white-space:nowrap;font-size:11px;text-transform:none;letter-spacing:0;font-weight:600}
 table.heat th.vh{height:104px;vertical-align:bottom;padding:2px}
 table.heat th.vh div{writing-mode:vertical-rl;transform:rotate(180deg);white-space:nowrap}
-table.heat td{width:30px;height:26px;text-align:center;border-radius:var(--r-sm);padding:0;border:0;color:#e7edf4;font-size:10.5px}
+table.heat td{width:30px;height:26px;text-align:center;border-radius:var(--r-sm);padding:0;border:0;color:var(--text);font-size:10.5px}
 .ctl{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap}
 .ctl .grow{flex:1;min-width:180px}
 .ctl label.f{margin:0 0 5px}
@@ -172,16 +176,16 @@ table.heat td{width:30px;height:26px;text-align:center;border-radius:var(--r-sm)
 .fseg button{padding:6px 11px;white-space:nowrap}
 .tb .spacer{flex:1}
 .drawer{position:fixed;inset:0;z-index:50}
-.dback{position:absolute;inset:0;background:rgba(0,0,0,.55)}
-.dpanel{position:absolute;right:0;top:0;bottom:0;width:min(620px,100%);background:var(--panel);border-left:1px solid var(--line);padding:22px 24px;overflow:auto;box-shadow:-20px 0 60px rgba(0,0,0,.5)}
+.dback{position:absolute;inset:0;background:rgba(29,27,23,.35)}
+.dpanel{position:absolute;right:0;top:0;bottom:0;width:min(620px,100%);background:var(--panel);border-left:1px solid var(--line);padding:22px 24px;overflow:auto;box-shadow:-8px 0 24px rgba(29,27,23,.14)}
 .dx{position:absolute;right:16px;top:14px;background:none;border:0;color:var(--muted);font-size:18px;cursor:pointer}
 .dh{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding-right:26px}
-.dnm{font-size:22px;font-weight:800}
+.dnm{font:700 24px/1.2 var(--serif)}
 .dsub{color:var(--muted);margin-top:3px;font-size:13px}
 .dbig{text-align:right}
-.dbig b{display:block;font-size:40px;line-height:1;font-weight:800;color:var(--accent)}
+.dbig b{display:block;font-size:40px;line-height:1;font-weight:800;color:var(--text)}
 .dbig span{font-size:11px;color:var(--muted)}
-.dpanel h4{margin:20px 0 8px;font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.dpanel h4{margin:20px 0 8px;font:700 15px/1.3 var(--serif);color:var(--text)}
 .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .kpis.k4{grid-template-columns:repeat(4,1fr)}
 .kpis div,.statline div{background:var(--panel2);border:1px solid var(--line);border-radius:var(--r-sm);padding:8px 10px}
@@ -192,11 +196,11 @@ table.heat td{width:30px;height:26px;text-align:center;border-radius:var(--r-sm)
 .prow{display:grid;grid-template-columns:150px 90px 1fr;gap:10px;align-items:center}
 .prow label{color:var(--muted);font-size:13px}
 .prow select,.prow input{background:var(--panel2);border:1px solid var(--line);border-radius:var(--r-sm);padding:7px 8px;outline:none;width:100%}
-.pres b{color:var(--accent)}
+.pres b{color:var(--text)}
 .pres span{color:var(--dim);font-size:12px}
 .ladder{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-top:4px}
 .ladder div{position:relative;background:var(--panel2);border:1px solid var(--line);border-radius:var(--r-sm);padding:7px 10px;overflow:hidden}
-.ladder i{position:absolute;left:0;bottom:0;height:3px;background:var(--accent)}
+.ladder i{position:absolute;left:0;bottom:0;height:3px;background:var(--text)}
 .ladder span{font-size:11.5px;color:var(--muted);display:block}
 .ladder b{font-size:15px}
 .stk{border:1px solid var(--line);border-radius:var(--r-sm);padding:8px 10px;margin-bottom:8px}
@@ -208,7 +212,7 @@ table.heat td{width:30px;height:26px;text-align:center;border-radius:var(--r-sm)
 .labside td.slot{color:var(--muted);font-weight:700;font-size:12px;width:46px}
 .labside select.sl{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:var(--r-sm);padding:6px 8px}
 .srch{position:relative;margin-bottom:10px}
-.sres{position:absolute;left:0;right:0;top:100%;background:#0e141c;border:1px solid var(--line);border-radius:var(--r-sm);z-index:10;box-shadow:0 12px 30px rgba(0,0,0,.5);overflow:hidden}
+.sres{position:absolute;left:0;right:0;top:100%;background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--r-sm);z-index:10;box-shadow:0 8px 20px rgba(29,27,23,.14);overflow:hidden}
 .sres div{padding:8px 10px;cursor:pointer;display:flex;gap:8px;align-items:center}
 .sres div:hover{background:var(--panel2)}
 .sres b{margin-left:auto}
@@ -218,16 +222,16 @@ table.heat td{width:30px;height:26px;text-align:center;border-radius:var(--r-sm)
 .chip2 i:hover{color:var(--bad)}
 .lbtns{display:flex;gap:8px;flex-wrap:wrap}
 .btn.sm{width:auto;padding:7px 12px;font-size:12.5px}
-.inj.O,.inj.D{background:#f8717133;color:#f87171}
+.inj.O,.inj.D{background:var(--bad-bg);color:var(--bad)}
 .kpi2{background:var(--panel2);border:1px solid var(--line);border-radius:var(--r-sm);padding:10px 14px}
 .kpi2 span{display:block;font-size:11.5px;color:var(--muted)}
 .kpi2 b{font-size:28px;font-weight:800;display:block}
 .kpi2 i{font-style:normal;color:var(--muted);font-size:12.5px}
 .kpi2.hl{border-color:var(--accent)}
 .kpi2.hl b{color:var(--accent)}
-.alerts{margin-top:12px;padding:10px 12px;border-radius:var(--r-sm);background:rgba(251,191,36,.08);border:1px solid #fbbf2455;color:#fbbf24;font-size:13px}
+.alerts{margin-top:12px;padding:10px 12px;border-radius:var(--r-sm);background:var(--warn-bg);border:1px solid var(--warn);color:var(--warn);font-size:13px}
 .mineh{color:var(--accent);font-weight:700}
-tr.mineh td{background:rgba(94,234,212,.06)}
+tr.mineh td{background:var(--ink-bg)}
 .gcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:16px}
 .gday{grid-column:1/-1;font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-top:6px;border-bottom:1px solid var(--line);padding-bottom:6px}
 .gcard{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);padding:14px 16px;display:flex;flex-direction:column;gap:8px}
@@ -248,11 +252,11 @@ table.gl td,table.gl th{padding:4px 6px;font-size:12.5px}
 /* ===== shell ===== */
 .top{position:sticky;top:0;z-index:30;background:var(--bg);border-bottom:1px solid var(--line)}
 .top-in{max-width:1320px;margin:0 auto;padding:var(--s3) var(--s5);display:flex;align-items:center;gap:var(--s5);flex-wrap:wrap}
-.brand{font-weight:800;font-size:18px;letter-spacing:.2px}
+.brand{font:700 22px/1 var(--serif);letter-spacing:-.2px}
 .nav{display:flex;gap:var(--s1)}
 .nav button{background:none;border:0;color:var(--muted);padding:var(--s2) var(--s4);border-radius:var(--r-sm);cursor:pointer;font-weight:600}
 .nav button:hover{color:var(--text)}
-.nav button.on{color:var(--accent-ink);background:var(--accent)}
+.nav button.on{color:var(--text);box-shadow:inset 0 -2px 0 var(--text);border-radius:0}
 .gctl{display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap}
 .gl{display:flex;align-items:center;gap:var(--s2);color:var(--muted);font-size:13px}
 .gl select{width:auto;padding:6px var(--s3)}
@@ -263,7 +267,7 @@ table.gl td,table.gl th{padding:4px 6px;font-size:12.5px}
 .subtabs{display:flex;gap:var(--s1);border-bottom:1px solid var(--line);margin:0;overflow-x:auto}
 .subtabs button{background:none;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;padding:var(--s3) var(--s4);color:var(--muted);cursor:pointer;font-weight:600}
 .subtabs button:hover{color:var(--text)}
-.subtabs button.on{color:var(--text);border-bottom-color:var(--accent)}
+.subtabs button.on{color:var(--text);border-bottom-color:var(--text)}
 [data-sp]{display:flex;flex-direction:column;gap:var(--s4)}
 [data-sp].hide{display:none}
 /* ===== game lab setup ===== */
@@ -292,10 +296,10 @@ table.gl td,table.gl th{padding:4px 6px;font-size:12.5px}
 .chips{display:flex;gap:var(--s2);flex-wrap:wrap}
 .chips button{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--pill);padding:6px var(--s4);color:var(--muted);cursor:pointer;font-size:13px}
 .chips button:hover{color:var(--text)}
-.chips button.on{color:var(--text);border-color:var(--accent)}
+.chips button.on{background:var(--text);color:var(--surface);border-color:var(--text)}
 .seg{width:max-content;flex-shrink:0}
 .seg button{flex:none;padding:6px var(--s3);white-space:nowrap}
-.seg button.on{background:var(--line);color:var(--text)}
+.seg button.on{background:var(--surface);color:var(--text);box-shadow:0 0 0 1px var(--line-strong)}
 summary{display:flex;align-items:center;gap:var(--s2)}
 summary::before{content:"";width:6px;height:6px;border-right:2px solid var(--dim);border-bottom:2px solid var(--dim);transform:rotate(-45deg);margin:0 var(--s1) 0 2px}
 details[open]>summary::before{transform:rotate(45deg)}
@@ -327,7 +331,7 @@ th.l,td.l{text-align:left}
     <div class="gctl">
       <label class="gl">Week <select id="g_week"></select></label>
       <div class="seg" id="g_fmt" role="group" aria-label="Scoring"><button data-f="ppr" class="on">PPR</button><button data-f="half">Half</button><button data-f="std">Std</button></div>
-      <label class="gl">Depth <select id="g_depth"><option value="fast">Fast</option><option value="std" selected>Standard</option><option value="deep">Deep</option></select></label>
+      <label class="gl">Depth <select id="g_depth"><option value="fast">Fast (500)</option><option value="std" selected>Standard (1,000)</option><option value="deep">Deep (10,000)</option></select></label>
       <button class="btn ghost sm" id="g_refresh">Re-simulate</button>
     </div>
   </div>
@@ -371,8 +375,24 @@ const sgn = (x, d = 1) => x == null ? '–' : (x > 0 ? '+' : x < 0 ? '−' : '')
 const st = {away: null, home: null, n: 2000, neutral: false, ov: {}, TEAMS: {}, lgRates: {}, league: {}, last: null, G: null, i: 0, timer: null,
   fmt: 'ppr', sched: null, week: null, slate: null, slateN: 500, pos: 'ALL', q: '', sort: {}, lab: {mine: [], opp: [], slotsK: false, slotsD: false, mineSet: null, oppSet: null}};
 try { st.lab.mine = JSON.parse(localStorage.getItem('gs_mine') || '[]'); st.lab.opp = JSON.parse(localStorage.getItem('gs_opp') || '[]'); } catch (e) {}
-const color = a => (st.TEAMS[a] || {color: '#8696a9'}).color;
-const POSCOL = {QB: '#f87171', RB: '#4ade80', WR: '#60a5fa', TE: '#fbbf24', K: '#a78bfa', DST: '#94a3b8'};
+const C = {ink: '#1d1b17', muted: '#5f584c', rule: '#d8d0bf', rule2: '#b9ae96', good: '#2c6a3c', bad: '#a8372a', warn: '#8a5d08', bar: '#4a453c', neutral: '#7a7365'};
+const _rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+const _lum = c => { const f = v => { v /= 255; return v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }; return .2126 * f(c[0]) + .7152 * f(c[1]) + .0722 * f(c[2]); };
+const _cr = (a, b) => { const x = _lum(a), y = _lum(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); };
+const _hex = c => '#' + c.map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
+const _readable = {};
+function readable(hex) {                       // darken a team color until it reads on the paper background
+  if (_readable[hex]) return _readable[hex];
+  let c = _rgb(hex); const paper = _rgb('#fbf8f1'); let k = 1;
+  while (_cr(c.map(v => v * k), paper) < 3.6 && k > .35) k -= .04;
+  return _readable[hex] = _hex(c.map(v => v * k));
+}
+const color = a => readable((st.TEAMS[a] || {color: '#7a7365'}).color);
+function pairCols(a, h) {                       // two similar team colors in one chart become unreadable, so fall back to neutral
+  const ca = color(a), ch = color(h), x = _rgb(ca), y = _rgb(ch);
+  return Math.hypot(x[0] - y[0], x[1] - y[1], x[2] - y[2]) < 70 ? [C.neutral, ch] : [ca, ch];
+}
+const POSCOL = {QB: '#8f4524', RB: '#5d6b24', WR: '#2b5f8a', TE: '#8a6a1a', K: '#5f584c', DST: '#6e6657'};
 
 async function init() {
   const [j, sc] = await Promise.all([fetch('/api/teams').then(r => r.json()), fetch('/api/schedule').then(r => r.json())]);
@@ -407,7 +427,7 @@ async function init() {
   const hh = location.hash.slice(1); go(PAGES.includes(hh) ? hh : 'games');
 }
 st.page = 'games'; st.sub = {lab: 'ov', players: 'rank', team: 'lineup'}; st.pg = {}; st.depth = 'std'; st.loading = false;
-const DEPTH = {fast: {n: 1000, slate: 500}, std: {n: 2000, slate: 1000}, deep: {n: 5000, slate: 2000}};
+const DEPTH = {fast: {n: 1000, slate: 500, hint: ''}, std: {n: 2000, slate: 1000, hint: ''}, deep: {n: 10000, slate: 10000, hint: 'Deep runs take a minute or two for a full week.'}};
 const PAGES = ['games', 'players', 'team', 'lab'];
 function setSub(group, key) {
   st.sub[group] = key;
@@ -515,23 +535,23 @@ function hist(h, {lo, hi, w = 520, hgt = 150, colors, split = null, ticks = [], 
   vis.forEach((b, i) => { const hh = b.c / max * ih;
     s += `<rect x="${pad.l + i * bw + .5}" y="${pad.t + ih - hh}" width="${Math.max(bw - 1, 1)}" height="${hh}" rx="1.5" fill="${colors(b.x)}" opacity=".85"><title>${b.x}${h.step > 1 ? '–' + (b.x + h.step - 1) : ''}: ${(b.c / tot * 100).toFixed(1)}%</title></rect>`; });
   ticks.forEach(t => { const x = pad.l + (t - lo) / (hi - lo) * iw;
-    s += `<line x1="${x}" x2="${x}" y1="${pad.t}" y2="${pad.t + ih}" stroke="#ffffff${t === split ? '55' : '12'}" ${t === split ? '' : 'stroke-dasharray="2 3"'}/><text x="${x}" y="${hgt - 6}" fill="#8696a9" font-size="10.5" text-anchor="middle">${t}</text>`; });
+    s += `<line x1="${x}" x2="${x}" y1="${pad.t}" y2="${pad.t + ih}" stroke="${t === split ? C.rule2 : C.rule}" ${t === split ? '' : 'stroke-dasharray="2 3"'}/><text x="${x}" y="${hgt - 6}" fill="${C.muted}" font-size="10.5" text-anchor="middle">${t}</text>`; });
   marks.forEach(m => { const x = pad.l + (m.x - lo) / (hi - lo) * iw;
     s += `<line x1="${x}" x2="${x}" y1="${pad.t - 4}" y2="${pad.t + ih}" stroke="${m.c}" stroke-width="2"/><text x="${x}" y="9" fill="${m.c}" font-size="10" text-anchor="middle" font-weight="700">${m.t}</text>`; });
   return s + '</svg>';
 }
 function rangeBar(lo, hi, mean, max, col, w = 110) {
   const sc = v => Math.max(0, Math.min(v / max, 1)) * (w - 6) + 3;
-  return `<svg class="rng" width="${w}" height="14"><line x1="3" x2="${w - 3}" y1="7" y2="7" stroke="#1f2937" stroke-width="2"/><rect x="${sc(lo)}" y="3" width="${Math.max(sc(hi) - sc(lo), 2)}" height="8" rx="3" fill="${col}" opacity=".35"/><line x1="${sc(mean)}" x2="${sc(mean)}" y1="1" y2="13" stroke="${col}" stroke-width="2.5" stroke-linecap="round"/></svg>`;
+  return `<svg class="rng" width="${w}" height="14"><line x1="3" x2="${w - 3}" y1="7" y2="7" stroke="${C.rule}" stroke-width="2"/><rect x="${sc(lo)}" y="3" width="${Math.max(sc(hi) - sc(lo), 2)}" height="8" rx="3" fill="${col}" opacity=".35"/><line x1="${sc(mean)}" x2="${sc(mean)}" y1="1" y2="13" stroke="${col}" stroke-width="2.5" stroke-linecap="round"/></svg>`;
 }
 function spark(vals, proj, col, w = 84, h = 22) {
   if (!vals || !vals.length) return '';
   const mx = Math.max(...vals, proj || 0, 1);
   const bw = w / vals.length;
   return `<svg width="${w}" height="${h}">` + vals.map((v, i) => `<rect x="${i * bw + 1}" y="${h - Math.max(v, 0) / mx * h}" width="${bw - 2}" height="${Math.max(v, 0) / mx * h}" rx="1" fill="${col}" opacity=".75"/>`).join('') +
-    (proj != null ? `<line x1="0" x2="${w}" y1="${h - proj / mx * h}" y2="${h - proj / mx * h}" stroke="#fff" stroke-opacity=".7" stroke-dasharray="2 2"/>` : '') + '</svg>';
+    (proj != null ? `<line x1="0" x2="${w}" y1="${h - proj / mx * h}" y2="${h - proj / mx * h}" stroke="${C.ink}" stroke-opacity=".7" stroke-dasharray="2 2"/>` : '') + '</svg>';
 }
-const heat = v => v >= 0 ? `rgba(94,234,212,${Math.min(Math.abs(v) * 1.1, 1) * .75})` : `rgba(248,113,113,${Math.min(Math.abs(v) * 1.6, 1) * .75})`;
+const heat = v => v >= 0 ? `rgba(44,106,60,${Math.min(Math.abs(v) * 1.1, 1) * .55})` : `rgba(168,55,42,${Math.min(Math.abs(v) * 1.6, 1) * .55})`;
 
 /* ---------- projection (matchup) tab ---------- */
 const TS_ROWS = [['pts', 'Points'], ['plays', 'Plays'], ['pass', 'Pass plays'], ['rush', 'Rush plays'], ['yds', 'Total yards'], ['pyd', 'Pass yards (net)'], ['ryd', 'Rush yards'],
@@ -547,13 +567,13 @@ const card = (h, c = '') => { const d = el('div', 'card ' + c, h); return d; };
 
 function renderProj(d) {
   const OV = $('#gl-ov'), FAN = $('#gl-fan'), MU = $('#gl-mu'); [OV, FAN, MU].forEach(x => { x.innerHTML = ''; });
-  const H = d.home, A = d.away, hc = color(H), ac = color(A), w = d.win;
+  const H = d.home, A = d.away, w = d.win, [ac, hc] = pairCols(A, H);
   const fav = d.margin.median > 0 ? H : d.margin.median < 0 ? A : null;
   const spread = fav ? `${fav} −${Math.abs(d.margin.median)}` : 'Pick’em';
   OV.appendChild(card(`<div class="sbhead">
     <div class="tm"><div class="ab" style="color:${ac}">${A} · AWAY</div><div class="nm">${st.TEAMS[A].name}</div><div class="win">${fmt(w.away * 100)}%</div><div class="avg">${fmt(d.score.away.mean)} avg pts</div></div>
     <div class="mid"><div class="line">win probability</div>
-      <div class="wbar"><div style="width:${w.away * 100}%;background:${ac}"></div><div style="width:${w.tie * 100}%;background:#556"></div><div style="width:${w.home * 100}%;background:${hc}"></div></div>
+      <div class="wbar"><div style="width:${w.away * 100}%;background:${ac}"></div><div style="width:${w.tie * 100}%;background:${C.rule2}"></div><div style="width:${w.home * 100}%;background:${hc}"></div></div>
       <div class="line">Median spread <b>${spread}</b> · Total <b>${fmt(d.total.median)}</b></div>
       <div class="line" style="margin-top:3px">${fmt(w.tie * 100)}% ties · ${fmt(d.ot_rate * 100)}% go to OT</div></div>
     <div class="tm r"><div class="ab" style="color:${hc}">HOME · ${H}</div><div class="nm">${st.TEAMS[H].name}</div><div class="win">${fmt(w.home * 100)}%</div><div class="avg">${fmt(d.score.home.mean)} avg pts</div></div></div>
@@ -584,7 +604,7 @@ function renderProj(d) {
 
   const g2 = el('div', 'grid2');
   g2.appendChild(card(`<h3>Final margin (home − away)</h3>` + hist(d.hist.margin, {lo: -34, hi: 36, colors: x => x >= 0 ? hc : ac, split: 0, ticks: [-30, -20, -10, 0, 10, 20, 30]}) + `<div class="note">Left of 0: ${A} wins · Right: ${H} wins</div>`));
-  g2.appendChild(card(`<h3>Total points</h3>` + hist(d.hist.total, {lo: 10, hi: 90, colors: () => '#5eead4', ticks: [20, 30, 40, 50, 60, 70, 80]}) + `<div class="note">Mean ${fmt(d.total.mean)}</div>`));
+  g2.appendChild(card(`<h3>Total points</h3>` + hist(d.hist.total, {lo: 10, hi: 90, colors: () => C.bar, ticks: [20, 30, 40, 50, 60, 70, 80]}) + `<div class="note">Mean ${fmt(d.total.mean)}</div>`));
   OV.appendChild(g2);
 
   MU.appendChild(matchupCard(d));
@@ -635,7 +655,7 @@ function renderPlayers(d) {
     rows.forEach(p => {
       out += `<tr><td class="nm lnk" data-id="${p.id}">${p.name}<span class="p">${p.pos}</span></td>` + T.cols.map(([k,, m]) => {
         const v = p[k]; const dec = ['ptd', 'rtd', 'rectd', 'int', 'fl', 'xpa'].includes(k) ? 2 : 1; return `<td class="${m ? 'main' : ''}">${v ? fmt(v.mean, dec) : '–'}</td>`; }).join('') +
-        `<td>${p[mainKey] ? rangeBar(p[mainKey].p10, p[mainKey].p90, p[mainKey].mean, max, color(team)) : ''}</td></tr>`;
+        `<td>${p[mainKey] ? rangeBar(p[mainKey].p10, p[mainKey].p90, p[mainKey].mean, max, C.bar) : ''}</td></tr>`;
     });
     out += '</table>';
   }
@@ -649,12 +669,12 @@ function fantasyTable(host, id, rows, o = {}) {
   const mx = Math.max(...rows.map(r => P(r, 'hi') || 0), 1);
   const cols = [
     ...(o.rank ? [{k: 'rk', t: '#', v: r => r._rk, h: r => r._rk, w: '36px', first: 1}] : []),
-    {k: 'name', t: 'Player', v: r => r.name, first: 1, h: r => `<span class="pdot" style="background:${POSCOL[r.pos] || '#888'}"></span><span class="nm lnk">${r.name}</span>${badge(r.status)}<span class="p">${r.pos} · ${r.team}</span>`},
+    {k: 'name', t: 'Player', v: r => r.name, first: 1, h: r => `<span class="pdot" style="background:${POSCOL[r.pos] || C.muted}"></span><span class="nm lnk">${r.name}</span>${badge(r.status)}<span class="p">${r.pos} · ${r.team}</span>`},
     ...(o.slot ? [{k: 'slot', t: 'ESPN slot', v: r => r._slot, first: 1, h: r => `<span class="pill">${r._slot}</span>`}] : []),
     {k: 'pos', t: 'Pos', v: r => posOrder[r.pos], first: 1, h: r => `<span class="posb" style="color:${POSCOL[r.pos]}">${r.pos}${r._pr ? r._pr : ''}</span>`},
     ...(o.opp ? [{k: 'opp', t: 'Opp', v: r => r.opp, first: 1, h: r => `<span class="sub2">${r.home ? 'vs' : '@'}</span> ${r.opp}`}] : []),
     {k: 'proj', t: 'Proj', v: r => P(r, 'proj'), cls: 'main', h: r => fmt(P(r, 'proj'))},
-    {k: 'range', t: 'Range (10–90%)', v: r => P(r, 'hi'), w: '130px', h: r => `<span class="rtxt">${fmt(P(r, 'lo'), 0)}–${fmt(P(r, 'hi'), 0)}</span>` + rangeBar(Math.max(P(r, 'lo'), 0), P(r, 'hi'), P(r, 'proj'), mx, color(r.team), 90)},
+    {k: 'range', t: 'Range (10–90%)', v: r => P(r, 'hi'), w: '130px', h: r => `<span class="rtxt">${fmt(P(r, 'lo'), 0)}–${fmt(P(r, 'hi'), 0)}</span>` + rangeBar(Math.max(P(r, 'lo'), 0), P(r, 'hi'), P(r, 'proj'), mx, C.bar, 90)},
     {k: 'med', t: 'Median', v: r => P(r, 'med'), h: r => fmt(P(r, 'med'))},
     {k: 'boom', t: 'Boom%', v: r => r.boom, h: r => r.boom == null ? '–' : `<span class="${r.boom >= .3 ? 'pos' : ''}">${pct(r.boom)}</span>`},
     {k: 'bust', t: 'Bust%', v: r => r.bust, h: r => r.bust == null ? '–' : `<span class="${r.bust >= .35 ? 'neg' : ''}">${pct(r.bust)}</span>`},
@@ -663,7 +683,7 @@ function fantasyTable(host, id, rows, o = {}) {
     {k: 'dlt', t: 'Proj vs avg', v: r => avgF(r) == null ? null : P(r, 'proj') - avgF(r), h: r => { const x = avgF(r) == null ? null : P(r, 'proj') - avgF(r); return x == null ? '–' : `<span class="${x > 1 ? 'pos' : x < -1 ? 'neg' : ''}">${sgn(x)}</span>`; }},
     {k: 'opps', t: 'Opps', v: r => r.opps, h: r => fmt(r.opps)},
     {k: 'td1', t: 'TD%', v: r => r.td1, h: r => r.pos === 'QB' || r.pos === 'K' || r.pos === 'DST' ? '–' : pct(r.td1)},
-    {k: 'trend', t: 'Last wks', v: null, h: r => spark((r.trend || []).map(w => Array.isArray(w) ? w[1] : w), P(r, 'proj'), color(r.team))},
+    {k: 'trend', t: 'Last wks', v: null, h: r => spark((r.trend || []).map(w => Array.isArray(w) ? w[1] : w), P(r, 'proj'), C.bar)},
     ...(o.vor ? [{k: 'vor', t: 'VOR', v: r => r._vor, h: r => `<span class="${r._vor > 0 ? 'pos' : 'neg'}">${sgn(r._vor)}</span>`}] : []),
     ...(o.tier ? [{k: 'tier', t: 'Tier', v: r => r._tier, first: 1, h: r => r._tier ? 'T' + r._tier : ''}] : []),
   ];
@@ -675,7 +695,7 @@ function fantasyTable(host, id, rows, o = {}) {
 function corrCard(d) {
   const c = d.corr, n = c.ids.length;
   let t = `<table class="heat"><tr><th></th>${c.names.map((x, i) => `<th class="vh" style="color:${color(c.teams[i])}"><div>${x}</div></th>`).join('')}</tr>`;
-  for (let i = 0; i < n; i++) t += `<tr><th style="color:${color(c.teams[i])}">${c.names[i]} <span class="sub2">${c.pos[i]}</span></th>${c.m[i].map((v, j) => `<td style="background:${i === j ? '#1f2937' : heat(v)}" title="${c.names[i]} / ${c.names[j]}: ${v}">${i === j ? '' : v.toFixed(2).replace('0.', '.').replace('-0.', '−.')}</td>`).join('')}</tr>`;
+  for (let i = 0; i < n; i++) t += `<tr><th style="color:${color(c.teams[i])}">${c.names[i]} <span class="sub2">${c.pos[i]}</span></th>${c.m[i].map((v, j) => `<td style="background:${i === j ? C.rule : heat(v)}" title="${c.names[i]} / ${c.names[j]}: ${v}">${i === j ? '' : v.toFixed(2).replace('0.', '.').replace('-0.', '−.')}</td>`).join('')}</tr>`;
   t += '</table>';
   const pairs = [];
   for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) pairs.push({a: i, b: j, v: c.m[i][j], same: c.teams[i] === c.teams[j]});
@@ -724,7 +744,7 @@ function showPlayer(r) {
       <div><span>Season avg</span><b>${fmt(avgF(r))}</b></div><div><span>Proj vs avg</span><b>${avgF(r) == null ? '–' : sgn(pj - avgF(r))}</b></div><div><span>Opportunities</span><b>${fmt(r.opps)}</b></div>
       <div><span>Anytime TD</span><b>${r.pos === 'QB' || r.pos === 'K' || r.pos === 'DST' ? '–' : pct(r.td1)}</b></div><div><span>2+ TD</span><b>${r.pos === 'QB' || r.pos === 'K' || r.pos === 'DST' ? '–' : pct(r.td2, 1)}</b></div><div><span>Raw sim</span><b>${fmt(r.sim - d)}</b></div></div>
     <h4>Outcome distribution</h4>
-    ${hist(r.hist, {lo: -4, hi: Math.max(40, Math.ceil((hi + 6) / 2) * 2), w: 520, hgt: 150, colors: x => x + 1 < lo + d ? '#f87171' : x > hi + d ? '#4ade80' : '#5eead4', ticks: [0, 10, 20, 30, 40].map(x => x), marks: [{x: lo + d, c: '#f87171', t: 'P10'}, {x: med + d, c: '#fff', t: 'median'}, {x: hi + d, c: '#4ade80', t: 'P90'}].map(m => ({...m, x: m.x}))})}
+    ${hist(r.hist, {lo: -4, hi: Math.max(40, Math.ceil((hi + 6) / 2) * 2), w: 520, hgt: 150, colors: x => x + 1 < lo + d ? C.bad : x > hi + d ? C.good : C.bar, ticks: [0, 10, 20, 30, 40].map(x => x), marks: [{x: lo + d, c: C.bad, t: 'P10'}, {x: med + d, c: C.ink, t: 'median'}, {x: hi + d, c: C.good, t: 'P90'}].map(m => ({...m, x: m.x}))})}
     <div class="note">Axis is PPR points; markers shown at your selected format's values are shifted by the receptions adjustment.</div>
     <h4>Projected stat line</h4><div class="statline">${Object.entries(r.st || {}).map(([k, v]) => `<div><span>${STATN[k] || k}</span><b>${fmt(v, v < 10 ? 2 : 1)}</b></div>`).join('')}</div>
     <h4>Prop calculator</h4>
@@ -751,8 +771,8 @@ function histPanel(r, pj, col) {
   const vals = rows.map(w => w[1] - f * w[4]), mx = Math.max(...vals, pj, 1);
   const bw = 520 / rows.length;
   let svg = `<svg viewBox="0 0 520 130" width="100%">` + rows.map((w, i) => { const h = Math.max(vals[i], 0) / mx * 96;
-    return `<rect x="${i * bw + 6}" y="${108 - h}" width="${bw - 12}" height="${h}" rx="3" fill="${col}" opacity=".8"/><text x="${i * bw + bw / 2}" y="${104 - h}" fill="#e7edf4" font-size="11" text-anchor="middle">${fmt(vals[i], 1)}</text><text x="${i * bw + bw / 2}" y="124" fill="#8696a9" font-size="10.5" text-anchor="middle">wk ${w[0]}</text>`; }).join('') +
-    `<line x1="0" x2="520" y1="${108 - pj / mx * 96}" y2="${108 - pj / mx * 96}" stroke="#fff" stroke-dasharray="4 3" stroke-opacity=".8"/><text x="516" y="${102 - pj / mx * 96}" fill="#fff" font-size="10.5" text-anchor="end">proj ${fmt(pj)}</text></svg>`;
+    return `<rect x="${i * bw + 6}" y="${108 - h}" width="${bw - 12}" height="${h}" rx="3" fill="${col}" opacity=".8"/><text x="${i * bw + bw / 2}" y="${104 - h}" fill="${C.ink}" font-size="11" text-anchor="middle">${fmt(vals[i], 1)}</text><text x="${i * bw + bw / 2}" y="124" fill="${C.muted}" font-size="10.5" text-anchor="middle">wk ${w[0]}</text>`; }).join('') +
+    `<line x1="0" x2="520" y1="${108 - pj / mx * 96}" y2="${108 - pj / mx * 96}" stroke="${C.ink}" stroke-dasharray="4 3" stroke-opacity=".8"/><text x="516" y="${102 - pj / mx * 96}" fill="${C.ink}" font-size="10.5" text-anchor="end">proj ${fmt(pj)}</text></svg>`;
   const showCols = r.pos === 'QB' ? ['pyd'] : [];
   return `<h4>Recent weeks</h4>${svg}<div class="tscroll"><table class="st"><tr><th>Wk</th><th>${FMTN[st.fmt]}</th><th>Carries</th><th>Targets</th><th>Rec</th><th>Rush yds</th><th>Rec yds</th>${r.pos === 'QB' ? '<th>Pass yds</th>' : ''}<th>TD</th><th>Snap %</th></tr>` +
     rows.map(w => `<tr><td>${w[0]}</td><td class="main">${fmt(w[1] - f * w[4])}</td><td>${w[2]}</td><td>${w[3]}</td><td>${w[4]}</td><td>${w[5]}</td><td>${w[6]}</td>${r.pos === 'QB' ? `<td>${w[7]}</td>` : ''}<td>${w[8]}</td><td>${w[9] >= 0 ? Math.round(w[9] * 100) + '%' : '–'}</td></tr>`).join('') + `</table></div>`;
@@ -771,7 +791,7 @@ function renderSlateShell() {
 async function loadSlate(mode) {
   if (st.loading) return; st.loading = true;
   const hostSel = {games: '#nflBody', players: '#s_body', team: '#lgStatus', sandbox: '#tab-lab'}[mode], host = hostSel && $(hostSel);
-  if (host) host.innerHTML = `<div class="card empty"><span class="spin dark"></span><b>Simulating week ${st.week}</b><span>${DEPTH[st.depth].slate.toLocaleString()} simulations per game</span></div>`;
+  if (host) host.innerHTML = `<div class="card empty"><span class="spin dark"></span><b>Simulating week ${st.week}</b><span>${DEPTH[st.depth].slate.toLocaleString()} simulations per game. ${DEPTH[st.depth].hint}</span></div>`;
   busy($('#g_refresh'), true, 'Simulating');
   try {
     st.slate = await post('/api/slate', {week: st.week, n: DEPTH[st.depth].slate, weather: st.useWx}); st.lab.trials = null;
@@ -885,7 +905,7 @@ function renderLab() {
   };
   host.innerHTML = `<div class="card"><div class="ctl"><div class="grow"><b>Lineup lab</b> <span class="sub2">· week ${st.week} projections (${FMTN[st.fmt]}) with correlated outcomes — players in the same game share the same simulated game, so stacks are priced correctly.</span></div>
       <label class="chk"><input type="checkbox" id="kslot" ${st.lab.counts.K ? 'checked' : ''}> K slot</label><label class="chk"><input type="checkbox" id="dslot" ${st.lab.counts.DST ? 'checked' : ''}> D/ST slot</label></div></div>
-    <div class="grid2">${side('mine', 'My team', '#5eead4')}${side('opp', 'Opponent', '#f87171')}</div><div id="labRes"></div><div id="ssCard"></div>`;
+    <div class="grid2">${side('mine', 'My team', C.good)}${side('opp', 'Opponent', C.bad)}</div><div id="labRes"></div><div id="ssCard"></div>`;
   $('#kslot').onchange = e => { st.lab.counts.K = e.target.checked ? 1 : 0; localStorage.setItem('gs_counts', JSON.stringify(st.lab.counts)); renderLab(); };
   $('#dslot').onchange = e => { st.lab.counts.DST = e.target.checked ? 1 : 0; localStorage.setItem('gs_counts', JSON.stringify(st.lab.counts)); renderLab(); };
   host.querySelectorAll('select.sl').forEach(s => s.onchange = () => { const set = st.lab[s.dataset.side + 'Set']; if (s.value) set[s.dataset.slot] = s.value; else delete set[s.dataset.slot]; save(); renderLab(); });
@@ -910,11 +930,11 @@ function labResults() {
   const wp = w / T, ma = ta / T, mb = tb / T, sd = x => { const mu = x.reduce((a, b) => a + b, 0) / T; return Math.sqrt(x.reduce((a, b) => a + (b - mu) ** 2, 0) / T); };
   const q = (x, p) => qnt(Array.from(x), p);
   const step = 6, counts = new Array(Math.round(240 / step)).fill(0); diff.forEach(x => { counts[Math.max(0, Math.min(counts.length - 1, Math.floor((x + 120) / step)))]++; });
-  host.innerHTML = `<div class="card"><div class="sbhead"><div class="tm"><div class="ab" style="color:#5eead4">MY TEAM</div><div class="win">${pct(wp)}</div><div class="avg">win probability</div></div>
-      <div class="mid"><div class="wbar"><div style="width:${wp * 100}%;background:#5eead4"></div><div style="width:${(1 - wp) * 100}%;background:#f87171"></div></div><div class="line">Projected <b>${fmt(ma)}</b> to <b>${fmt(mb)}</b> · margin <b>${sgn(ma - mb)}</b></div></div>
-      <div class="tm r"><div class="ab" style="color:#f87171">OPPONENT</div><div class="win">${pct(1 - wp)}</div><div class="avg">win probability</div></div></div>
-      <div class="grid2" style="margin-top:16px"><div><h3>Margin distribution (mine − opp)</h3>${hist({lo: -120, step, counts}, {lo: -60, hi: 60, colors: x => x >= 0 ? '#5eead4' : '#f87171', split: 0, ticks: [-50, -25, 0, 25, 50]})}</div>
-      <div><h3>Score ranges</h3><table class="st"><tr><th></th><th>Mean</th><th>10%</th><th>90%</th><th>SD</th></tr><tr><td style="color:#5eead4">My team</td><td>${fmt(ma)}</td><td>${fmt(q(A, .1))}</td><td>${fmt(q(A, .9))}</td><td>${fmt(sd(A))}</td></tr><tr><td style="color:#f87171">Opponent</td><td>${fmt(mb)}</td><td>${fmt(q(B, .1))}</td><td>${fmt(q(B, .9))}</td><td>${fmt(sd(B))}</td></tr></table>
+  host.innerHTML = `<div class="card"><div class="sbhead"><div class="tm"><div class="ab" style="color:${C.good}">MY TEAM</div><div class="win">${pct(wp)}</div><div class="avg">win probability</div></div>
+      <div class="mid"><div class="wbar"><div style="width:${wp * 100}%;background:${C.good}"></div><div style="width:${(1 - wp) * 100}%;background:${C.bad}"></div></div><div class="line">Projected <b>${fmt(ma)}</b> to <b>${fmt(mb)}</b> · margin <b>${sgn(ma - mb)}</b></div></div>
+      <div class="tm r"><div class="ab" style="color:${C.bad}">OPPONENT</div><div class="win">${pct(1 - wp)}</div><div class="avg">win probability</div></div></div>
+      <div class="grid2" style="margin-top:16px"><div><h3>Margin distribution (mine − opp)</h3>${hist({lo: -120, step, counts}, {lo: -60, hi: 60, colors: x => x >= 0 ? C.good : C.bad, split: 0, ticks: [-50, -25, 0, 25, 50]})}</div>
+      <div><h3>Score ranges</h3><table class="st"><tr><th></th><th>Mean</th><th>10%</th><th>90%</th><th>SD</th></tr><tr><td style="color:${C.good}">My team</td><td>${fmt(ma)}</td><td>${fmt(q(A, .1))}</td><td>${fmt(q(A, .9))}</td><td>${fmt(sd(A))}</td></tr><tr><td style="color:${C.bad}">Opponent</td><td>${fmt(mb)}</td><td>${fmt(q(B, .1))}</td><td>${fmt(q(B, .9))}</td><td>${fmt(sd(B))}</td></tr></table>
       <div class="note">${wp > .6 ? 'You are the favorite: prefer high-floor, low-variance starters.' : wp < .4 ? 'You are the underdog: variance helps — favor high-ceiling players and stacks.' : 'Close matchup: small edges matter; check injury news before kickoff.'} ${sd(A) > sd(B) + 2 ? 'Your lineup is the higher-variance one.' : sd(A) < sd(B) - 2 ? 'Your lineup is the lower-variance one.' : ''}</div></div></div></div>`;
 }
 function startSit() {
@@ -1146,7 +1166,7 @@ function renderNflWeek() {
     if (st.nfl.sort === 'time' && g.day !== lastDay) { lastDay = g.day; wrap.appendChild(el('div', 'gday', new Date(g.day + 'T12:00:00').toLocaleDateString(undefined, {weekday: 'long', month: 'short', day: 'numeric'}))); }
     const rows = S.rows.filter(r => r.game === g.id && ['QB', 'RB', 'WR', 'TE'].includes(r.pos));
     const top = t => rows.filter(r => r.team === t).sort((a, b) => b.proj - a.proj).slice(0, 3).map(r => `<div class="tp" data-id="${r.id}"><span class="posb" style="color:${POSCOL[r.pos]}">${r.pos}</span> ${r.name}${badge(r.status)}<b>${fmt(P(r, 'proj'))}</b></div>`).join('');
-    const hc = color(g.home), ac = color(g.away), wH = g.sim_home_win;
+    const [ac, hc] = pairCols(g.away, g.home), wH = g.sim_home_win;
     const es = g.spread == null ? null : g.sim_margin - g.spread, et = g.total == null ? null : g.sim_total - g.total;
     const pillE = (e, a, b) => e == null || Math.abs(e) < 1.5 ? '' : `<span class="pill hot">lean ${e > 0 ? a : b}</span>`;
     const windy = g.cond && g.cond.wind != null && g.cond.wind >= 10 && g.roof !== 'dome' && g.roof !== 'closed';
@@ -1238,8 +1258,7 @@ function togglePlay() {
 const FX = x => 80 + x * 8.4;   // field x (0-100) -> svg px (end zones 80px each)
 function drawFieldBase() {
   const g = st.G, A = g.away, H = g.home;   // left end zone = away team's, right = home team's
-  let s = `<defs><linearGradient id="turf" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#14342a"/><stop offset="1" stop-color="#102a22"/></linearGradient></defs>
-  <rect width="1000" height="230" fill="url(#turf)"/>
+  let s = `  <rect width="1000" height="230" fill="#2f6a3d"/>
   <rect width="80" height="230" fill="${color(A)}" opacity=".55"/><rect x="920" width="80" height="230" fill="${color(H)}" opacity=".55"/>
   <text x="40" y="115" fill="#fff" fill-opacity=".85" font-size="24" font-weight="800" text-anchor="middle" transform="rotate(-90 40 115)" letter-spacing="4">${A}</text>
   <text x="960" y="115" fill="#fff" fill-opacity=".85" font-size="24" font-weight="800" text-anchor="middle" transform="rotate(90 960 115)" letter-spacing="4">${H}</text>`;
@@ -1249,7 +1268,7 @@ function drawFieldBase() {
     if (big && y > 0 && y < 100) { const n = y <= 50 ? y : 100 - y; s += `<text x="${x}" y="30" fill="#fff" fill-opacity=".45" font-size="19" font-weight="700" text-anchor="middle">${n}</text><text x="${x}" y="212" fill="#fff" fill-opacity=".45" font-size="19" font-weight="700" text-anchor="middle">${n}</text>`; }
   }
   s += `<g class="fdl" id="fdl"><line x1="0" x2="0" y1="0" y2="230" stroke="#facc15" stroke-width="4"/></g>
-  <g class="fdl" id="los"><line x1="0" x2="0" y1="0" y2="230" stroke="#60a5fa" stroke-width="3"/></g>
+  <g class="fdl" id="los"><line x1="0" x2="0" y1="0" y2="230" stroke="#2b6cb0" stroke-width="3"/></g>
   <g class="ball" id="ball"><ellipse cx="0" cy="115" rx="15" ry="9.5" fill="#92400e" stroke="#fff" stroke-width="1.8"/><line x1="-6" x2="6" y1="115" y2="115" stroke="#fff" stroke-width="1.4"/></g>
   <text id="dir" x="500" y="128" font-size="64" fill="#fff" fill-opacity=".07" text-anchor="middle" font-weight="900"></text>`;
   $('#fld').innerHTML = s;
