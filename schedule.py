@@ -22,6 +22,6 @@ def load(season=2026):
     for r in d.itertuples():
         nz = lambda x: None if x != x else float(x)
         out.append({"week": int(r.week), "id": r.game_id, "away": r.away_team, "home": r.home_team, "day": r.gameday, "time": r.gametime,
-                    "spread": nz(r.spread_line), "total": nz(r.total_line), "neutral": r.location == "Neutral",
+                    "spread": nz(r.spread_line), "total": nz(r.total_line), "neutral": r.location == "Neutral", "roof": (None if r.roof != r.roof else r.roof),
                     "played": r.home_score == r.home_score, "hs": nz(r.home_score), "as": nz(r.away_score)})
     return out

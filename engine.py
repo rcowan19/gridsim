@@ -62,6 +62,17 @@ def clock_txt(t, period):
     return f"Q{q} {s // 60}:{s % 60:02d}"
 
 
+def env_factors(roof=None, wind=None, temp=None):
+    """Game-conditions adjustments from 2025-26 play-by-play, shrunk because the evidence is modest (wind: about -0.4 pts of total per mph above 5, ~1.8 sigma after controlling for team quality;
+    roof: ~+0.5 pts, not significant; temperature, weekday and kickoff slot showed no usable signal).
+    Returns multipliers/offsets applied by the engine: ypa (completion-yards multiplier), comp (completion prob add), pass (dropback logit)."""
+    indoor = roof in ("dome", "closed")
+    if indoor:
+        return {"ypa": 1.004, "comp": 0.002, "pass": 0.0}
+    w = 0.0 if wind is None else max(0.0, min(float(wind), 22.0) - 5.0)
+    return {"ypa": 1.0 - 0.0045 * min(w, 10.0), "comp": -0.0017 * min(w, 11.0), "pass": -0.011 * min(w, 15.0)}
+
+
 def stoch_round(v, rng):
     f = math.floor(v)
     return int(f + (1 if rng.random() < v - f else 0))
@@ -100,8 +111,8 @@ class Engine:
     def team(self, abbr, overrides=None):
         return TeamCfg(self.m, abbr, overrides or {})
 
-    def game(self, home, away, seed=None, neutral=False, log=False):
-        return Game(self, home, away, random.Random(seed), neutral, log).run()
+    def game(self, home, away, seed=None, neutral=False, log=False, env=None):
+        return Game(self, home, away, random.Random(seed), neutral, log, env).run()
 
 
 class TeamCfg:
@@ -155,8 +166,9 @@ def pick(items, cum, rng):
 
 
 class Game:
-    def __init__(self, eng, home, away, rng, neutral, log):
+    def __init__(self, eng, home, away, rng, neutral, log, env=None):
         self.e, self.rng, self.cfg = eng, rng, [home, away]
+        self.env = env or {}
         self.names = [home.abbr, away.abbr]
         self.neutral, self.logon, self.logs = neutral, log, []
         self.pts, self.to = [0, 0], [3, 3]
@@ -179,7 +191,7 @@ class Game:
             "p_sack": clamp(e.lsack + (O.r["sack_off"] - e.lsack) + (D.r["sack_def"] - e.lsack), 0.015, 0.16),
             "p_scr": clamp(O.qb["scr"] + (O.r["scr_off"] - e.lscr) * 0.3, 0.005, 0.15),
             "p_int": clamp(e.lint + (O.qb["int"] - e.lint) + (D.r["int_def"] - e.lint), 0.006, 0.06),
-            "cp": O.qb["cpoe"] + D.r["cpoe_def"] + hf * e.tune["hfa_comp"] + e.tune["comp_add"],
+            "cp": O.qb["cpoe"] + D.r["cpoe_def"] + hf * e.tune["hfa_comp"] + e.tune["comp_add"] + self.env.get("comp", 0.0),
             "ypc": e.tune["ypc_scale"] * D.r["ypc_def"] * 0.8 + hf * e.tune["hfa_ypc"],
             "pace": O.r["pace"] * e.tune["pace_mult"], "pshift": O.r["pass_shift"],
         }
@@ -315,7 +327,7 @@ class Game:
             ts = 2
         else:
             ts = 1 if (self.period == 2 and self.time <= 900) else 0
-        z = lg + self.mu[o]["pshift"] + e.resid.get(f"{self._bin(sd)}_{ts}", 0.0) + math.log(e.tune["pass_scale"])
+        z = lg + self.mu[o]["pshift"] + e.resid.get(f"{self._bin(sd)}_{ts}", 0.0) + math.log(e.tune["pass_scale"]) + self.env.get("pass", 0.0)
         return 1 / (1 + math.exp(-z))
 
     def fourth_choice(self):
@@ -615,7 +627,7 @@ class Game:
         yac = stoch_round(rng.choice(e.yacp[ab]) * tgt["yac"] * e.tune["yac_scale"] * e.yfac.get(cell, 1.0), rng)
         yds = air + yac
         if yds > 0:
-            yds = stoch_round(yds * (e.tune["yds_mult"] if Y > 30 else 1.0), rng)
+            yds = stoch_round(yds * (e.tune["yds_mult"] * self.env.get("ypa", 1.0) if Y > 30 else self.env.get("ypa", 1.0)), rng)
         yds = int(clamp(yds, -9, 99))
         qs[PIDX["pc"]] += 1
         ts_[PIDX["rec"]] += 1

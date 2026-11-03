@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 
 import build_model
-from engine import Engine, PIDX
+from engine import Engine, PIDX, env_factors
 
 E = None
 def _init(model):
@@ -21,13 +21,14 @@ from engine import ppr_points as _ppr
 import calib
 
 def _game(args):
-    home, away, n, seed = args
+    home, away, n, seed = args[:4]
+    env = env_factors(**args[4]) if len(args) > 4 and args[4] else None
     H, A = E.team(home), E.team(away)
     pids = sorted(set(H.pids) | set(A.pids)); ix = {p: i for i, p in enumerate(pids)}
     from engine import PSTATS
     ps = np.zeros((n, len(pids), len(PSTATS)), dtype=np.float32); sc = np.zeros((n, 2))
     for g in range(n):
-        r = E.game(H, A, seed=seed * 7919 + g)
+        r = E.game(H, A, seed=seed * 7919 + g, env=env)
         sc[g] = r["score"]
         for pid, v in r["ps"].items():
             if pid in ix: ps[g, ix[pid]] = v
@@ -55,7 +56,7 @@ def actual_player_games():
     return out
 
 def games_table():
-    d = pd.read_parquet(build_model.CUR, columns=["game_id", "week", "home_team", "away_team", "home_score", "away_score", "season_type"])
+    d = pd.read_parquet(build_model.CUR, columns=["game_id", "week", "home_team", "away_team", "home_score", "away_score", "season_type", "roof", "wind", "temp"])
     d = d[d.season_type == "REG"].drop_duplicates("game_id")
     return d.reset_index(drop=True)
 
@@ -80,7 +81,7 @@ def prev_season_diff():
     return out
 
 def main():
-    ap = argparse.ArgumentParser(); ap.add_argument("-s", type=int, default=3); ap.add_argument("-n", type=int, default=400); ap.add_argument("-d", type=float, default=None); ap.add_argument("-p", type=float, default=None)
+    ap = argparse.ArgumentParser(); ap.add_argument("-s", type=int, default=3); ap.add_argument("-n", type=int, default=400); ap.add_argument("--env", action="store_true", help="apply actual wind/roof of each game"); ap.add_argument("-d", type=float, default=None); ap.add_argument("-p", type=float, default=None)
     a = ap.parse_args()
     G = games_table(); AP = actual_player_games(); pdiff = prev_season_diff()
     last = int(G.week.max()); t0 = time.time()
@@ -90,7 +91,7 @@ def main():
         bm = baseline_margin(G, wk, pdiff)
         W = G[G.week == wk]
         with Pool(os.cpu_count() or 1, initializer=_init, initargs=(M,)) as pool:
-            res = pool.map(_game, [(r.home_team, r.away_team, a.n, int(r.week) * 100 + i) for i, r in enumerate(W.itertuples())])
+            res = pool.map(_game, [(r.home_team, r.away_team, a.n, int(r.week) * 100 + i, ({'roof': r.roof, 'wind': None if r.wind != r.wind else r.wind, 'temp': None} if a.env else None)) for i, r in enumerate(W.itertuples())])
         base_ppr, base_n = {}, {}
         for tm in M["teams"].values():
             for q in tm["qbs"] + tm["skill"]:
@@ -103,7 +104,7 @@ def main():
             bmar = bm[r.home_team] - bm[r.away_team] + 1.5
             games.append({"week": wk, "home": r.home_team, "away": r.away_team, "act_margin": actual_m, "act_total": r.home_score + r.away_score,
                           "sim_p_home": ph, "sim_margin": float(m.mean()), "sim_total": float(tot.mean()),
-                          "base_margin": bmar, "base_p_home": norm_cdf(bmar / 13.5)})
+                          "base_margin": bmar, "base_p_home": norm_cdf(bmar / 13.5), "wind": None if r.wind != r.wind else r.wind, "roof": r.roof})
             act = AP[AP.game_id == r.game_id].set_index("pid")
             for i, pid in enumerate(g["pids"]):
                 if pid in act.index:
@@ -134,6 +135,10 @@ def report(g, p):
     row("pt-diff base", g.base_margin, g.base_p_home)
     row("always home", pd.Series(1.0, index=g.index), pd.Series(0.55, index=g.index))
     print(f"total points  sim MAE {np.abs(g.sim_total - g.act_total).mean():.2f}  bias {np.mean(g.sim_total - g.act_total):+.2f}  (actual avg {g.act_total.mean():.1f}, sim avg {g.sim_total.mean():.1f})")
+    if "wind" in g:
+        g = g.assign(env=np.where(g.roof.isin(["dome", "closed"]), "indoor", np.where(g.wind >= 10, "wind>=10", "outdoor calm")))
+        for k, x in g.groupby("env"):
+            print(f"  {k:13s} n={len(x):3d}  actual total {x.act_total.mean():5.1f}  sim {x.sim_total.mean():5.1f}  bias {np.mean(x.sim_total - x.act_total):+5.2f}  total MAE {np.abs(x.sim_total - x.act_total).mean():5.2f}")
     print("win-prob calibration (sim):")
     g = g.assign(b=pd.cut(g.sim_p_home, [0, .35, .45, .55, .65, 1]))
     for b, x in g.groupby("b", observed=True): print(f"  {str(b):12s} n={len(x):3d}  predicted {x.sim_p_home.mean():.2f}  actual home win {(x.act_margin > 0).mean():.2f}")

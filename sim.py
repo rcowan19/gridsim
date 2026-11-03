@@ -7,7 +7,7 @@ from multiprocessing import Pool
 
 import numpy as np
 
-from engine import Engine, PSTATS, TSTATS, PIDX, TIDX, ppr_points
+from engine import Engine, PSTATS, TSTATS, PIDX, TIDX, ppr_points, env_factors
 import calib
 
 _E = None
@@ -32,7 +32,8 @@ def get_engine(tune=None):
 
 
 def run_chunk(args):
-    home, away, n, seed, ov, neutral = args
+    home, away, n, seed, ov, neutral = args[:6]
+    env = env_factors(**args[6]) if len(args) > 6 and args[6] else None
     e = get_engine()
     H, A = e.team(home, ov), e.team(away, ov)
     pids = sorted(set(H.pids) | set(A.pids))
@@ -42,7 +43,7 @@ def run_chunk(args):
     sc = np.zeros((n, 2), dtype=np.int16)
     ot = np.zeros(n, dtype=bool)
     for g in range(n):
-        r = e.game(H, A, seed=seed * 100003 + g, neutral=neutral)
+        r = e.game(H, A, seed=seed * 100003 + g, neutral=neutral, env=env)
         sc[g] = r["score"]
         ot[g] = r["ot"]
         ts[g] = r["ts"]
@@ -52,12 +53,12 @@ def run_chunk(args):
     return pids, ps, ts, sc, ot
 
 
-def simulate(home, away, n=2000, seed=1, overrides=None, neutral=False, pool=None, workers=None):
+def simulate(home, away, n=2000, seed=1, overrides=None, neutral=False, pool=None, workers=None, cond=None):
     ov = overrides or {}
     workers = workers or os.cpu_count() or 1
     k = max(1, min(workers * 2, n // 50 or 1))
     sizes = [n // k + (1 if i < n % k else 0) for i in range(k)]
-    jobs = [(home, away, s, seed * 1000 + i, ov, neutral) for i, s in enumerate(sizes) if s]
+    jobs = [(home, away, s, seed * 1000 + i, ov, neutral, cond) for i, s in enumerate(sizes) if s]
     if pool is not None:
         parts = pool.map(run_chunk, jobs)
     elif workers > 1:
@@ -216,10 +217,12 @@ def summarize(res, home, away, overrides=None, hist=None):
     return out
 
 
-def simulate_slate(week, n=500, pool=None, hist=None, ns=300):
+def simulate_slate(week, n=500, pool=None, hist=None, ns=300, weather=None):
     games = [g for g in SCHEDULE if g["week"] == week]
     ov = {}
-    jobs = [(g["home"], g["away"], n, 7000 + i, ov, g["neutral"]) for i, g in enumerate(games)]
+    weather = weather or {}
+    conds = [{"roof": g.get("roof"), "wind": (weather.get(g["id"]) or {}).get("wind"), "temp": (weather.get(g["id"]) or {}).get("temp")} for g in games]
+    jobs = [(g["home"], g["away"], n, 7000 + i, ov, g["neutral"], conds[i]) for i, g in enumerate(games)]
     parts = pool.map(run_chunk, jobs) if pool is not None else [run_chunk(j) for j in jobs]
     rows, meta = [], []
     c = calib.load()
@@ -230,7 +233,10 @@ def simulate_slate(week, n=500, pool=None, hist=None, ns=300):
         m = {"id": g["id"], "home": g["home"], "away": g["away"], "day": g["day"], "time": g["time"], "neutral": g["neutral"],
              "sim_home_win": round(float((sc[:, 0] > sc[:, 1]).mean()), 3), "sim_margin": round(float((sc[:, 0] - sc[:, 1]).mean()), 1),
              "sim_total": round(float(sc.sum(1).mean()), 1), "sim_home": round(float(sc[:, 0].mean()), 1), "sim_away": round(float(sc[:, 1].mean()), 1),
-             "spread": g["spread"], "total": g["total"], "played": g["played"]}
+             "spread": g["spread"], "total": g["total"], "played": g["played"], "roof": g.get("roof"), "cond": conds[len(meta)],
+             "ot": round(float(res["ot"].mean()), 3), "away_sc": _q(sc[:, 1]), "home_sc": _q(sc[:, 0]),
+             "hist_margin": _hist(sc[:, 0] - sc[:, 1], -40, 40, 4), "hist_total": _hist(sc.sum(1), 10, 90, 4),
+             "p_home_by7": round(float(((sc[:, 0] - sc[:, 1]) >= 7).mean()), 3), "p_away_by7": round(float(((sc[:, 1] - sc[:, 0]) >= 7).mean()), 3)}
         for r in gr:
             r["game"] = g["id"]
             r["game_total"] = m["sim_total"]

@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 import sim
-from engine import PSTATS, TSTATS
+from engine import PSTATS, TSTATS, env_factors
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 TEAMS = {
@@ -49,6 +49,10 @@ class Req(BaseModel):
     seed: int | None = None
     neutral: bool = False
     overrides: dict[str, bool] = {}
+    cond_mode: str = "auto"          # auto (schedule roof + forecast) | manual | none
+    roof: str | None = None          # manual: dome | outdoors
+    wind: float | None = None        # manual mph
+    temp: float | None = None        # manual F
 
 
 def check(r):
@@ -94,6 +98,7 @@ def espn_league(league: str, season: int = 2026, s2: str = "", swid: str = ""):
 class SlateReq(BaseModel):
     week: int
     n: int = 500
+    weather: bool = True
 
 
 SLATE_CACHE = {}
@@ -103,13 +108,34 @@ SLATE_CACHE = {}
 def slate(r: SlateReq):
     import time
     n = max(100, min(r.n, 2000))
-    key = (r.week, n)
+    key = (r.week, n, r.weather)
     if key not in SLATE_CACHE:
         t0 = time.time()
-        res = sim.simulate_slate(r.week, n, pool=POOL, hist={k: v[-8:] for k, v in MODEL.get("hist", {}).items()})
+        import weather
+        from concurrent.futures import ThreadPoolExecutor
+        games = [g for g in sim.SCHEDULE if g["week"] == r.week and not g["played"]]
+        wx = {}
+        if r.weather and games:
+            with ThreadPoolExecutor(8) as ex:
+                wx = {g["id"]: w for g, w in zip(games, ex.map(weather.forecast, games))}
+        res = sim.simulate_slate(r.week, n, pool=POOL, hist={k: v[-8:] for k, v in MODEL.get("hist", {}).items()}, weather=wx)
         res["secs"] = round(time.time() - t0, 1)
         SLATE_CACHE[key] = res
     return SLATE_CACHE[key]
+
+
+def resolve_conditions(r):
+    """Returns (cond dict for the engine or None, human-readable source)."""
+    import weather
+    if r.cond_mode == "none":
+        return None, "off"
+    if r.cond_mode == "manual":
+        return {"roof": r.roof, "wind": r.wind, "temp": r.temp}, "manual"
+    g = sim.vegas_for(r.home, r.away)
+    if not g:
+        return None, "no scheduled game"
+    wx = weather.forecast(g) or {}
+    return {"roof": g.get("roof"), "wind": wx.get("wind"), "temp": wx.get("temp")}, ("forecast" if wx else ("roof only" if g.get("roof") else "none"))
 
 
 @app.post("/api/simulate")
@@ -117,8 +143,11 @@ def simulate(r: Req):
     check(r)
     n = max(50, min(r.n, 20000))
     seed = r.seed if r.seed is not None else random.randrange(10**6)
-    res = sim.simulate(r.home, r.away, n, seed, r.overrides, r.neutral, pool=POOL)
-    return sim.summarize(res, r.home, r.away, r.overrides, hist=MODEL.get("hist", {}))
+    cond, src = resolve_conditions(r)
+    res = sim.simulate(r.home, r.away, n, seed, r.overrides, r.neutral, pool=POOL, cond=cond)
+    out = sim.summarize(res, r.home, r.away, r.overrides, hist=MODEL.get("hist", {}))
+    out["cond"] = {**(cond or {}), "src": src}
+    return out
 
 
 @app.post("/api/game")
@@ -127,7 +156,8 @@ def one_game(r: Req):
     e = sim.get_engine()
     H, A = e.team(r.home, r.overrides), e.team(r.away, r.overrides)
     seed = r.seed if r.seed is not None else random.randrange(10**9)
-    g = e.game(H, A, seed=seed, neutral=r.neutral, log=True)
+    cond, _ = resolve_conditions(r)
+    g = e.game(H, A, seed=seed, neutral=r.neutral, log=True, env=env_factors(**cond) if cond else None)
     names = {}
     for cfg in (H, A):
         for pid, q in cfg.players.items():

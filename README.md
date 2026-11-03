@@ -27,3 +27,8 @@ Calibration knobs: `Engine.DEFAULT_TUNE`. Known gap: league scoring ~21.1 ppg vs
 Enter your league ID (public leagues need nothing else; private leagues need the `espn_s2` and `SWID` cookies). The server reads
 rosters/settings/schedule from ESPN (`espn.py`), matches players to projections, and shows lineup advice, league matchup win
 probabilities, power rankings and a waiver wire. Dev/testing: `GRIDSIM_ESPN_MOCK=path.json python server.py` serves a saved ESPN payload.
+
+## Game conditions
+Wind and roof adjust the simulation (`engine.env_factors`; fitted to 2025-26 play-by-play and shrunk: about -0.4 points of total per mph of
+wind above 5, indoors about +0.5). Temperature, weekday and kickoff slot showed no usable signal. Forecasts come from Open-Meteo
+(`weather.py`, free, no key) for outdoor games; if unavailable the sim uses roof only. The matchup sidebar can override conditions manually.
