@@ -13,6 +13,14 @@ SLOT = {0: "QB", 2: "RB", 4: "WR", 6: "TE", 7: "OP", 16: "DST", 17: "K", 20: "BN
 STAT_REC, STAT_PASS_TD, STAT_PASS_YD, STAT_RUSH_YD, STAT_REC_YD = 53, 4, 3, 24, 42
 
 
+# ESPN stat id -> engine stat key; BASE_PPR is the scoring the engine's projections already use
+STAT_MAP = {3: "pyd", 4: "ptd", 20: "int", 24: "ryd", 25: "rtd", 42: "recyd", 43: "rectd", 53: "rec"}
+BASE_PPR = {"pyd": 0.04, "ptd": 4, "int": -2, "ryd": 0.1, "rtd": 6, "recyd": 0.1, "rectd": 6, "rec": 1}
+STAT_NAMES = {1: "pass completions", 2: "pass incompletions", 19: "2pt pass", 23: "rush attempts", 26: "2pt rush", 44: "2pt rec", 58: "targets",
+              72: "fumbles lost", 62: "100-yd rush bonus", 63: "200-yd rush bonus", 5: "300-yd pass bonus", 6: "400-yd pass bonus",
+              56: "100-yd rec bonus", 57: "200-yd rec bonus", 21: "pass INT thrown/other", 68: "fumbles"}
+
+
 class EspnError(Exception):
     pass
 
@@ -55,6 +63,16 @@ def normalize(raw):
     items = {i.get("statId"): i.get("points", 0) for i in (st.get("scoringSettings", {}).get("scoringItems") or [])}
     rec = items.get(STAT_REC, 0)
     week = (raw.get("status") or {}).get("currentMatchupPeriod") or raw.get("scoringPeriodId") or 1
+    ss, acq = st.get("scheduleSettings") or {}, st.get("acquisitionSettings") or {}
+    coef, extra = {}, []
+    for sid, pts in items.items():
+        k = STAT_MAP.get(sid)
+        if k:
+            coef[k] = pts
+        elif pts and sid in STAT_NAMES:
+            extra.append(f"{STAT_NAMES[sid]} ({pts:+g})")
+    for k in BASE_PPR:
+        coef.setdefault(k, 0)
     sched = []
     for m in raw.get("schedule", []):
         h, a = (m.get("home") or {}).get("teamId"), (m.get("away") or {}).get("teamId")
@@ -62,5 +80,10 @@ def normalize(raw):
             sched.append({"week": m.get("matchupPeriodId"), "home": h, "away": a})
     return {"name": st.get("name"), "season": raw.get("seasonId"), "week": week, "teams": teams, "schedule": sched,
             "slots": {k: v for k, v in counts.items() if k not in ("BN", "IR")}, "bench": counts.get("BN", 0),
-            "scoring": {"rec": rec, "format": "ppr" if rec >= 0.99 else "half" if rec >= 0.49 else "std",
+            "settings": {"regular_weeks": ss.get("matchupPeriodCount"), "playoff_teams": ss.get("playoffTeamCount"),
+                         "playoff_len": ss.get("playoffMatchupPeriodLength"), "faab": bool(acq.get("isUsingAcquisitionBudget")),
+                         "faab_budget": acq.get("acquisitionBudget"), "waiver_days": acq.get("waiverProcessDays"),
+                         "waivers": [{"id": t.get("id"), "rank": (t.get("transactionCounter") or {}).get("waiverRank") or t.get("waiverRank"),
+                                      "faab_spent": (t.get("transactionCounter") or {}).get("acquisitionBudgetSpent")} for t in raw.get("teams", [])]},
+            "scoring": {"coef": coef, "base": BASE_PPR, "custom": len(items) >= 4 and any(abs(coef[k] - BASE_PPR[k]) > 1e-9 for k in BASE_PPR), "unsupported": extra, "rec": rec, "format": "ppr" if rec >= 0.99 else "half" if rec >= 0.49 else "std",
                         "pass_td": items.get(STAT_PASS_TD), "pass_yd": items.get(STAT_PASS_YD)}}
