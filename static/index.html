@@ -1356,17 +1356,27 @@ async function findTrades(c) {
   let R = null; if (T.mode !== 'week') R = await ensureRos(r => { T.busy = `Simulating week ${st.slate.week + r.done - 1} of ${r.weeks[r.weeks.length - 1]}…`; const el = $('#trBusy'); if (el) el.textContent = T.busy; });
   if (R && R.error) { T.busy = null; T.res = {err: R.error}; renderTrades(c); return; }
   const W = trWeeks(T.mode, R), pool0 = labPool(), res = [], mine = c.tms[c.L.my];
+  const row = id => pool0[id] || (R && R.any[id]);
   const score = id => W.reduce((s, x) => s + x.wt * (x.pool[id] ? P(x.pool[id], 'proj') : 0), 0);
-  const top = (ids, n) => ids.filter(i => pool0[i] || (R && R.any[i])).sort((a, b) => score(b) - score(a)).slice(0, n);
+  const TP = new Set(['QB', 'RB', 'WR', 'TE']), rostered = new Set(); Object.values(c.tms).forEach(t => t.ids.forEach(i => rostered.add(i)));
+  // replacement level = 3rd best free agent at each position; free agents also refill a roster spot when a side gives up more players than it gets
+  const fas = Object.values(R ? R.any : pool0).filter(r => TP.has(r.pos) && !rostered.has(r.id) && r.status !== 'Out').map(r => ({id: r.id, pos: r.pos, s: score(r.id)})).sort((a, b) => b.s - a.s);
+  const repl = {}; TP.forEach(p => { const l = fas.filter(f => f.pos === p); repl[p] = l.length ? l[Math.min(2, l.length - 1)].s : 0; });
+  const vor = id => Math.max(0, score(id) - (repl[(row(id) || {}).pos] || 0));
+  const top = (ids, n) => ids.filter(i => row(i) && TP.has(row(i).pos)).sort((a, b) => vor(b) - vor(a)).slice(0, n);
+  const fix = (ids, protect, delta) => { // delta>0: need to drop that many; delta<0: pick up that many free agents
+    let r = ids.slice(); if (delta > 0) { const cand = r.filter(i => !protect.includes(i)).sort((a, b) => score(a) - score(b)); for (let k = 0; k < delta && cand.length; k++) r.splice(r.indexOf(cand[k]), 1); }
+    else if (delta < 0) { const add = fas.filter(f => !r.includes(f.id)).slice(0, -delta); r.push(...add.map(f => f.id)); } return r; };
   const vMe = trVal(mine.ids, W), teams = c.D.teams.filter(t => t.id !== c.L.my);
   for (let ti = 0; ti < teams.length; ti++) {
     const t = teams[ti], th = c.tms[t.id]; T.busy = `Searching trades with ${t.name} (${ti + 1} of ${teams.length})…`; const el = $('#trBusy'); if (el) el.textContent = T.busy;
     await new Promise(r => setTimeout(r, 0));
     const vT = trVal(th.ids, W), mc = top(mine.ids, 6), tc = top(th.ids, 6), shapes = [[1, 1], [2, 1], [1, 2]];
     for (const [g, k] of shapes) for (const give of combos(mc, g)) for (const get of combos(tc, k)) {
-      const m2 = [...mine.ids.filter(i => !give.includes(i)), ...get], t2 = [...th.ids.filter(i => !get.includes(i)), ...give];
+      const vg = give.reduce((s, i) => s + vor(i), 0), vq = get.reduce((s, i) => s + vor(i), 0); if (vq <= 0) continue;
+      const m2 = fix([...mine.ids.filter(i => !give.includes(i)), ...get], get, get.length - give.length), t2 = fix([...th.ids.filter(i => !get.includes(i)), ...give], give, give.length - get.length);
       const myGain = trVal(m2, W) - vMe; if (myGain < 0.3) continue;
-      res.push({team: t, give, get, myGain, theirGain: trVal(t2, W) - vT, shape: g + 'for' + k});
+      res.push({team: t, give, get, myGain, theirGain: trVal(t2, W) - vT, shape: g + 'for' + k, bal: vg / vq});
     }
   }
   res.sort((a, b) => b.myGain - a.myGain); T.res = {rows: res.slice(0, 600), mode: T.mode, W}; T.busy = null; renderTrades(c);
@@ -1402,22 +1412,22 @@ function renderTrades(c) {
   if (T.res.err) { $('#trOut').innerHTML = `<div class="card"><div class="note err">${T.res.err}</div></div>`; return; }
   const filt = () => T.res.rows.filter(r => (T.team === 'all' || String(r.team.id) === String(T.team)) && (T.shape === 'all' || r.shape === T.shape) &&
     (T.give === 'any' || r.give.some(i => (pool[i] || st.wi.ros.any[i]).pos === T.give)) && (T.get === 'any' || r.get.some(i => (pool[i] || st.wi.ros.any[i]).pos === T.get)) &&
-    r.myGain >= T.minGain && (!T.fair || r.theirGain > 0.3));
+    r.myGain >= T.minGain && (!T.fair || (r.theirGain > 0.3 && r.bal >= 0.8 && r.bal <= 1.6)));
   const out = $('#trOut'), cd = card(`<h3>Trades <span class="sub2" id="trCnt"></span></h3>
     <div class="trf"><label>Partner<select id="fTeam">${opts([['all', 'All teams'], ...c.D.teams.filter(t => t.id !== c.L.my).map(t => [t.id, t.name])], T.team)}</select></label>
       <label>You give<select id="fGive">${opts(posOpts, T.give)}</select></label><label>You get<select id="fGet">${opts(posOpts, T.get)}</select></label>
       <label>Type<select id="fShape">${opts([['all', 'All'], ['1for1', '1 for 1'], ['2for1', '2 for 1'], ['1for2', '1 for 2']], T.shape)}</select></label>
       <label>Min gain<select id="fMin">${opts([[0.3, '0.3'], [0.5, '0.5'], [1, '1'], [2, '2'], [4, '4']], T.minGain)}</select></label>
-      <label class="ck"><input type="checkbox" id="fFair" ${T.fair ? 'checked' : ''}>Both sides improve</label></div><div id="trTbl"></div>
-    <div class="note">Gains are projected points ${T.res.mode === 'week' ? 'this week' : T.res.mode === 'playoff' ? 'over the rest of the season, playoff weeks counted extra' : 'summed over the rest of the season'}, from each team's best lineup. A trade where they gain too is far more likely to be accepted. Injuries and bye weeks are included only as they show in the projections.</div>`);
+      <label class="ck"><input type="checkbox" id="fFair" ${T.fair ? 'checked' : ''}>Reasonable for both sides</label></div><div id="trTbl"></div>
+    <div class="note">Gains are projected points ${T.res.mode === 'week' ? 'this week' : T.res.mode === 'playoff' ? 'over the rest of the season, playoff weeks counted extra' : 'summed over the rest of the season'}, from each team's best lineup. “Reasonable” means the other side's lineup improves and the two sides trade similar value over a free-agent replacement. If one side gives up more players than it gets, it refills the spot from free agents (and the other side drops its worst bench player). Injuries and bye weeks are included only as they show in the projections.</div>`);
   out.appendChild(cd);
   const draw = () => { const rows = filt(); $('#trCnt').textContent = `${rows.length} found`;
-    const hid = T.res.rows.filter(r => r.myGain >= T.minGain).length - rows.length; $('#trCnt').textContent += hid > 0 && T.fair ? ` · ${hid} more help only you (untick “Both sides improve”)` : '';
+    const hid = T.res.rows.filter(r => r.myGain >= T.minGain).length - rows.length; $('#trCnt').textContent += hid > 0 && T.fair ? ` · ${hid} more help only you (untick “Reasonable for both sides”)` : '';
     const cols = [{k: 't', t: 'Partner', v: r => r.team.name, first: 1, h: r => r.team.name},
       {k: 'g', t: 'You give', v: r => nm(r.give), first: 1, h: r => nm(r.give)}, {k: 'r', t: 'You get', v: r => nm(r.get), first: 1, h: r => nm(r.get)},
       {k: 'mg', t: 'Your gain', v: r => r.myGain, cls: 'main', h: r => `<span class="pos">+${fmt(r.myGain)}</span>`},
       {k: 'tg', t: 'Their gain', v: r => r.theirGain, h: r => `<span class="${r.theirGain > .3 ? 'pos' : r.theirGain < -.3 ? 'neg' : ''}">${sgn(r.theirGain)}</span>`},
-      {k: 'v', t: 'Fairness', v: r => Math.min(r.myGain, r.theirGain), h: r => r.theirGain > Math.max(1, r.myGain * .4) ? 'Likely accepted' : r.theirGain > .3 ? 'Both gain' : r.theirGain > -1 ? 'Slightly lopsided' : 'Lopsided'}];
+      {k: 'v', t: 'Fairness', v: r => -Math.abs(Math.log(r.bal || 1)), h: r => r.bal < .8 ? 'They give up more' : r.bal > 1.6 ? 'You give up more' : r.theirGain > .3 ? (r.bal >= .9 && r.bal <= 1.25 ? 'Likely accepted' : 'Both gain') : 'Hurts them'}];
     renderTable($('#trTbl'), 'trd', cols, rows, {sort: 'mg', limit: 15, step: 15}); };
   [['fTeam', 'team'], ['fGive', 'give'], ['fGet', 'get'], ['fShape', 'shape']].forEach(([id, k]) => $('#' + id).onchange = e => { T[k] = e.target.value; draw(); });
   $('#fMin').onchange = e => { T.minGain = +e.target.value; draw(); }; $('#fFair').onchange = e => { T.fair = e.target.checked; draw(); };
