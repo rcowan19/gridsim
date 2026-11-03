@@ -81,7 +81,7 @@ def stoch_round(v, rng):
 class Engine:
     # knobs that calibrate.py can tune
     DEFAULT_TUNE = {"hfa_comp": 0.006, "hfa_ypc": 0.06, "pass_scale": 1.0, "ypc_scale": 1.0,
-                    "comp_add": 0.0, "pen_scale": 1.0, "yac_scale": 0.95, "air_scale": 1.0, "air_add": -0.3, "air_mult": 1.0, "air_tail": 1.0, "yds_mult": 1.18, "pace_mult": 1.015, "run_add": 0.0, "gl_add": 0.4, "punt_td": 0.0055, "fum_td": 0.035, "eoh_fg": 0.9}
+                    "comp_add": 0.02, "pen_scale": 1.0, "yac_scale": 1.0, "air_scale": 1.0, "air_add": 0.8, "air_mult": 1.0, "air_tail": 1.0, "yds_mult": 1.0, "pace_mult": 0.985, "run_add": 0.1, "gl_add": 0.4, "pen_live": 1.0, "go_mult": 1.1, "mid_air": 1.0, "punt_td": 0.0055, "fum_td": 0.035, "eoh_fg": 0.9}
 
     def __init__(self, model, tune=None):
         self.m = m = model
@@ -350,8 +350,9 @@ class Game:
         row = e.fourth.get(f"{zy}_{db}")
         if row is None:
             return "fg" if Y <= 36 else "punt"
+        g0 = min(row[0] * e.tune["go_mult"], 0.98); rest = max(row[1] + row[2], 1e-9); k = (1 - g0) / rest
         r = rng.random()
-        ch = "go" if r < row[0] else "fg" if r < row[0] + row[1] else "punt"
+        ch = "go" if r < g0 else "fg" if r < g0 + row[1] * k else "punt"
         if ch == "fg" and not fg_ok:
             ch = "punt"
         if ch == "punt" and Y <= 25 and fg_ok:
@@ -450,6 +451,7 @@ class Game:
                 self.rush(o, O, D)
             if self.drive_no != d0 or self.pending_kick is not None:
                 return
+            self.live_penalty(o)
 
     # ------------------------------------------------------------ plays
     def first_down_or_not(self, o, yds):
@@ -574,13 +576,13 @@ class Game:
         cell = f"{0 if self.down == 1 else 1 if self.down == 2 else 2}_{_db6(self.dist)}"
         dsh = e.ashift.get(cell, 0.0)
         air = None
-        if Y <= 20:
+        if Y <= 20 or (Y <= e.airrz[-1]["hi"] and rng.random() < e.tune["mid_air"]):
             for b in e.airrz:
                 if Y <= b["hi"]:
                     air = rng.choice(b["pool"])
                     break
-            if air is not None and air > Y:
-                air = Y
+            if air is not None and air > Y + 10:
+                air = Y + 10                  # air yards can land in the end zone
         for _ in range(0 if air is not None else 6):
             a = rng.choice(pool) + tgt["adot"] * 0.6 * e.tune["air_scale"] + e.tune["air_add"] + dsh
             if a > 0:
@@ -588,7 +590,7 @@ class Game:
             if a > 15:
                 a = 15 + (a - 15) * e.tune["air_tail"]
             a = int(round(a))
-            if a <= Y:
+            if a <= Y + 10:                  # end-zone targets are allowed
                 air = a
                 break
         if air is None:
@@ -623,11 +625,11 @@ class Game:
             self.give_ball(1 - o, ydef)
             return
         ab = air_bucket(air)
-        pc = e.comp[f"{1 if Y <= 10 else 0}_{ab}"] + mu["cp"] + tgt["cpoe"] + e.cresid.get(cell, 0.0)
+        pc = e.comp.get(f"{3 if Y <= 5 else 1 if Y <= 10 else 2 if Y <= 20 else 0}_{ab}", e.comp.get(f"{1 if Y <= 10 else 0}_{ab}", 0.6)) + mu["cp"] + tgt["cpoe"] + e.cresid.get(cell, 0.0)
         pc = clamp(pc / (1 - mu["p_int"]), 0.05, 0.96)
         cmp_ = rng.random() < pc
         if e.trace is not None:
-            e.trace.append((air, ab, cmp_, tgt.get("bpos"), Y, pc))
+            e.trace.append([air, ab, cmp_, tgt.get("bpos"), Y, pc, None, None, self.down, self.dist, mu["cp"], tgt["cpoe"], e.cresid.get(cell, 0.0), e.comp.get(f"{3 if Y <= 5 else 1 if Y <= 10 else 2 if Y <= 20 else 0}_{ab}", e.comp.get(f"{1 if Y <= 10 else 0}_{ab}", 0.6))])
         if not cmp_:
             self.say("pass", f"{qb['name']} pass incomplete intended for {tgt['name']}", 0, x0, x0)
             self.elapse("inc", o)
@@ -638,6 +640,8 @@ class Game:
         if yds > 0:
             yds = stoch_round(yds * (e.tune["yds_mult"] * self.env.get("ypa", 1.0) if Y > 30 else self.env.get("ypa", 1.0)), rng)
         yds = int(clamp(yds, -9, 99))
+        if e.trace is not None:
+            e.trace[-1][6], e.trace[-1][7] = yds - air, yds
         qs[PIDX["pc"]] += 1
         ts_[PIDX["rec"]] += 1
         self.ts[o][TIDX["pass"]] += 0
@@ -670,6 +674,33 @@ class Game:
         self.drive_off = 1 - o
         self.pending_kick = None
         self.time = max(self.time - 0, 0)
+
+    def live_penalty(self, o):
+        """Flag enforced on top of a play that stood (no down replayed)."""
+        e, rng, m = self.e, self.rng, self.e.m
+        if "pen_live_def" not in m or self.down > 4:
+            return
+        r, sc = rng.random(), e.tune["pen_live"]
+        if r < m["pen_live_def"] * sc:
+            yds = min(rng.choice(m["pen_live_def_pool"]), self.Y // 2)
+            if yds <= 0:
+                return
+            self.ts[1 - o][TIDX["pen"]] += 1
+            self.say("penalty", f"{self.names[1 - o]} penalty after the play: defensive, {yds} yards", yds, self.xp(self.Y, o), self.xp(self.Y - yds, o))
+            self.Y -= yds
+            if rng.random() < m["pen_live_auto1"] or yds >= self.dist:
+                self.down, self.dist = 1, min(10, self.Y)
+                self.ts[o][TIDX["fd"]] += 1
+            else:
+                self.dist -= yds
+        elif r < (m["pen_live_def"] + m["pen_live_off"]) * sc:
+            yds = min(rng.choice(m["pen_live_off_pool"]), (100 - self.Y) // 2)
+            if yds <= 0:
+                return
+            self.ts[o][TIDX["pen"]] += 1
+            self.say("penalty", f"{self.names[o]} penalty on the play: offensive, {yds} yards", -yds, self.xp(self.Y, o), self.xp(self.Y + yds, o))
+            self.Y += yds
+            self.dist += yds
 
     def penalty(self, o, offense):
         e, rng = self.e, self.rng

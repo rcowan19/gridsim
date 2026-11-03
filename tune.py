@@ -6,10 +6,10 @@ from calibrate import calibrate
 from engine import Engine
 
 W = {"ppg": 3, "yards_pg": 2, "ypa": 1, "ypc": 1, "comp_pct": 1, "pass_td_pg": 1.5, "rush_td_pg": 1.5,
-     "punts_pg": 1, "fga_pg": 1, "to_pg": .5, "plays_pg": 1, "int_rate": .3}
+     "punts_pg": 2, "fga_pg": 1, "to_pg": .5, "plays_pg": 1, "int_rate": .3}
 # knob: (lo, hi, step)
-KNOBS = {"comp_add": (-.04, .02, .006), "yds_mult": (1.0, 1.25, .03), "run_add": (-.4, .4, .1), "pace_mult": (.96, 1.08, .015),
-         "pen_scale": (.5, 1.2, .15), "gl_add": (0, 1.2, .25), "yac_scale": (.9, 1.25, .05), "air_add": (-.6, 1.0, .3)}
+KNOBS = {"comp_add": (-.03, .02, .005), "run_add": (-.4, .4, .1), "pace_mult": (.94, 1.06, .015), "go_mult": (1.0, 1.6, .1),
+         "pen_scale": (.6, 1.3, .1), "gl_add": (0, 1.2, .2), "yac_scale": (.92, 1.1, .03), "air_add": (-.2, 1.0, .2)}
 
 def loss(t, n):
     sim, act = calibrate(n, t, verbose=False)

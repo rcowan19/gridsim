@@ -224,7 +224,7 @@ def main(cutoff=None, write=True, quiet=False, usage_decay=None, w_prev_use=None
     # ---------------- passes ----------------
     pa = att.copy()
     pa["ab"] = pa.air_yards.fillna(5).map(air_bucket)
-    pa["rz"] = (pa.yardline_100 <= 10).astype(int)
+    pa["rz"] = np.where(pa.yardline_100 <= 5, 3, np.where(pa.yardline_100 <= 10, 1, np.where(pa.yardline_100 <= 20, 2, 0)))
     pa_t = pa[pa.receiver_player_id.notna()]
     M["throwaway"] = float(1 - pa_t.w.sum() / pa.w.sum())
     comp = {}
@@ -235,8 +235,9 @@ def main(cutoff=None, write=True, quiet=False, usage_decay=None, w_prev_use=None
 
     yac = {}
     cp = pa[pa.complete_pass == 1]
-    for ab, g in cp.groupby("ab"):
-        yac[str(int(ab))] = wpool(g.yards_after_catch.fillna(0), g.w, 2500)
+    room = cp.yardline_100 - cp.air_yards.fillna(5)
+    for ab, g in cp[room >= 45].groupby("ab"):          # catches with room to run, so the long tail is not cut off by the goal line
+        yac[str(int(ab))] = wpool(g.yards_after_catch.fillna(0), g.w, 4000)
     M["yac_pool"] = yac
     M["yac_mean"] = float(wmean(cp.yards_after_catch.fillna(0), cp.w))
 
@@ -252,7 +253,7 @@ def main(cutoff=None, write=True, quiet=False, usage_decay=None, w_prev_use=None
         g = cp[(cp.receiver_player_id.map(pos).fillna("WR").isin(["FB", "RB"]) if p == "RB" else cp.receiver_player_id.map(pos).fillna("WR") == p)]
         M["yac_pos"][p] = float(wmean(g.yards_after_catch.fillna(0), g.w))
 
-    rzb = [(1, 2), (3, 5), (6, 10), (11, 15), (16, 20)]
+    rzb = [(1, 2), (3, 5), (6, 10), (11, 15), (16, 20), (21, 28), (29, 36), (37, 45)]
     M["air_rz"] = []
     for lo, hi in rzb:
         g = pa_t[pa_t.yardline_100.between(lo, hi) & pa_t.air_yards.notna()]
@@ -270,7 +271,7 @@ def main(cutoff=None, write=True, quiet=False, usage_decay=None, w_prev_use=None
     M["air_shift"] = ash
     # completion and YAC residuals by situation (given air-yards bucket)
     ta["ab"] = ta.air_yards.map(air_bucket)
-    ta["rz"] = (ta.yardline_100 <= 10).astype(int)
+    ta["rz"] = np.where(ta.yardline_100 <= 5, 3, np.where(ta.yardline_100 <= 10, 1, np.where(ta.yardline_100 <= 20, 2, 0)))
     ta["ec"] = [comp[f"{r}_{b}"] for r, b in zip(ta.rz, ta.ab)]
     ymean = {int(k): float(np.mean(v)) for k, v in yac.items()}
     cres, yfac = {}, {}
@@ -334,6 +335,13 @@ def main(cutoff=None, write=True, quiet=False, usage_decay=None, w_prev_use=None
     M["pen_off_pool"] = wpool(off_p.penalty_yards.fillna(5).clip(0, 15), off_p.w, 600)
     M["pen_def_pool"] = wpool(def_p.penalty_yards.fillna(5).clip(0, 30), def_p.w, 600)
     M["pen_def_auto1"] = float(wmean(def_p.first_down_penalty.fillna(0), def_p.w))
+    # penalties enforced on top of a play that counts (roughing, face mask, holding from the spot, ...)
+    lp = d[d.down.notna() & d.play_type.isin(["pass", "run"])]
+    lpp = lp[(lp.penalty == 1) & (lp.penalty_yards.fillna(0) > 0)]
+    ld, lo_ = lpp[lpp.penalty_team == lpp.defteam], lpp[lpp.penalty_team == lpp.posteam]
+    M["pen_live_def"] = float(ld.w.sum() / lp.w.sum()); M["pen_live_off"] = float(lo_.w.sum() / lp.w.sum())
+    M["pen_live_def_pool"] = wpool(ld.penalty_yards.clip(1, 30), ld.w, 400); M["pen_live_off_pool"] = wpool(lo_.penalty_yards.clip(1, 15), lo_.w, 400)
+    M["pen_live_auto1"] = float(wmean(ld.first_down_penalty.fillna(0), ld.w))
 
     # ---------------- special teams ----------------
     fg = d[d.field_goal_result.notna() & d.kick_distance.notna()]
