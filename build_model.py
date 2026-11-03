@@ -453,10 +453,13 @@ def main(cutoff=None, write=True, quiet=False, usage_decay=None, w_prev_use=None
         p.setdefault("_team_pbp", tm)
         p["_recent"] = p.get("_recent", 0) + float(g[g.week.isin(last_weeks.get(tm, [])) & (g.cur == 1)].shape[0])
     # QBs
-    for pid, g in dbk[dbk.passer_player_id.notna()].groupby("passer_player_id"):
+    # on scrambles nflverse leaves passer_player_id empty and records the QB as the rusher, so key dropbacks on either
+    dbq = dbk.assign(qid=dbk.passer_player_id.fillna(dbk.rusher_player_id.where(dbk.qb_scramble == 1)),
+                     qname=dbk.passer_player_name.fillna(dbk.rusher_player_name.where(dbk.qb_scramble == 1)))
+    for pid, g in dbq[dbq.qid.notna()].groupby("qid"):
         if pos.get(pid) not in (None, "QB"):
             continue          # trick-play throws by WR/RB/TE don't make them quarterbacks
-        p = pl(pid, g.passer_player_name.iloc[-1])
+        p = pl(pid, g.qname.dropna().iloc[-1])
         a = g[(g.sack == 0) & (g.qb_scramble == 0)]
         p["_db_w"] = float(g.w.sum())
         p["_att_w"] = float(a.w.sum())
