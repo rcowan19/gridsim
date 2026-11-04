@@ -75,14 +75,19 @@ def simulate(home, away, n=2000, seed=1, overrides=None, neutral=False, pool=Non
             "sc": np.concatenate([p[3] for p in parts]), "ot": np.concatenate([p[4] for p in parts])}
 
 
-def apply_blend(res, spread, total, beta=None, seed=0):
-    """Reweight simulated games toward the betting line (see vegas.py). Returns (res, info)."""
+def apply_blend(res, spread, total, beta=None, seed=0, home=None, away=None, neutral=False):
+    """Reweight simulated games toward the betting line (see vegas.py). Returns (res, info).
+    With no line but home/away given, falls back to tilting the margin toward Elo (total stays the sim's)."""
     import vegas
     b = vegas.BETA if beta is None else beta
     raw = res["sc"].mean(0)
+    src = "line"
+    if vegas.implied(spread, total) is None and home and away:
+        spread, total, b, src = vegas.elo_margin(home, away, neutral), float(raw.sum()), vegas.ELO_BETA, "elo"
     idx, info = vegas.blend_index(res["sc"], spread, total, beta=b, seed=seed)
     if info is None:
         return res, None
+    info["src"] = src
     out = dict(res, ps=res["ps"][idx], ts=res["ts"][idx], sc=res["sc"][idx], ot=res["ot"][idx])
     info.update(beta=b, sim_home=round(float(raw[0]), 1), sim_away=round(float(raw[1]), 1))
     return out, info
@@ -273,7 +278,7 @@ def simulate_slate(week, n=500, pool=None, hist=None, ns=300, weather=None, ov=N
     for g, p in zip(games, parts):
         res = {"pids": p[0], "ps": p[1], "ts": p[2], "sc": p[3], "ot": p[4]}
         edited = g["home"] in hit or g["away"] in hit
-        res, binfo = apply_blend(res, None if edited else g.get("spread"), None if edited else g.get("total"), seed=g["week"])
+        res, binfo = apply_blend(res, None if edited else g.get("spread"), None if edited else g.get("total"), seed=g["week"], **({} if edited or g["played"] else {"home": g["home"], "away": g["away"], "neutral": g["neutral"]}))
         gr, _ = game_rows(res, g["home"], g["away"], ov, hist, ns=ns, with_stats=False, c=c)
         sc = res["sc"].astype(int)
         m = {"id": g["id"], "home": g["home"], "away": g["away"], "day": g["day"], "time": g["time"], "neutral": g["neutral"],

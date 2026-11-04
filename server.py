@@ -63,6 +63,7 @@ def refresh():
         if p.returncode:
             raise HTTPException(500, f"{script} failed: {(p.stderr or p.stdout)[-300:]}")
     MODEL = sim.load_model()
+    import vegas; vegas.reset()
     sim._E = None
     old, POOL = POOL, Pool(os.cpu_count() or 1, initializer=sim._init)
     old.terminate()
@@ -178,7 +179,7 @@ def simulate(r: Req):
     binfo, note = None, "off"
     g = sim.vegas_for(r.home, r.away)
     if r.vegas and g and not r.overrides and not r.neutral:
-        res, binfo = sim.apply_blend(res, g.get("spread"), g.get("total"), seed=seed)
+        res, binfo = sim.apply_blend(res, g.get("spread"), g.get("total"), seed=seed, home=r.home, away=r.away, neutral=r.neutral)
         note = "on" if binfo else "no line"
     elif r.vegas and r.overrides:
         note = "off: lineup changed"

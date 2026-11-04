@@ -636,7 +636,7 @@ function renderProj(d) {
   const H = d.home, A = d.away, w = d.win, [ac, hc] = pairCols(A, H);
   const fav = d.margin.median > 0 ? H : d.margin.median < 0 ? A : null;
   const spread = fav ? `${fav} −${Math.abs(d.margin.median)}` : 'Pick’em';
-  if (d.blend_note) OV.appendChild(el('div', 'note', d.blend ? `Blended ${Math.round(d.blend.beta * 100)}% toward the betting line. Sim alone: ${A} ${fmt(d.blend.sim_away)} · ${H} ${fmt(d.blend.sim_home)}.` : d.blend_note === 'off: lineup changed' ? 'Betting-line blend is off because you changed a lineup; this is the pure simulation.' : ''));
+  if (d.blend_note) OV.appendChild(el('div', 'note', d.blend ? `Blended ${Math.round(d.blend.beta * 100)}% toward ${d.blend.src === "elo" ? "an Elo rating (no betting line yet)" : "the betting line"}. Sim alone: ${A} ${fmt(d.blend.sim_away)} · ${H} ${fmt(d.blend.sim_home)}.` : d.blend_note === 'off: lineup changed' ? 'Betting-line blend is off because you changed a lineup; this is the pure simulation.' : ''));
   OV.appendChild(card(`<div class="sbhead">
     <div class="tm"><div class="ab" style="color:${ac}">${A} · AWAY</div><div class="nm">${st.TEAMS[A].name}</div><div class="win">${fmt(w.away * 100)}%</div><div class="avg">${fmt(d.score.away.mean)} avg pts</div></div>
     <div class="mid"><div class="line">win probability</div>

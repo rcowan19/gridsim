@@ -80,9 +80,9 @@ def stoch_round(v, rng):
 
 class Engine:
     # knobs that calibrate.py can tune
-    DEFAULT_TUNE = {"hfa_comp": 0.006, "hfa_ypc": 0.06, "pass_scale": 1.0, "ypc_scale": 1.0,
+    DEFAULT_TUNE = {"hfa_comp": 0.0125, "hfa_ypc": 0.125, "pass_scale": 1.0, "ypc_scale": 1.0,
                     "comp_add": 0.02, "pen_scale": 1.0, "yac_scale": 1.0, "air_scale": 1.0, "air_add": 0.8, "air_mult": 1.0, "air_tail": 1.0, "yds_mult": 1.0, "pace_mult": 0.985, "run_add": 0.1, "gl_add": 0.4, "pen_live": 1.0, "qb_y1": 2.55, "qb_y3": 1.35, "qb_rz": 1.7, "go_mult": 1.1, "mid_air": 1.0, "punt_td": 0.0055, "fum_td": 0.035, "eoh_fg": 0.9,
-                    "ot_both": 1, "ycg": 1.0, "rg": 1.0, "sig_cp": 0.0, "sig_ypc": 0.0, "sig_pace": 0.0, "sig_pass": 0.0}   # rg: team-rating gain; sig_*: per-game latent form shocks
+                    "ot_both": 1, "rg": 1.0, "sig_cp": 0.05, "sig_ypc": 0.5, "sig_pace": 0.15, "sig_pass": 0.0}   # rg: team-rating gain; sig_*: per-game latent form shocks
 
     def __init__(self, model, tune=None):
         self.m = m = model
@@ -229,7 +229,6 @@ class Game:
             "cp": g * O.qb["cpoe"] + g * D.r["cpoe_def"] + hf * e.tune["hfa_comp"] + e.tune["comp_add"] + self.env.get("comp", 0.0),
             "ypc": e.tune["ypc_scale"] * g * D.r["ypc_def"] * 0.8 + hf * e.tune["hfa_ypc"],
             "pace": O.r["pace"] * e.tune["pace_mult"], "pshift": O.r["pass_shift"],
-            "yfac": 1.0 + e.tune["ycg"] * (O.r.get("yc_off", 0.0) + D.r.get("yc_def", 0.0)) / e.m["lg_yc"] if "lg_yc" in e.m else 1.0,
         }
 
     def _bin(self, sd):
@@ -691,7 +690,6 @@ class Game:
         yac = stoch_round(rng.choice(e.yacp[ab]) * tgt["yac"] * e.tune["yac_scale"] * e.yfac.get(cell, 1.0), rng)
         yds = air + yac
         if yds > 0:
-            yds = yds * mu["yfac"]
             yds = stoch_round(yds * (e.tune["yds_mult"] * self.env.get("ypa", 1.0) if Y > 30 else self.env.get("ypa", 1.0)), rng)
         yds = int(clamp(yds, -9, 99))
         if e.trace is not None:
