@@ -29,7 +29,7 @@ Scope: presentation, navigation, interaction only. No model/sim changes. Stack s
 8. Empty states exist but are plain text; no skeletons (only a spinner); errors are inline text, no toasts, no retry.
 9. Wide player table overflows inside its card on phone with no pinned name column; touch targets (pills, seg buttons) are ~28-32 px.
 10. Jargon without tooltips (VOR, boom/bust, SD, OPPS, TD%, "lean", "blended", ESS); chart marks rely on color alone in the team histograms.
-11. Contrast: `--dim` (#6e6657 on #f2eee4) measured below; muted/dim text on `--surface-2` to be verified programmatically in Phase 2.
+11. Contrast measured (`tests/ui/contrast.py`): all text tokens pass AA (4.9-16:1) in light; only `--line-strong` borders on controls are 2.07:1 (needs 3:1 for UI boundaries).
 12. Inconsistent controls: native selects/checkboxes (blue default checkbox) beside custom segs and pills.
 
 What already works and is kept: warm paper/ink palette and token scale, tabular numerals, inline 10-90 range bars in the player table, probability bars, histograms with the margin line, accessible subtab buttons, drawer, "show more" pagination.

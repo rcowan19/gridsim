@@ -11,7 +11,7 @@ with sync_playwright() as p:
         pg.on("pageerror", lambda e: errs.append(str(e)))
         pg.goto(URL); pg.wait_for_timeout(2500)
         if theme: pg.evaluate(f"document.documentElement.dataset.theme='{theme}'")
-        for page in ["games", "players", "team", "inj", "lab"]:
+        for page in ["home", "games", "players", "team", "inj", "lab", "settings"]:
             pg.evaluate(f"go('{page}')"); pg.wait_for_timeout(1200)
             try: pg.wait_for_function("!document.body.innerText.includes('Simulating')", timeout=60000)
             except Exception: errs.append(page+": still simulating")
