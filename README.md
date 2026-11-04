@@ -34,3 +34,8 @@ probabilities, power rankings and a waiver wire. Dev/testing: `GRIDSIM_ESPN_MOCK
 Wind and roof adjust the simulation (`engine.env_factors`; fitted to 2025-26 play-by-play and shrunk: about -0.4 points of total per mph of
 wind above 5, indoors about +0.5). Temperature, weekday and kickoff slot showed no usable signal. Forecasts come from Open-Meteo
 (`weather.py`, free, no key) for outdoor games; if unavailable the sim uses roof only. The matchup sidebar can override conditions manually.
+
+
+## Validation suite (audit branch)
+
+`sh validate/run_all.sh` runs the leak-free walk-forward backtest for 2023-2025 (model rebuilt each week from earlier data only), writes league-level and game-level reports to `validate/out/`, evaluates the Vegas/Elo blends, checks game-script realism and runs the engine invariant tests (`pytest -q tests`). See `AUDIT.md` for findings, `validate.grid` for knob experiments and `validate.players` for the player-level (fantasy) check.

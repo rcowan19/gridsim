@@ -81,10 +81,13 @@ def stoch_round(v, rng):
 class Engine:
     # knobs that calibrate.py can tune
     DEFAULT_TUNE = {"hfa_comp": 0.0125, "hfa_ypc": 0.125, "pass_scale": 1.0, "ypc_scale": 1.0,
-                    "comp_add": 0.02, "pen_scale": 1.0, "yac_scale": 1.0, "air_scale": 1.0, "air_add": 0.8, "air_mult": 1.0, "air_tail": 1.0, "yds_mult": 1.0, "pace_mult": 0.985, "run_add": 0.1, "gl_add": 0.4, "pen_live": 1.0, "qb_y1": 2.55, "qb_y3": 1.35, "qb_rz": 1.7, "go_mult": 1.1, "mid_air": 1.0, "punt_td": 0.0055, "fum_td": 0.035, "eoh_fg": 0.9,
+                    "comp_add": 0.0, "pen_scale": 1.0, "yac_scale": 1.0, "air_scale": 1.0, "air_add": 0.8, "air_mult": 1.0, "air_tail": 1.25, "yds_mult": 1.0, "pace_mult": 0.985, "run_add": 0.1, "gl_add": 0.4, "pen_live": 1.0, "qb_y1": 2.55, "qb_y3": 1.35, "qb_rz": 1.7, "go_mult": 1.1, "mid_air": 1.0, "punt_td": 0.0055, "fum_td": 0.035, "eoh_fg": 0.9,
                     "ot_both": 1, "rg": 1.0, "sig_cp": 0.05, "sig_ypc": 0.5, "sig_pace": 0.15, "sig_pass": 0.0}   # rg: team-rating gain; sig_*: per-game latent form shocks
 
     def __init__(self, model, tune=None):
+        import os
+        if os.environ.get("GRIDSIM_TUNE"):          # experiments only: GRIDSIM_TUNE='{"comp_add":0}'
+            tune = dict(__import__("json").loads(os.environ["GRIDSIM_TUNE"]), **(tune or {}))
         self.m = m = model
         self.pt, self.ptd = m["pass_table"], m["pass_default"]
         self.lcache = {}
