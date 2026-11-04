@@ -21,6 +21,7 @@
   --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;
   --r-sm:6px;--r-lg:10px;--pill:999px;
   --font:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--serif:Palatino,"Palatino Linotype","Book Antiqua",Georgia,serif;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --pos-qb:#8f4524;--pos-rb:#5d6b24;--pos-wr:#2b5f8a;--pos-te:#7d5f12;--pos-k:#5f584c;--pos-dst:#6e6657;
   --panel:var(--surface);--panel2:var(--surface-2);--r:var(--r-lg);
 }
 
@@ -29,6 +30,7 @@
   --bg:#171510;--surface:#1f1c16;--surface-2:#29251d;--line:#3a352b;--line-strong:#7c725e;--line-soft:#2e2a22;
   --text:#ece6d8;--muted:#b6ad9a;--dim:#a39a86;
   --accent:#e6935f;--accent-ink:#1a1712;--good:#72c68a;--bad:#f0907f;--warn:#e3b455;
+  --pos-qb:#e6935f;--pos-rb:#a9bd5a;--pos-wr:#6fb0e6;--pos-te:#d8b04a;--pos-k:#b6ad9a;--pos-dst:#a39a86;
   --good-bg:rgba(114,198,138,.13);--bad-bg:rgba(240,144,127,.13);--warn-bg:rgba(227,180,85,.14);--ink-bg:rgba(236,230,216,.07);
 }
 *{box-sizing:border-box}
@@ -449,7 +451,7 @@ th.srt{cursor:pointer}th.srt:hover{color:var(--text)}
 .colpop{position:absolute;right:0;top:100%;z-index:25;background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--r-sm);padding:10px 12px;display:grid;gap:6px;min-width:170px;box-shadow:0 8px 24px rgba(0,0,0,.2)}
 .searchbtn kbd{margin-left:auto}
 .colmenu summary{display:inline-flex;align-items:center;gap:6px;width:auto}.tscroll.tall td.pin2{min-width:200px;white-space:nowrap}.tscroll.tall td.pin2 .nm{white-space:nowrap}.tscroll.tall td.pin2 .p{white-space:nowrap}
-@media(max-width:760px){.ctx{position:static}.ctx-in .btn.ghost,.ctx-in .stamp{display:none}.tscroll.tall{max-height:70vh}}
+@media(max-width:760px){th[data-k=pos],td[data-k=pos],th[data-k=rk],td[data-k=rk],th[data-k=opp],td[data-k=opp]{display:none}.tscroll.tall td.pin2,.tscroll.tall th.pin2{left:0;min-width:150px}.tscroll.tall{max-height:none}.ctx{position:static}.ctx-in .btn.ghost,.ctx-in .stamp{display:none}}
 .pbar{height:6px;border-radius:3px;background:var(--surface-2);overflow:hidden;max-width:320px;margin:12px auto 0}.pbar i{display:block;height:100%;width:2%;background:var(--accent);transition:width .25s linear}
 </style>
 </head>
@@ -514,24 +516,27 @@ const st = {away: null, home: null, n: 2000, neutral: false, ov: {}, TEAMS: {}, 
 st.inj = {}; st.injDraft = {};
 try { st.inj = JSON.parse(localStorage.getItem('gs_inj') || '{}'); st.injDraft = {...st.inj}; } catch (e) {}
 try { st.lab.mine = JSON.parse(localStorage.getItem('gs_mine') || '[]'); st.lab.opp = JSON.parse(localStorage.getItem('gs_opp') || '[]'); } catch (e) {}
-const C = {ink: '#1d1b17', muted: '#5f584c', rule: '#d8d0bf', rule2: '#b9ae96', good: '#2c6a3c', bad: '#a8372a', warn: '#8a5d08', bar: '#4a453c', neutral: '#7a7365'};
+const C = {ink: '#1d1b17', muted: '#5f584c', rule: '#d8d0bf', rule2: '#8c8068', good: '#2c6a3c', bad: '#a8372a', warn: '#8a5d08', bar: '#4a453c', neutral: '#675f50'};
+const CPAL = {light: {...C}, dark: {ink: '#ece6d8', muted: '#b6ad9a', rule: '#3a352b', rule2: '#7c725e', good: '#72c68a', bad: '#f0907f', warn: '#e3b455', bar: '#bdb39d', neutral: '#9a917e'}};
 const _rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
 const _lum = c => { const f = v => { v /= 255; return v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }; return .2126 * f(c[0]) + .7152 * f(c[1]) + .0722 * f(c[2]); };
 const _cr = (a, b) => { const x = _lum(a), y = _lum(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); };
 const _hex = c => '#' + c.map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
-const _readable = {};
-function readable(hex) {                       // darken a team color until it reads on the paper background
-  if (_readable[hex]) return _readable[hex];
-  let c = _rgb(hex); const paper = _rgb('#fbf8f1'); let k = 1;
-  while (_cr(c.map(v => v * k), paper) < 3.6 && k > .35) k -= .04;
-  return _readable[hex] = _hex(c.map(v => v * k));
+let _readable = {};
+const isDark = () => document.documentElement.dataset.theme === 'dark';
+function readable(hex) {                       // move a team color until it has >= 4.5:1 contrast on the current surface
+  const key = hex + (isDark() ? 'd' : 'l'); if (_readable[key]) return _readable[key];
+  let c = _rgb(hex); const bg = _rgb(isDark() ? '#1f1c16' : '#fbf8f1'); let k = 0;
+  const mix = t => isDark() ? c.map(v => v + (255 - v) * t) : c.map(v => v * (1 - t));
+  while (_cr(mix(k), bg) < 4.5 && k < .85) k += .04;
+  return _readable[key] = _hex(mix(k));
 }
 const color = a => readable((st.TEAMS[a] || {color: '#7a7365'}).color);
 function pairCols(a, h) {                       // two similar team colors in one chart become unreadable, so fall back to neutral
   const ca = color(a), ch = color(h), x = _rgb(ca), y = _rgb(ch);
   return Math.hypot(x[0] - y[0], x[1] - y[1], x[2] - y[2]) < 70 ? [C.neutral, ch] : [ca, ch];
 }
-const POSCOL = {QB: '#8f4524', RB: '#5d6b24', WR: '#2b5f8a', TE: '#8a6a1a', K: '#5f584c', DST: '#6e6657'};
+const POSCOL = {QB: 'var(--pos-qb)', RB: 'var(--pos-rb)', WR: 'var(--pos-wr)', TE: 'var(--pos-te)', K: 'var(--pos-k)', DST: 'var(--pos-dst)'};
 
 async function init() {
   const [j, sc] = await Promise.all([fetch('/api/teams').then(r => r.json()), fetch('/api/schedule').then(r => r.json())]);
@@ -689,7 +694,7 @@ function renderTable(host, id, cols, rows, opts = {}) {
   const pin = c => c.k === 'rk' ? ' pin1' : c.k === 'name' ? ' pin2' : '';
   const tools = opts.tools ? `<div class="ttools"><span class="sub2">Click a header to sort; hover a header for what it means</span><span class="sp"></span><details class="colmenu"><summary class="btn ghost sm">Columns</summary><div class="colpop">${allCols.filter(c => !c.first && c.v !== null).map(c => `<label class="chk"><input type="checkbox" data-col="${c.k}" ${hid.includes(c.k) ? '' : 'checked'}> ${c.t}</label>`).join('')}</div></details><button class="btn ghost sm" data-csv>Export CSV</button></div>` : '';
   host.innerHTML = tools + `<div class="tscroll${opts.tools ? ' tall' : ''}"><table class="st"><thead><tr>${cols.map(c => `<th data-k="${c.k}" ${c.v ? 'tabindex="0" aria-sort="' + (S.k === c.k ? (S.dir < 0 ? 'descending' : 'ascending') : 'none') + '"' : ''} ${TIPS[c.k] ? 'data-tip="' + TIPS[c.k].replace(/"/g, '&quot;') + '"' : ''} class="${c.v ? 'srt' : ''} ${S.k === c.k ? 'on' : ''} ${c.first ? 'l' : ''}${pin(c)}" style="${c.w ? 'width:' + c.w : ''}">${c.t}${S.k === c.k ? (S.dir < 0 ? ' ▾' : ' ▴') : ''}</th>`).join('')}</tr></thead><tbody>` +
-    lim.map((r, i) => `<tr data-i="${i}" class="${opts.onRow ? 'clk' : ''}">${cols.map(c => `<td class="${c.cls || ''} ${c.first ? 'l' : ''}${pin(c)}">${c.h ? c.h(r, i) : fmt(c.v(r))}</td>`).join('')}</tr>`).join('') + `</tbody></table></div>` +
+    lim.map((r, i) => `<tr data-i="${i}" class="${opts.onRow ? 'clk' : ''}">${cols.map(c => `<td data-k="${c.k}" class="${c.cls || ''} ${c.first ? 'l' : ''}${pin(c)}">${c.h ? c.h(r, i) : fmt(c.v(r))}</td>`).join('')}</tr>`).join('') + `</tbody></table></div>` +
     (rows.length ? '' : `<div class="card empty" style="margin-top:8px"><b>No rows match</b><span>Try clearing the search or position filter.</span></div>`) +
     (pgN && rows.length > pgN ? `<div class="more"><span class="sub2">Showing ${lim.length} of ${rows.length}</span><button class="btn ghost sm" data-more>Show ${Math.min(step, rows.length - pgN)} more</button><button class="btn ghost sm" data-all>Show all</button></div>` : '');
   const mb = host.querySelector('[data-more]'); if (mb) mb.onclick = () => { st.pg[id] = pgN + step; renderTable(host, id, allCols, rows, opts); };
@@ -2041,7 +2046,7 @@ function applyRoute(first) {
 }
 addEventListener('popstate', () => applyRoute(false));
 /* theme */
-function setTheme(t) { try { localStorage.setItem('gs_theme', t); } catch (e) {} const dark = t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches); document.documentElement.dataset.theme = dark ? 'dark' : 'light'; const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = dark ? '#171510' : '#f2eee4'; }
+function setTheme(t) { try { localStorage.setItem('gs_theme', t); } catch (e) {} const dark = t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches); document.documentElement.dataset.theme = dark ? 'dark' : 'light'; Object.assign(C, CPAL[dark ? 'dark' : 'light']); if (st.slate) { try { rerender(); if (st.page === 'home') renderHome(); } catch (e) {} } const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = dark ? '#171510' : '#f2eee4'; }
 const getTheme = () => { try { return localStorage.getItem('gs_theme') || 'system'; } catch (e) { return 'system'; } };
 function toggleTheme() { setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'); if (st.page === 'settings') renderSettings(); }
 setTheme(getTheme());

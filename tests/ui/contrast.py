@@ -16,7 +16,7 @@ def themes():
         out[name]=dict(re.findall(r"--([\w-]+):(#[0-9a-fA-F]{6})",blk))
     return out
 PAIRS=[("text","bg",4.5),("text","surface",4.5),("muted","bg",4.5),("muted","surface",4.5),("muted","surface-2",4.5),("dim","bg",4.5),("dim","surface",4.5),
-       ("accent-ink","accent",4.5),("good","surface",4.5),("bad","surface",4.5),("warn","surface",4.5),("accent","surface",4.5),("line-strong","surface",3.0)]
+       ("accent-ink","accent",4.5),("good","surface",4.5),("bad","surface",4.5),("warn","surface",4.5),("accent","surface",4.5),("line-strong","surface",3.0),("pos-qb","surface",4.5),("pos-rb","surface",4.5),("pos-wr","surface",4.5),("pos-te","surface",4.5),("pos-k","surface",4.5),("pos-dst","surface",4.5)]
 fail=0
 for tn,t in themes().items():
     base=themes()["light"]
