@@ -1422,10 +1422,17 @@ async function trSuggest(c, kind) {
     const gP = kind === 'returns' ? getPool.filter(g => !T.get.length || true) : kind === 'offer' ? [T.get] : T.get.length && T.partner === t.id ? [T.get] : getPool;
     for (const give of givePool) for (const get of gP) {
       if (give.length > 2 || get.length > 2 || (give.length === 2 && get.length === 2)) continue;
-      const e = trEval(c, give, get, t.id); if (e.myGain > 0.3 && trOk(e)) out.push({t, give, get, e});
+      const e = trEval(c, give, get, t.id); if (e.vq <= 0 && e.vg <= 0) continue;
+      out.push({t, give, get, e, tier: trOk(e) ? 0 : (e.theirGain > -0.5 && e.bal >= 0.6 && e.bal <= 2.2) ? 1 : 2});
     }
   }
-  out.sort((a, b) => b.e.myGain - a.e.myGain); T.sugg = out.slice(0, 8); T.sBusy = null; renderTrades(c);
+  // Always return a list. Realistic trades first (tier 0), then plausible ones, then long shots; best for you first within a tier,
+  // at most 3 per partner at first so the list shows variety. If nothing improves your team, show the closest options.
+  const helps = out.filter(s => s.e.myGain > 0.05), pool = helps.length >= 6 ? helps : [...helps, ...out.filter(s => s.e.myGain <= 0.05).sort((a, b) => b.e.myGain - a.e.myGain).slice(0, 6 - helps.length)];
+  pool.sort((a, b) => a.tier - b.tier || b.e.myGain - a.e.myGain);
+  const per = {}, pick = [], rest = [];
+  pool.forEach(s => { per[s.t.id] = (per[s.t.id] || 0) + 1; (per[s.t.id] <= 3 ? pick : rest).push(s); });
+  T.sugg = [...pick, ...rest].slice(0, 12); T.suggNone = !helps.length; T.sBusy = null; renderTrades(c);
 }
 
 function renderTrades(c) {
@@ -1475,8 +1482,8 @@ function renderTrades(c) {
   const sg = $('#trSugg');
   if (T.sBusy) { sg.innerHTML = `<div class="card"><div class="empty" style="padding:var(--s4)"><span class="spin dark"></span><span class="busy">${T.sBusy}</span></div></div>`; return; }
   if (T.sugg) {
-    sg.innerHTML = `<div class="card"><h3>Suggested trades <span class="sub2">${T.sugg.length ? 'tap one to load it above' : ''}</span></h3>${T.sugg.length ? `<div class="sgrid">${T.sugg.map((s, i) => { const [vt, vc] = trVerdict(s.e);
-      return `<button class="sug" data-sug="${i}"><span class="sub2">${s.t.name}</span><span class="line"><i>Give</i> ${s.give.map(id => (rowOf(id) || {}).name).join(' + ')}</span><span class="line"><i>Get</i> ${s.get.map(id => (rowOf(id) || {}).name).join(' + ')}</span><span class="sfoot"><b class="pos">${sgn(s.e.myGain)}</b><span class="sub2">them ${sgn(s.e.theirGain)}</span><span class="chipv ${vc}">${vt}</span></span></button>`; }).join('')}</div>` : '<div class="note">No reasonable trade found for that. Try different players or a different value window.</div>'}</div>`;
+    sg.innerHTML = `<div class="card"><h3>Suggested trades <span class="sub2">${T.sugg.length ? 'tap one to load it above · realistic trades first, long shots after' : ''}</span></h3>${T.suggNone && T.sugg.length ? '<div class="note" style="margin-top:0">No trade raises your lineup right now, so these are the closest options.</div>' : ''}${T.sugg.length ? `<div class="sgrid">${T.sugg.map((s, i) => { const [vt, vc] = trVerdict(s.e);
+      return `<button class="sug" data-sug="${i}"><span class="sub2">${s.t.name}</span><span class="line"><i>Give</i> ${s.give.map(id => (rowOf(id) || {}).name).join(' + ')}</span><span class="line"><i>Get</i> ${s.get.map(id => (rowOf(id) || {}).name).join(' + ')}</span><span class="sfoot"><b class="${s.e.myGain > 0.05 ? 'pos' : 'neg'}">${sgn(s.e.myGain)}</b><span class="sub2">them ${sgn(s.e.theirGain)}</span><span class="chipv ${s.tier === 2 ? 'ok' : vc}">${s.tier === 2 ? 'Long shot' : vt}</span></span></button>`; }).join('')}</div>` : '<div class="note">Nothing to suggest: the teams you searched have no tradeable players. Pick a different partner.</div>'}</div>`;
     sg.querySelectorAll('[data-sug]').forEach(b => b.onclick = () => { const s = T.sugg[+b.dataset.sug]; T.partner = s.t.id; T.give = s.give.slice(); T.get = s.get.slice(); renderTrades(c); window.scrollTo({top: $('#trEval').offsetTop - 80, behavior: 'smooth'}); });
   }
 }
