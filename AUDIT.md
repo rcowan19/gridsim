@@ -1,5 +1,84 @@
 # GridSim audit log (branch `audit/model-v2`)
 
+## Executive summary
+
+**Verdict.** GridSim is a mechanically sound play-level simulator (9/9 invariants hold, determinism, league rates within a few %), but **as a predictor it has no edge over the betting market and loses to a 60-line Elo model in 2024-25.** Its disagreement with the closing line is anti-informative in all three held-out seasons (coef on sim-minus-spread: -0.85 / -0.12 / -0.78). The shipped blend (sim tilted toward the line, beta .9) is therefore ~ the market plus a realistic score distribution and player-level detail, not extra accuracy. Do not bet on its picks.
+
+**Top 5 flaws found (all measured, not assumed)**
+1. Scoring variance ~10% too narrow (no game-level shared uncertainty): points sd 8.9 vs 10.0; thin 0-point/low tails.
+2. Home-field advantage ~half of real (sim margin +0.95 vs +2.0-2.1).
+3. Ratings carry little information: Elo beats the sim's ratings in 2024-25 (Brier .206 vs .223; .227 vs .233).
+4. Passing efficiency too high (completion % +3.4 pts, YPA +4.6%), plays +2-3/team, yards +2-6%.
+5. Overtime: ties ~3x too frequent (1.3-1.5% vs 0-0.4%), OT rate 7% vs 4-6%. Plus: no betting-line fallback for unlined games.
+
+**Top 5 improvements adopted (each kept only if held-out metrics held or improved)**
+1. Latent per-game form shocks (`sig_cp/ypc/pace`): points sd ratio .88 -> 1.01, total sd .89 -> 1.00, margin sd .90 -> 1.02.
+2. HFA terms x2.1 (`hfa_comp`, `hfa_ypc`): sim home margin +.95 -> +2.0 (real +2.0/+2.1).
+3. Elo-anchored fallback blend for games with no line (beta .7): dev Brier .2293 raw -> .2224 (mean of 3 seasons).
+4. Vegas beta .8 -> .9: blended Brier mean .2117 -> .2106 (beta 1.0 = .2097 is pure market; .9 keeps some sim shape).
+5. Passing fix (`comp_add` 0, `air_tail` 1.25) + refit player calibration: held-out player MAE 5.23 vs 5.55 baseline, corr .54, 80%-interval coverage 81.8%.
+Also: 2025 OT rule knob, `GRIDSIM_TUNE`, validation harness, one-command rerun.
+
+**Headline before / after (walk-forward, weeks 3-18, 1000 sims/game, raw sim unless stated)**
+
+| metric | 2023 before | 2023 after | 2024 before | 2024 after | 2025 before | 2025 after |
+|---|---|---|---|---|---|---|
+| Brier (raw) | .2334 | .2327 | .2219 | .2226 | .2352 | .2325 |
+| Log loss (raw) | - | .6574 | - | .6365 | - | .6592 |
+| Margin MAE (raw; market) | - | 10.72 (10.06) | - | 10.33 (9.55) | - | 10.80 (10.08) |
+| Brier, no-line fallback (Elo-tilt) | .2334 | .2318 | .2219 | .2106 | .2352 | .2249 |
+| Brier, market / Elo (ref.) | .2161 / .2330 | same | .1971 / .2062 | same | .2147 / .2267 | same |
+| Score-distribution Wasserstein (pts) | .87 | .48 | 1.11 | 1.06 | 1.05 | .67 |
+| KS | .037 | .028 | .062 | .062 | .042 | .048 |
+| sd of team points (real 10.2 / 9.9 / 10.0) | 9.0 | 10.2 | 9.0 | 10.1 | 8.9 | 10.1 |
+| sim home margin (real 3.2 / 2.0 / 2.1) | 1.0 | 2.0 | .9 | 2.0 | 1.0 | 2.0 |
+| Player 80% interval coverage (held out, wk>5) | - | - | - | - | - | 81.8% |
+
+Honest reading: the raw Brier barely moved (the sim's team ratings, not its variance or HFA, limit it). The gains are in distributional realism (variance, HFA, tails), the no-line fallback and player intervals.
+
+## Experiment log (tuned on 2023-24, confirmed on 2025; tune never touched 2025)
+
+| change | result | decision |
+|---|---|---|
+| `hfa_comp/hfa_ypc` x2.1 | home margin matches real; Brier flat/slightly better | **adopted** |
+| latent shocks sig_cp .05, sig_ypc .5, sig_pace .15 | variance ratios ~1.0; Brier flat | **adopted** |
+| sig_pass (pass-rate shock) | no gain | reverted (0) |
+| sig_pace .15 -> .08 (dev, 300 sims) | Brier .2264 vs .2266, total-sd ratio .94 vs 1.01 | **kept .15** (no held-out gain) |
+| `rg` rating gain 1.5 / 2.0 | Brier .2288 -> .2282 / .2304 | kept 1.0 (noise) |
+| yards-per-completion rating | no gain | reverted |
+| finer Q4/down pass-rate residual states | no gain | reverted |
+| position-specific shrinkage | no gain | not adopted |
+| `ot_both` (2025 rules) | OT correct from 2025; ties still ~3x | adopted for 2025+ |
+| `comp_add` 0, `air_tail` 1.25 | completion gap +3.4 -> ~0.2 pts (dev) | **adopted** |
+| Vegas beta .8 -> .9 | blended Brier -.001 | **adopted** |
+| Elo-tilt fallback beta .7 | -.007 vs raw (higher beta overfits sim noise less than it helps? .9: .2218 vs .7: .2224, ~equal) | adopted .7 (conservative) |
+
+## Remaining weaknesses (prioritized)
+1. **No edge vs market; ratings low-information.** Elo beats them. Fix would be better priors (QB-adjusted EPA, preseason/market win totals) - architectural, ask first.
+2. **Plays/team +2-3 and yards +2-6%** (shared pace shock inflates plays sd to 11.5 vs 8.2 real; lowering it did not help held-out metrics). Points/yard slightly low, so scoring is only -0.4 to -1.0/team in 2024-25.
+3. **OT ties 3x too frequent** (1.3-1.5% vs ~0.4%).
+4. **Q4 leader/trailer pass-rate gap** (leaders pass too much) undiagnosed (`out/gamestate.md`).
+5. QB over-projection (+0.8 raw), explosive plays ~6% low, penalties -0.4 to -0.9/team.
+6. Walk-forward leak: roster team = end-of-season team for traded players; late scratches uncatchable.
+7. Real ESPN league never tested from the sandbox (ESPN unreachable).
+
+## Re-run everything
+```
+sh validate/run_all.sh        # 2023-25 walk-forward + reports + blend eval + game-state + pytest (~12 min with warm cache, 2 cores)
+python -m validate.grid 'cur={}' 'x={"sig_pace":0.08}' --seasons 2023 2024 -n 300   # knob experiments
+python -m validate.players validate/out/bt_players_ca0p.csv                          # player-level check
+```
+Outputs: `validate/out/report_<season>.md`, `gamestate.md`.
+
+## Honest limitations
+- 3 seasons x ~240 games: Brier SE ~.006, so differences under ~.01 are noise; the market gap (+.018 to +.026) is the only large effect.
+- Market comparison uses closing spreads mapped through N(0,13.5), not true probabilities.
+- Player validation is one season-slice (~1,250 player-games), calibration trained on weeks <=5.
+- League baselines are computed from nflverse pbp, not external sources.
+- The model has **no demonstrated edge**; "blend ~ market" is the accurate description.
+
+---
+
 Status: in progress. Baseline = `main` @ fbd10d7 + injury tab (00fd6fc). All validation runs are seeded and pinned to `data/` snapshots of 2026-11-04.
 
 ## Phase 0: architecture map
