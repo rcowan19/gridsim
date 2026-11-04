@@ -434,6 +434,23 @@ button.tile{cursor:pointer}button.tile:hover{border-color:var(--line-strong)}
 input[type=checkbox]{accent-color:var(--accent);width:16px;height:16px}
 .card.empty b{font:700 17px var(--serif);color:var(--text);display:block;margin-bottom:4px}
 .dense .card{padding:12px}.dense table.st td,.dense table.st th{padding-top:3px;padding-bottom:3px}
+
+/* tables: sticky header + pinned columns, tooltips, toolbar */
+.ttools{display:flex;align-items:center;gap:var(--s2);margin-bottom:var(--s2);flex-wrap:wrap}.ttools .sp{flex:1}
+.tscroll.tall{max-height:calc(100vh - var(--ctx-h) - 70px);overflow:auto;border:1px solid var(--line-soft);border-radius:var(--r-sm)}
+.tscroll.tall thead th{position:sticky;top:0;z-index:3;background:var(--surface);box-shadow:0 1px 0 var(--line)}
+.tscroll.tall td.pin1,.tscroll.tall th.pin1{position:sticky;left:0;z-index:2;background:var(--surface);min-width:36px}
+.tscroll.tall td.pin2,.tscroll.tall th.pin2{position:sticky;left:36px;z-index:2;background:var(--surface);box-shadow:1px 0 0 var(--line-soft)}
+.tscroll.tall thead th.pin1,.tscroll.tall thead th.pin2{z-index:4}
+th.srt{cursor:pointer}th.srt:hover{color:var(--text)}
+[data-tip]{position:relative}
+[data-tip]:hover::after,[data-tip]:focus-visible::after{content:attr(data-tip);position:absolute;top:100%;left:0;z-index:20;width:230px;white-space:normal;text-transform:none;letter-spacing:0;font-weight:500;font-size:12px;line-height:1.4;background:var(--text);color:var(--bg);padding:7px 9px;border-radius:var(--r-sm);box-shadow:0 6px 18px rgba(0,0,0,.25);pointer-events:none}
+.colmenu{position:relative}.colmenu summary{list-style:none;cursor:pointer}.colmenu summary::-webkit-details-marker{display:none}
+.colpop{position:absolute;right:0;top:100%;z-index:25;background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--r-sm);padding:10px 12px;display:grid;gap:6px;min-width:170px;box-shadow:0 8px 24px rgba(0,0,0,.2)}
+.searchbtn kbd{margin-left:auto}
+.colmenu summary{display:inline-flex;align-items:center;gap:6px;width:auto}.tscroll.tall td.pin2{min-width:200px;white-space:nowrap}.tscroll.tall td.pin2 .nm{white-space:nowrap}.tscroll.tall td.pin2 .p{white-space:nowrap}
+@media(max-width:760px){.ctx{position:static}.ctx-in .btn.ghost,.ctx-in .stamp{display:none}.tscroll.tall{max-height:70vh}}
+.pbar{height:6px;border-radius:3px;background:var(--surface-2);overflow:hidden;max-width:320px;margin:12px auto 0}.pbar i{display:block;height:100%;width:2%;background:var(--accent);transition:width .25s linear}
 </style>
 </head>
 <body>
@@ -548,8 +565,8 @@ async function init() {
     try {
       const r = await fetch('/api/refresh', {method: 'POST'});
       if (!r.ok) throw new Error((await r.json()).detail || r.statusText);
-      stamp(await r.json()); delete st.slate; reloadSlate();
-    } catch (e) { $('#g_stamp').textContent = 'Update failed: ' + e.message; }
+      stamp(await r.json()); delete st.slate; reloadSlate(); toast('Data updated: injuries, depth charts and results are current.');
+    } catch (e) { $('#g_stamp').textContent = 'Update failed'; toast('Update failed: ' + e.message, {err: true, action: {label: 'Retry', fn: () => $('#g_update').click()}}); }
     busy($('#g_update'), false);
   };
   $('#dback').onclick = closeDrawer;
@@ -611,9 +628,10 @@ const rawM = g => g.blend ? g.blend.sim_home - g.blend.sim_away : g.sim_margin, 
 const badge = (s, p, nt, idle) => idle === 'BYE' ? ' <em class="inj B" title="On bye this week">BYE</em>' : idle === 'INACTIVE' ? ' <em class="inj B" title="Not expected to play this week (backup or off the depth chart)">INACT</em>' : s ? ` <em class="inj ${s[0]}" title="${nt ? nt + '. ' : ''}${s}${p != null ? ': plays in ' + Math.round(p * 100) + '% of simulations (based on practice status)' : ''}">${s === 'Questionable' ? 'Q' + (p != null ? ' ' + Math.round(p * 100) + '%' : '') : s === 'Doubtful' ? 'D' : 'OUT'}</em>` : '';
 st.cond = {mode: 'auto', roof: 'outdoors', wind: 0, temp: 60}; st.useWx = true;
 function body() { return {home: st.home, away: st.away, n: st.n, neutral: st.neutral, overrides: st.ov, cond_mode: st.cond.mode, roof: st.cond.roof, wind: +st.cond.wind, temp: +st.cond.temp}; }
-async function post(url, b) {
-  const r = await fetch(url, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(b)});
-  if (!r.ok) throw new Error((await r.json()).detail || r.statusText);
+async function post(url, b, signal) {
+  let r; try { r = await fetch(url, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(b), signal}); }
+  catch (e) { if (e.name === 'AbortError') throw e; throw new Error('Could not reach the GridSim server. Check that it is still running, then retry.'); }
+  if (!r.ok) { let m = r.statusText; try { m = (await r.json()).detail || m; } catch (e) {} throw new Error(m); }
   return r.json();
 }
 function busy(btn, on, label) { btn.disabled = on; btn.dataset.l = btn.dataset.l || btn.textContent; btn.innerHTML = on ? `<span class="spin"></span>${label}` : btn.dataset.l; }
@@ -650,9 +668,17 @@ function fmtToggle(id, after) {
 function bindFmt(id, after) { const b = $('#' + id); if (!b) return; b.onclick = e => { const x = e.target.closest('button'); if (!x) return; setFmt(x.dataset.f); if (after) after(); }; }
 
 /* ---------- generic sortable table ---------- */
+const TIPS = {proj: 'Simulator mean for this week, shrunk toward the field and blended with the season average.', range: 'Middle 80% of simulated outcomes (10th to 90th percentile). The tick is the projection.', med: 'Half of simulated games land above this, half below.', boom: 'Share of sims that reach a big week: 25+ QB, 20+ RB/WR, 15+ TE.', bust: 'Share of sims that flop: under 12 QB, 7 RB/WR, 4 TE.', sd: 'Standard deviation of simulated points: bigger means a wider range of outcomes.', opps: 'Expected touches plus targets (QBs: dropbacks).', td1: 'Chance of at least one touchdown.', vor: 'Value over replacement: points above the best freely available player at this position.', tier: 'Group of players with similar value; tiers break where projections drop off.', dlt: 'Projection minus the player\'s season average.'};
+function csvDownload(name, cols, rows) {
+  const q = v => { v = v == null ? '' : String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  const cs = cols.filter(c => c.v); const out = [cs.map(c => q(c.t)).join(',')].concat(rows.map(r => cs.map(c => { const x = c.v(r); return q(typeof x === 'number' ? Math.round(x * 100) / 100 : x); }).join(',')));
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([out.join('\n')], {type: 'text/csv'})); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
 function renderTable(host, id, cols, rows, opts = {}) {
+  const hidKey = 'gs_cols_' + id; let hid = []; try { hid = JSON.parse(localStorage.getItem(hidKey) || '[]'); } catch (e) {}
+  const allCols = cols; cols = cols.filter(c => !hid.includes(c.k) || c.first);
   const S = st.sort[id] || (st.sort[id] = {k: opts.sort || cols.find(c => c.v).k, dir: opts.dir || -1});
-  const col = cols.find(c => c.k === S.k) || cols[0];
+  const col = allCols.find(c => c.k === S.k) || cols[0];
   const sorted = [...rows].sort((a, b) => {
     const x = col.v(a), y = col.v(b);
     if (x == null && y == null) return 0; if (x == null) return 1; if (y == null) return -1;
@@ -660,12 +686,18 @@ function renderTable(host, id, cols, rows, opts = {}) {
   });
   const pgN = st.pg[id] != null ? st.pg[id] : (opts.limit || 0), step = opts.step || opts.limit || 25;
   const lim = pgN ? sorted.slice(0, pgN) : sorted;
-  host.innerHTML = `<div class="tscroll"><table class="st"><thead><tr>${cols.map(c => `<th data-k="${c.k}" class="${c.v ? 'srt' : ''} ${S.k === c.k ? 'on' : ''} ${c.first ? 'l' : ''}" style="${c.w ? 'width:' + c.w : ''}">${c.t}${S.k === c.k ? (S.dir < 0 ? ' ▾' : ' ▴') : ''}</th>`).join('')}</tr></thead><tbody>` +
-    lim.map((r, i) => `<tr data-i="${i}" class="${opts.onRow ? 'clk' : ''}">${cols.map(c => `<td class="${c.cls || ''} ${c.first ? 'l' : ''}">${c.h ? c.h(r, i) : fmt(c.v(r))}</td>`).join('')}</tr>`).join('') + `</tbody></table></div>` +
+  const pin = c => c.k === 'rk' ? ' pin1' : c.k === 'name' ? ' pin2' : '';
+  const tools = opts.tools ? `<div class="ttools"><span class="sub2">Click a header to sort; hover a header for what it means</span><span class="sp"></span><details class="colmenu"><summary class="btn ghost sm">Columns</summary><div class="colpop">${allCols.filter(c => !c.first && c.v !== null).map(c => `<label class="chk"><input type="checkbox" data-col="${c.k}" ${hid.includes(c.k) ? '' : 'checked'}> ${c.t}</label>`).join('')}</div></details><button class="btn ghost sm" data-csv>Export CSV</button></div>` : '';
+  host.innerHTML = tools + `<div class="tscroll${opts.tools ? ' tall' : ''}"><table class="st"><thead><tr>${cols.map(c => `<th data-k="${c.k}" ${c.v ? 'tabindex="0" aria-sort="' + (S.k === c.k ? (S.dir < 0 ? 'descending' : 'ascending') : 'none') + '"' : ''} ${TIPS[c.k] ? 'data-tip="' + TIPS[c.k].replace(/"/g, '&quot;') + '"' : ''} class="${c.v ? 'srt' : ''} ${S.k === c.k ? 'on' : ''} ${c.first ? 'l' : ''}${pin(c)}" style="${c.w ? 'width:' + c.w : ''}">${c.t}${S.k === c.k ? (S.dir < 0 ? ' ▾' : ' ▴') : ''}</th>`).join('')}</tr></thead><tbody>` +
+    lim.map((r, i) => `<tr data-i="${i}" class="${opts.onRow ? 'clk' : ''}">${cols.map(c => `<td class="${c.cls || ''} ${c.first ? 'l' : ''}${pin(c)}">${c.h ? c.h(r, i) : fmt(c.v(r))}</td>`).join('')}</tr>`).join('') + `</tbody></table></div>` +
+    (rows.length ? '' : `<div class="card empty" style="margin-top:8px"><b>No rows match</b><span>Try clearing the search or position filter.</span></div>`) +
     (pgN && rows.length > pgN ? `<div class="more"><span class="sub2">Showing ${lim.length} of ${rows.length}</span><button class="btn ghost sm" data-more>Show ${Math.min(step, rows.length - pgN)} more</button><button class="btn ghost sm" data-all>Show all</button></div>` : '');
-  const mb = host.querySelector('[data-more]'); if (mb) mb.onclick = () => { st.pg[id] = pgN + step; renderTable(host, id, cols, rows, opts); };
-  const ab = host.querySelector('[data-all]'); if (ab) ab.onclick = () => { st.pg[id] = 0; renderTable(host, id, cols, rows, opts); };
-  host.querySelectorAll('th.srt').forEach(th => th.onclick = () => { const k = th.dataset.k; if (S.k === k) S.dir *= -1; else { S.k = k; S.dir = (cols.find(c => c.k === k).first ? 1 : -1); } renderTable(host, id, cols, rows, opts); });
+  const mb = host.querySelector('[data-more]'); if (mb) mb.onclick = () => { st.pg[id] = pgN + step; renderTable(host, id, allCols, rows, opts); };
+  const ab = host.querySelector('[data-all]'); if (ab) ab.onclick = () => { st.pg[id] = 0; renderTable(host, id, allCols, rows, opts); };
+  const sortBy = th => { const k = th.dataset.k; if (S.k === k) S.dir *= -1; else { S.k = k; S.dir = (allCols.find(c => c.k === k).first ? 1 : -1); } renderTable(host, id, allCols, rows, opts); };
+  host.querySelectorAll('th.srt').forEach(th => { th.onclick = () => sortBy(th); th.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sortBy(th); } }; });
+  host.querySelectorAll('[data-col]').forEach(cb => cb.onchange = () => { const h2 = new Set(hid); cb.checked ? h2.delete(cb.dataset.col) : h2.add(cb.dataset.col); try { localStorage.setItem(hidKey, JSON.stringify([...h2])); } catch (e) {} renderTable(host, id, allCols, rows, opts); const d = host.querySelector('.colmenu'); if (d) d.open = true; });
+  const cv = host.querySelector('[data-csv]'); if (cv) cv.onclick = () => { csvDownload(`gridsim_${id}_week${st.week}.csv`, cols, sorted); toast(`Exported ${sorted.length} rows`); };
   if (opts.onRow) host.querySelectorAll('tbody tr').forEach(tr => tr.onclick = () => opts.onRow(lim[+tr.dataset.i]));
 }
 
@@ -722,7 +754,7 @@ function renderProj(d) {
       <div class="line">Median spread <b>${spread}</b> · Total <b>${fmt(d.total.median)}</b></div>
       <div class="line" style="margin-top:3px">${fmt(w.tie * 100)}% ties · ${fmt(d.ot_rate * 100)}% go to OT</div></div>
     <div class="tm r"><div class="ab" style="color:${hc}">HOME · ${H}</div><div class="nm">${st.TEAMS[H].name}</div><div class="win">${fmt(w.home * 100)}%</div><div class="avg">${fmt(d.score.home.mean)} avg pts</div></div></div>
-  <div class="note" style="text-align:center;margin-top:12px">${condLine(d.cond)}${d.n.toLocaleString()} games in ${fmt(d.secs)}s${st.neutral ? ' · neutral site' : ''}${Object.keys(st.ov).length ? ' · custom lineups' : ''}</div>`));
+  <div class="note" style="text-align:center;margin-top:12px">${condLine(d.cond)}${d.n.toLocaleString()} simulated games in ${fmt(d.secs)}s · win % standard error ±${fmt(Math.sqrt(w.home * (1 - w.home) / d.n) * 100)} pts${st.neutral ? ' · neutral site' : ''}${Object.keys(st.ov).length ? ' · custom lineups' : ''}</div>`));
 
   // market comparison + cover probabilities
   const v = d.vegas, cv = d.cover;
@@ -748,8 +780,8 @@ function renderProj(d) {
   OV.appendChild(mk);
 
   const g2 = el('div', 'grid2');
-  g2.appendChild(card(`<h3>Final margin (home − away)</h3>` + hist(d.hist.margin, {lo: -34, hi: 36, colors: x => x >= 0 ? hc : ac, split: 0, ticks: [-30, -20, -10, 0, 10, 20, 30]}) + `<div class="note">Left of 0: ${A} wins · Right: ${H} wins</div>`));
-  g2.appendChild(card(`<h3>Total points</h3>` + hist(d.hist.total, {lo: 10, hi: 90, colors: () => C.bar, ticks: [20, 30, 40, 50, 60, 70, 80]}) + `<div class="note">Mean ${fmt(d.total.mean)}</div>`));
+  g2.appendChild(card(`<h3>Final margin (home − away)</h3>` + hist(d.hist.margin, {lo: -34, hi: 36, colors: x => x >= 0 ? hc : ac, split: 0, ticks: [-30, -20, -10, 0, 10, 20, 30], marks: qMarks(d.hist.margin)}) + `<div class="note">Left of 0: ${A} wins · Right: ${H} wins. Markers show the 10th, 50th and 90th percentile: 80% of simulated games land between P10 and P90.</div>`));
+  g2.appendChild(card(`<h3>Total points</h3>` + hist(d.hist.total, {lo: 10, hi: 90, colors: () => C.bar, ticks: [20, 30, 40, 50, 60, 70, 80], marks: qMarks(d.hist.total)}) + `<div class="note">Mean ${fmt(d.total.mean)} · P10 to P90 range is the middle 80% of simulated games.</div>`));
   OV.appendChild(g2);
 
   MU.appendChild(matchupCard(d));
@@ -832,7 +864,7 @@ function fantasyTable(host, id, rows, o = {}) {
     ...(o.vor ? [{k: 'vor', t: 'VOR', v: r => r._vor, h: r => `<span class="${r._vor > 0 ? 'pos' : 'neg'}">${sgn(r._vor)}</span>`}] : []),
     ...(o.tier ? [{k: 'tier', t: 'Tier', v: r => r._tier, first: 1, h: r => r._tier ? 'T' + r._tier : ''}] : []),
   ];
-  renderTable(host, id, cols, rows, {sort: 'proj', limit: o.limit, onRow: r => showPlayer(r)});
+  renderTable(host, id, cols, rows, {sort: 'proj', limit: o.limit, step: o.step, tools: !!o.rank, onRow: r => showPlayer(r)});
   if (o.note) host.insertAdjacentHTML('beforeend', `<div class="note">Proj = simulator mean, shrunk toward the field and blended with the player's season average (fit on a walk-forward backtest); range widened to cover ~80% of outcomes. Boom = ≥25 QB / ≥20 RB·WR / ≥15 TE; Bust = &lt;12 / &lt;7 / &lt;4. Half-PPR and Standard shift each player's receptions out (approximate). Click any player for the full breakdown.</div>`);
 }
 
@@ -933,16 +965,30 @@ function renderSlateShell() {
   $('#s_q').oninput = e => { st.q = e.target.value.toLowerCase(); delete st.pg.rank; if (st.slate) renderSlate(); };
   $('#s_pos').onclick = e => { const b = e.target.closest('button'); if (!b) return; st.pos = b.dataset.p; delete st.pg.rank; [...$('#s_pos').children].forEach(x => x.classList.toggle('on', x === b)); if (st.slate) renderSlate(); };
 }
+let SLATE_ABORT = null;
+function loadingCard(n, eta) {
+  const sk = '<div class="gcard"><div class="skel" style="height:16px;width:40%"></div><div class="skel" style="height:38px;width:80%;margin:10px 0"></div><div class="skel" style="height:10px"></div><div class="skel" style="height:70px;margin-top:12px"></div></div>';
+  return `<div class="card empty" id="loadCard" style="padding:var(--s5)"><b>Simulating week ${st.week}</b><span>${n.toLocaleString()} simulations per game${eta ? ` · about ${eta}s` : ''}. ${DEPTH[st.depth].hint}</span><div class="pbar"><i id="loadBar"></i></div><button class="btn ghost sm" id="loadCancel" style="margin-top:10px">Cancel</button></div><div class="gcards" style="margin-top:var(--s3)">${sk.repeat(3)}</div>`;
+}
 async function loadSlate(mode) {
   if (st.loading) return; st.loading = true;
-  const hostSel = {games: '#nflBody', players: '#s_body', team: '#lgStatus', sandbox: '#tab-lab'}[mode], host = hostSel && $(hostSel);
-  if (host) host.innerHTML = `<div class="card empty"><span class="spin dark"></span><b>Simulating week ${st.week}</b><span>${DEPTH[st.depth].slate.toLocaleString()} simulations per game. ${DEPTH[st.depth].hint}</span></div>`;
+  const hostSel = {home: '#tab-home', games: '#nflBody', players: '#s_body', team: '#lgStatus', sandbox: '#tab-lab'}[mode], host = hostSel && $(hostSel);
+  const nSim = DEPTH[st.depth].slate, last = st.lastSecs ? Math.round(st.lastSecs * nSim / (st.lastN || nSim)) : Math.round(nSim / 80);
+  if (host && mode !== 'home') host.innerHTML = loadingCard(nSim, last);
   busy($('#g_refresh'), true, 'Simulating');
+  const ab = SLATE_ABORT = new AbortController(), t0 = Date.now();
+  const tick = setInterval(() => { const bar = $('#loadBar'); if (bar) bar.style.width = Math.min(95, (Date.now() - t0) / 10 / Math.max(last, 1)) + '%'; }, 250);
+  const cb = $('#loadCancel'); if (cb) cb.onclick = () => ab.abort();
   try {
-    st.slate = await post('/api/slate', {week: st.week, n: DEPTH[st.depth].slate, weather: st.useWx, ov: st.inj}); st.lab.trials = null;
+    st.slate = await post('/api/slate', {week: st.week, n: nSim, weather: st.useWx, ov: st.inj}, ab.signal); st.lab.trials = null; st.lastSecs = st.slate.secs; st.lastN = nSim;
     renderNflWeek(); renderSlate(); if (st.page === 'team') renderLeague(); if (st.page === 'inj') renderInjuries(); if (st.page === 'home') renderHome();
-  } catch (e) { if (host) host.innerHTML = `<div class="card empty err"><b>Could not load projections</b><span>${e.message}</span></div>`; console.error(e); }
-  st.loading = false; busy($('#g_refresh'), false);
+  } catch (e) {
+    if (e.name === 'AbortError') { if (host) host.innerHTML = `<div class="card empty"><b>Run cancelled</b><span>Nothing was changed.</span><button class="btn primary sm" id="retrySl" style="margin-top:10px">Run again</button></div>`; }
+    else { if (host) host.innerHTML = `<div class="card empty err" role="alert"><b>Could not load projections</b><span>${e.message}</span><button class="btn primary sm" id="retrySl" style="margin-top:10px">Try again</button></div>`; toast(e.message, {err: true}); }
+    const rb = $('#retrySl'); if (rb) rb.onclick = () => { st.loading = false; loadSlate(mode); };
+    console.error(e);
+  }
+  clearInterval(tick); st.loading = false; busy($('#g_refresh'), false);
 }
 const REPL = {QB: 11, RB: 23, WR: 29, TE: 11, K: 11, DST: 11};
 function prepSlate(rows) {
@@ -1318,6 +1364,8 @@ function condText(c, roof) {
   const b = []; if (c.wind != null) b.push(`${c.wind} mph wind`); if (c.temp != null) b.push(`${Math.round(c.temp)}°F`);
   return b.length ? b.join(' · ') : (r === 'open' ? 'Retractable (open)' : 'Outdoors');
 }
+const histQ = (h, q) => { const tot = h.counts.reduce((a, c) => a + c, 0); let acc = 0; for (let i = 0; i < h.counts.length; i++) { acc += h.counts[i]; if (acc >= q * tot) return h.lo + (i + .5) * h.step; } return h.lo + h.counts.length * h.step; };
+const qMarks = h => [[.1, 'P10'], [.5, 'P50'], [.9, 'P90']].map(([q, t]) => ({x: histQ(h, q), c: C.muted, t}));
 function condLine(c) {
   if (!c || c.src === 'off') return `<span class="pill">conditions ignored</span> `;
   const wind = c.wind != null && !(c.roof === 'dome' || c.roof === 'closed') && c.wind >= 10;
@@ -1950,7 +1998,7 @@ const TABS = [['home', 'Home', 'home'], ['games', 'Games', 'games'], ['proj', 'P
 const navOn = n => st.page === n.page && (!n.sub || n.page === 'lab' || (n.page === 'players' ? (n.sub === 'stack') === (st.sub.players === 'stack') : st.sub[n.page] === n.sub));
 const TITLE = {home: 'Home', games: 'Games', lab: 'Matchup lab', players: 'Players', team: 'My league', inj: 'Injuries', settings: 'Settings'};
 function buildShell() {
-  let h = `<div class="brand">GridSim</div><button class="searchbtn" id="openPal" aria-label="Search or jump to (Control K)">${icon('search')}<span>Search or jump to</span><kbd>Ctrl K</kbd></button><nav class="sidenav" id="nav" aria-label="Sections">`;
+  let h = `<div class="brand">GridSim</div><button class="searchbtn" id="openPal" aria-label="Search or jump to (Control K)">${icon('search')}<span>Search</span><kbd>Ctrl K</kbd></button><nav class="sidenav" id="nav" aria-label="Sections">`;
   NAV.forEach(n => { h += n.g ? `<div class="ngrp">${n.g}</div>` : `<button class="nlink" data-nav="${n.id}" title="${n.label}">${icon(n.ic)}<span class="nl">${n.label}</span></button>`; });
   h += `</nav><div class="side-foot"><button class="nlink" id="themeBtn" title="Switch light and dark theme">${icon('sun')}<span class="nl">Theme</span></button><button class="nlink" id="helpBtn" title="Keyboard shortcuts (?)">${icon('help')}<span class="nl">Shortcuts</span></button></div>`;
   $('#side').innerHTML = h;
@@ -1978,7 +2026,6 @@ function syncURL(push) {
 function parseRoute() {
   let h = location.hash.slice(1); const [path, qs] = h.split('?'); const parts = path.replace(/^\//, '').split('/').filter(Boolean); const q = new URLSearchParams(qs || '');
   let page = parts[0] || 'home', sub = parts[1];
-  if (LEGACY[page]) { [page, sub] = LEGACY[page]; }
   if (!PAGES.includes(page)) page = 'home';
   return {page, sub, q};
 }
