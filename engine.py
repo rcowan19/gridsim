@@ -81,7 +81,8 @@ def stoch_round(v, rng):
 class Engine:
     # knobs that calibrate.py can tune
     DEFAULT_TUNE = {"hfa_comp": 0.006, "hfa_ypc": 0.06, "pass_scale": 1.0, "ypc_scale": 1.0,
-                    "comp_add": 0.02, "pen_scale": 1.0, "yac_scale": 1.0, "air_scale": 1.0, "air_add": 0.8, "air_mult": 1.0, "air_tail": 1.0, "yds_mult": 1.0, "pace_mult": 0.985, "run_add": 0.1, "gl_add": 0.4, "pen_live": 1.0, "qb_y1": 2.55, "qb_y3": 1.35, "qb_rz": 1.7, "go_mult": 1.1, "mid_air": 1.0, "punt_td": 0.0055, "fum_td": 0.035, "eoh_fg": 0.9}
+                    "comp_add": 0.02, "pen_scale": 1.0, "yac_scale": 1.0, "air_scale": 1.0, "air_add": 0.8, "air_mult": 1.0, "air_tail": 1.0, "yds_mult": 1.0, "pace_mult": 0.985, "run_add": 0.1, "gl_add": 0.4, "pen_live": 1.0, "qb_y1": 2.55, "qb_y3": 1.35, "qb_rz": 1.7, "go_mult": 1.1, "mid_air": 1.0, "punt_td": 0.0055, "fum_td": 0.035, "eoh_fg": 0.9,
+                    "ot_both": 1, "ycg": 1.0, "rg": 1.0, "sig_cp": 0.0, "sig_ypc": 0.0, "sig_pace": 0.0, "sig_pass": 0.0}   # rg: team-rating gain; sig_*: per-game latent form shocks
 
     def __init__(self, model, tune=None):
         self.m = m = model
@@ -207,18 +208,28 @@ class Game:
         self.drive_off = 0
         self.pre = (1, 10, 75, 0)
         self.mu = [self._matchup(i) for i in (0, 1)]
+        t = self.e.tune
+        if t["sig_cp"] or t["sig_ypc"] or t["sig_pace"] or t["sig_pass"]:      # latent per-game form: correlated pass/run efficiency and tempo
+            gp = self.rng.gauss(0, 1) * t["sig_pace"]                           # shared by both teams (game script / tempo / weather-like)
+            for i in (0, 1):
+                z = self.rng.gauss(0, 1)
+                m = self.mu[i]
+                m["cp"] += t["sig_cp"] * z; m["ypc"] += t["sig_ypc"] * z
+                m["pace"] *= math.exp(gp); m["pshift"] += t["sig_pass"] * self.rng.gauss(0, 1)
 
     # ------------------------------------------------------------ setup
     def _matchup(self, i):
         O, D, e = self.cfg[i], self.cfg[1 - i], self.e
         hf = 0.0 if self.neutral else (1 if i == 0 else -1)
+        g = e.tune["rg"]
         return {
-            "p_sack": clamp(e.lsack + (O.r["sack_off"] - e.lsack) + (D.r["sack_def"] - e.lsack), 0.015, 0.16),
+            "p_sack": clamp(e.lsack + g * (O.r["sack_off"] - e.lsack) + g * (D.r["sack_def"] - e.lsack), 0.015, 0.16),
             "p_scr": clamp(O.qb["scr"] + (O.r["scr_off"] - e.lscr) * 0.3, 0.005, 0.15),
-            "p_int": clamp(e.lint + (O.qb["int"] - e.lint) + (D.r["int_def"] - e.lint), 0.006, 0.06),
-            "cp": O.qb["cpoe"] + D.r["cpoe_def"] + hf * e.tune["hfa_comp"] + e.tune["comp_add"] + self.env.get("comp", 0.0),
-            "ypc": e.tune["ypc_scale"] * D.r["ypc_def"] * 0.8 + hf * e.tune["hfa_ypc"],
+            "p_int": clamp(e.lint + g * (O.qb["int"] - e.lint) + g * (D.r["int_def"] - e.lint), 0.006, 0.06),
+            "cp": g * O.qb["cpoe"] + g * D.r["cpoe_def"] + hf * e.tune["hfa_comp"] + e.tune["comp_add"] + self.env.get("comp", 0.0),
+            "ypc": e.tune["ypc_scale"] * g * D.r["ypc_def"] * 0.8 + hf * e.tune["hfa_ypc"],
             "pace": O.r["pace"] * e.tune["pace_mult"], "pshift": O.r["pass_shift"],
+            "yfac": 1.0 + e.tune["ycg"] * (O.r.get("yc_off", 0.0) + D.r.get("yc_def", 0.0)) / e.m["lg_yc"] if "lg_yc" in e.m else 1.0,
         }
 
     def _bin(self, sd):
@@ -432,7 +443,7 @@ class Game:
             self.pending_kick, self.dscore = None, None
             self.drive()
             poss += 1
-            if self.dscore == "DEF" or (poss == 1 and self.dscore == "TD") or (poss >= 2 and self.pts[0] != self.pts[1]):
+            if self.dscore == "DEF" or (poss == 1 and self.dscore == "TD" and not self.e.tune["ot_both"]) or (poss >= 2 and self.pts[0] != self.pts[1]):
                 break
             if self.clock_over():
                 break
@@ -680,6 +691,7 @@ class Game:
         yac = stoch_round(rng.choice(e.yacp[ab]) * tgt["yac"] * e.tune["yac_scale"] * e.yfac.get(cell, 1.0), rng)
         yds = air + yac
         if yds > 0:
+            yds = yds * mu["yfac"]
             yds = stoch_round(yds * (e.tune["yds_mult"] * self.env.get("ypa", 1.0) if Y > 30 else self.env.get("ypa", 1.0)), rng)
         yds = int(clamp(yds, -9, 99))
         if e.trace is not None:

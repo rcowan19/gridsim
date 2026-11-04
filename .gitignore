@@ -3,3 +3,4 @@ __pycache__/
 *.log
 .venv/
 backtest_*.csv
+validate/out/

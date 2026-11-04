@@ -374,6 +374,9 @@ def main(cutoff=None, write=True, quiet=False, usage_decay=None, w_prev_use=None
     exp_all = sc.exp.values
     sc["exp_pass"] = exp_all
     T = {}
+    _c = sc[(sc.db == 1) & (sc.complete_pass == 1)]
+    lgyc = wmean(_c.yards_gained, _c.w)
+    M["lg_yc"] = float(lgyc)
     for t in teams:
         o = sc[sc.posteam == t]
         df = sc[sc.defteam == t]
@@ -395,12 +398,16 @@ def main(cutoff=None, write=True, quiet=False, usage_decay=None, w_prev_use=None
         r["int_def"] = shrink((da.interception * da.w).sum(), da.w.sum(), lg["int"], 400)
         r["ypc_off"] = shrink((orun.yards_gained * orun.w).sum(), orun.w.sum(), lg["ypc"], 200) - lg["ypc"]
         r["ypc_def"] = shrink((drun.yards_gained * drun.w).sum(), drun.w.sum(), lg["ypc"], 200) - lg["ypc"]
+        oc, dc = od[od.complete_pass == 1], dd[dd.complete_pass == 1]
+        r["yc_off"] = shrink((oc.yards_gained * oc.w).sum(), oc.w.sum(), lgyc, 250) - lgyc        # yards per completion (explosiveness), opponent-adjusted below
+        r["yc_def"] = shrink((dc.yards_gained * dc.w).sum(), dc.w.sum(), lgyc, 250) - lgyc
         pace = o[(o.no_huddle.fillna(0) == 0) & o.index.isin(ok.index)]
         r["pace"] = float(shrink((pace.el * pace.w).sum(), pace.w.sum(), M["clock_mean"], 250) / M["clock_mean"])
         T[t] = r
     # opponent adjustment: re-estimate each rating from plays net of the opposing unit's current rating (alternating, damped by shrinkage)
     specs = [("ypc_off", "ypc_def", lambda x: (x.db == 0) & (x.rush_attempt == 1), "yards_gained", 200, lg["ypc"], False),
-             ("sack_off", "sack_def", lambda x: x.db == 1, "sack", 120, lg["sack"], True)]
+             ("sack_off", "sack_def", lambda x: x.db == 1, "sack", 120, lg["sack"], True),
+             ("yc_off", "yc_def", lambda x: (x.db == 1) & (x.complete_pass == 1), "yards_gained", 250, lgyc, False)]
     for off_k, def_k, mask, col, kk, base, absolute in specs:
         sub = sc[mask(sc)]
         for _ in range(4):
