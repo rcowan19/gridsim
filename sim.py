@@ -245,9 +245,13 @@ def summarize(res, home, away, overrides=None, hist=None):
     return out
 
 
-def simulate_slate(week, n=500, pool=None, hist=None, ns=300, weather=None):
+def simulate_slate(week, n=500, pool=None, hist=None, ns=300, weather=None, ov=None):
     games = [g for g in SCHEDULE if g["week"] == week]
-    ov = {}
+    ov = dict(ov or {})          # manual injury edits: {player id: False (out) | True (plays)}
+    hit = set()                  # teams with an edit: the betting line no longer describes them, so no blend
+    for abbr, t in get_engine().m["teams"].items():
+        if any(q["id"] in ov for q in t["qbs"] + t["skill"]):
+            hit.add(abbr)
     weather = weather or {}
     conds = [{"roof": g.get("roof"), "wind": (weather.get(g["id"]) or {}).get("wind"), "temp": (weather.get(g["id"]) or {}).get("temp")} for g in games]
     # split every game into chunks so large simulation counts spread evenly across all CPU cores
@@ -268,7 +272,8 @@ def simulate_slate(week, n=500, pool=None, hist=None, ns=300, weather=None):
     c = calib.load()
     for g, p in zip(games, parts):
         res = {"pids": p[0], "ps": p[1], "ts": p[2], "sc": p[3], "ot": p[4]}
-        res, binfo = apply_blend(res, g.get("spread"), g.get("total"), seed=g["week"])
+        edited = g["home"] in hit or g["away"] in hit
+        res, binfo = apply_blend(res, None if edited else g.get("spread"), None if edited else g.get("total"), seed=g["week"])
         gr, _ = game_rows(res, g["home"], g["away"], ov, hist, ns=ns, with_stats=False, c=c)
         sc = res["sc"].astype(int)
         m = {"id": g["id"], "home": g["home"], "away": g["away"], "day": g["day"], "time": g["time"], "neutral": g["neutral"],
@@ -284,10 +289,11 @@ def simulate_slate(week, n=500, pool=None, hist=None, ns=300, weather=None):
             r["team_total"] = m["sim_home"] if r["home"] else m["sim_away"]
         rows += gr
         meta.append(m)
-    return {"week": week, "n": n, "games": meta, "rows": rows, "rows_idle": idle_rows(week, games, rows, hist)}
+    return {"week": week, "n": n, "games": meta, "rows": rows, "rows_idle": idle_rows(week, games, rows, hist, ov), "edited": sorted(hit)}
 
 
-def idle_rows(week, games, rows, hist=None):
+def idle_rows(week, games, rows, hist=None, ov=None):
+    ov = ov or {}
     """Zero-point entries for rostered players who will not play this week (bye, out, inactive, backup),
     so they can still be found, kept on rosters and moved around in the app."""
     e = get_engine()
@@ -307,13 +313,15 @@ def idle_rows(week, games, rows, hist=None):
                 continue
             if o is None:
                 why = "BYE"
+            elif ov.get(q["id"]) is False:
+                why = "OUT"
             elif q.get("status") in ("Out", "Doubtful"):
                 why = q["status"].upper()
             else:
                 why = "INACTIVE"
             r = {"id": q["id"], "name": q["name"], "pos": q["pos"], "team": abbr, "opp": o[0] if o else None, "home": bool(o and o[1]),
                  "proj": 0.0, "lo": 0.0, "hi": 0.0, "med": 0.0, "sd": 0.0, "sim": 0.0, "avg": q.get("ppr_avg"), "n": q.get("ppr_n"),
-                 "status": "Out" if why in ("OUT", "DOUBTFUL") else q.get("status"), "p_play": None, "inj_note": q.get("note"),
+                 "status": "Out" if why in ("OUT", "DOUBTFUL") else q.get("status"), "p_play": None, "inj_note": "Out (your edit)" if ov.get(q["id"]) is False else q.get("note"),
                  "boom": 0.0 if q["pos"] in BOOM else None, "bust": 1.0 if q["pos"] in BUST else None,
                  "cs": round(q.get("car", 0), 3), "ts": round(q.get("tgt", 0), 3), "st": {}, "td1": 0.0, "td2": 0.0, "opps": 0.0,
                  "hist": _hist(np.zeros(10), -4, 60, 2), "split": {}, "samples": [], "game": None, "game_total": None, "team_total": None,

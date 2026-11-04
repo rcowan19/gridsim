@@ -366,6 +366,7 @@ tr.chg td{background:var(--ink-bg)}tr.tot td{font-weight:700;border-top:1px soli
       <button data-page="games" class="on">Games</button>
       <button data-page="players">Players</button>
       <button data-page="team">My Team</button>
+      <button data-page="inj">Injuries</button>
       <button data-page="lab">Game Lab</button>
     </nav>
     <div class="spacer"></div>
@@ -374,6 +375,8 @@ tr.chg td{background:var(--ink-bg)}tr.tot td{font-weight:700;border-top:1px soli
       <div class="seg" id="g_fmt" role="group" aria-label="Scoring"><button data-f="ppr" class="on">PPR</button><button data-f="half">Half</button><button data-f="std">Std</button></div>
       <label class="gl">Depth <select id="g_depth"><option value="fast">Fast (500)</option><option value="std" selected>Standard (1,000)</option><option value="deep">Deep (10,000)</option></select></label>
       <button class="btn ghost sm" id="g_refresh">Re-simulate</button>
+      <button class="btn ghost sm" id="g_update" title="Pull the latest injury reports, depth charts and results">Update data</button>
+      <span class="gl" id="g_stamp" style="font-size:12px;opacity:.7"></span>
     </div>
   </div>
 </header>
@@ -381,6 +384,7 @@ tr.chg td{background:var(--ink-bg)}tr.tot td{font-weight:700;border-top:1px soli
   <section id="pg-games" class="page"><div id="tab-nfl"></div></section>
   <section id="pg-players" class="page hide"><div id="tab-slate"></div></section>
   <section id="pg-team" class="page hide"><div id="tab-league"></div></section>
+  <section id="pg-inj" class="page hide"><div id="tab-inj"></div></section>
   <section id="pg-lab" class="page hide">
     <div class="card setup">
       <div class="setup-row">
@@ -415,6 +419,8 @@ const pct = (x, d = 0) => x == null ? '–' : fmt(x * 100, d) + '%';
 const sgn = (x, d = 1) => x == null ? '–' : (x > 0 ? '+' : x < 0 ? '−' : '') + fmt(Math.abs(x), d);
 const st = {away: null, home: null, n: 2000, neutral: false, ov: {}, TEAMS: {}, lgRates: {}, league: {}, last: null, G: null, i: 0, timer: null,
   fmt: 'ppr', sched: null, week: null, slate: null, slateN: 500, pos: 'ALL', q: '', sort: {}, lab: {mine: [], opp: [], slotsK: false, slotsD: false, mineSet: null, oppSet: null}};
+st.inj = {}; st.injDraft = {};
+try { st.inj = JSON.parse(localStorage.getItem('gs_inj') || '{}'); st.injDraft = {...st.inj}; } catch (e) {}
 try { st.lab.mine = JSON.parse(localStorage.getItem('gs_mine') || '[]'); st.lab.opp = JSON.parse(localStorage.getItem('gs_opp') || '[]'); } catch (e) {}
 const C = {ink: '#1d1b17', muted: '#5f584c', rule: '#d8d0bf', rule2: '#b9ae96', good: '#2c6a3c', bad: '#a8372a', warn: '#8a5d08', bar: '#4a453c', neutral: '#7a7365'};
 const _rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
@@ -460,6 +466,17 @@ async function init() {
   $('#g_fmt').onclick = e => { const b = e.target.closest('button'); if (b) setFmt(b.dataset.f); };
   $('#g_depth').onchange = e => { st.depth = e.target.value; st.n = DEPTH[st.depth].n; reloadSlate(); };
   $('#g_refresh').onclick = () => { if (st.page === 'lab') runSim(); else reloadSlate(); };
+  const stamp = d => { const t = d && d.updated; $('#g_stamp').textContent = t ? 'Data ' + new Date(t).toLocaleString([], {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'}) : ''; };
+  fetch('/api/data_status').then(r => r.json()).then(stamp).catch(() => {});
+  $('#g_update').onclick = async () => {
+    busy($('#g_update'), true, 'Updating');
+    try {
+      const r = await fetch('/api/refresh', {method: 'POST'});
+      if (!r.ok) throw new Error((await r.json()).detail || r.statusText);
+      stamp(await r.json()); delete st.slate; reloadSlate();
+    } catch (e) { $('#g_stamp').textContent = 'Update failed: ' + e.message; }
+    busy($('#g_update'), false);
+  };
   $('#dback').onclick = closeDrawer;
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
   renderLineups(); renderSlateShell(); renderNflShell();
@@ -469,7 +486,7 @@ async function init() {
 }
 st.page = 'games'; st.sub = {lab: 'ov', players: 'rank', team: 'lineup'}; st.pg = {}; st.depth = 'std'; st.loading = false;
 const DEPTH = {fast: {n: 1000, slate: 500, hint: ''}, std: {n: 2000, slate: 1000, hint: ''}, deep: {n: 10000, slate: 10000, hint: 'Deep runs take a minute or two for a full week.'}};
-const PAGES = ['games', 'players', 'team', 'lab'];
+const PAGES = ['games', 'players', 'team', 'inj', 'lab'];
 function setSub(group, key) {
   st.sub[group] = key;
   document.querySelectorAll(`[data-sg="${group}"] button`).forEach(b => b.classList.toggle('on', b.dataset.k === key));
@@ -483,6 +500,7 @@ function go(page, sub) {
   if (page === 'games') ensureSlate('games', renderNflWeek);
   if (page === 'players') ensureSlate('players', renderSlate);
   if (page === 'team') renderLeague();
+  if (page === 'inj') ensureSlate('players', renderInjuries);
   if (changed) window.scrollTo(0, 0);
   try { history.replaceState(null, '', '#' + page); } catch (e) {}
 }
@@ -492,7 +510,7 @@ function ensureSlate(mode, after) { if (st.slate) { if (after) after(); return P
 function rerender() { if (st.slate) { renderNflWeek(); renderSlate(); } if (st.page === 'team') renderLeague(); if (st.last) renderProj(st.last); }
 function syncFmtUI() { document.querySelectorAll('#g_fmt button').forEach(b => b.classList.toggle('on', b.dataset.f === st.fmt)); }
 function setFmt(f) { st.fmt = f; if (st.lab.trials) st.lab.trials.cache = {}; syncFmtUI(); rerender(); }
-function reloadSlate() { st.ss.res = null; st.tr.px = null; st.tr.sugg = null; st.slate = null; st.wi.ros = null; st.wi.targets = null; if (st.lab.trials) st.lab.trials = null; const m = {games: 'games', players: 'players', team: 'team', lab: null}[st.page]; if (m) loadSlate(m); }
+function reloadSlate() { st.ss.res = null; st.tr.px = null; st.tr.sugg = null; st.slate = null; st.wi.ros = null; st.wi.targets = null; if (st.lab.trials) st.lab.trials = null; const m = {games: 'games', players: 'players', team: 'team', inj: 'players', lab: null}[st.page]; if (m) loadSlate(m); }
 
 /* ---------- lineups sidebar ---------- */
 function renderLineups() {
@@ -843,8 +861,8 @@ async function loadSlate(mode) {
   if (host) host.innerHTML = `<div class="card empty"><span class="spin dark"></span><b>Simulating week ${st.week}</b><span>${DEPTH[st.depth].slate.toLocaleString()} simulations per game. ${DEPTH[st.depth].hint}</span></div>`;
   busy($('#g_refresh'), true, 'Simulating');
   try {
-    st.slate = await post('/api/slate', {week: st.week, n: DEPTH[st.depth].slate, weather: st.useWx}); st.lab.trials = null;
-    renderNflWeek(); renderSlate(); if (st.page === 'team') renderLeague();
+    st.slate = await post('/api/slate', {week: st.week, n: DEPTH[st.depth].slate, weather: st.useWx, ov: st.inj}); st.lab.trials = null;
+    renderNflWeek(); renderSlate(); if (st.page === 'team') renderLeague(); if (st.page === 'inj') renderInjuries();
   } catch (e) { if (host) host.innerHTML = `<div class="card empty err"><b>Could not load projections</b><span>${e.message}</span></div>`; console.error(e); }
   st.loading = false; busy($('#g_refresh'), false);
 }
@@ -1057,6 +1075,64 @@ function autoOpp() {
   L.opp = m ? (m.home === L.my ? m.away : m.home) : (L.data.teams.find(t => t.id !== L.my) || {}).id;
 }
 
+
+// ---- Injuries: take players out (or confirm they play) for the whole simulation ----
+const INJ_POS = ['QB', 'RB', 'WR', 'TE'];
+function injPool() { const S = st.slate; return S ? [...S.rows, ...(S.rows_idle || [])].filter(r => INJ_POS.includes(r.pos)) : []; }
+async function injBase() {
+  const key = st.week + '|' + DEPTH[st.depth].slate;
+  if (!st.injBase || st.injBase.key !== key) { const d = await post('/api/slate', {week: st.week, n: DEPTH[st.depth].slate, weather: st.useWx, ov: {}}); st.injBase = {key, d}; }
+  return st.injBase.d;
+}
+function injSet(id, v) { if (v == null) delete st.injDraft[id]; else st.injDraft[id] = v; renderInjuries(); }
+function injDirty() { const a = JSON.stringify(Object.entries(st.inj).sort()), b = JSON.stringify(Object.entries(st.injDraft).sort()); return a !== b; }
+function injApply() { st.inj = {...st.injDraft}; try { localStorage.setItem('gs_inj', JSON.stringify(st.inj)); } catch (e) {} st.injBase = st.injBase; reloadSlate(); }
+async function renderInjuries() {
+  const host = $('#tab-inj'); if (!host) return; const S = st.slate;
+  if (!S) { host.innerHTML = '<div class="card empty"><span class="spin dark"></span><b>Loading week ' + st.week + '</b></div>'; return; }
+  const pool = injPool(), by = Object.fromEntries(pool.map(r => [r.id, r]));
+  const btns = r => { const v = st.injDraft[r.id]; return `<button class="btn sm ${v === false ? '' : 'ghost'}" data-inj="${r.id}" data-v="out">Out</button> <button class="btn sm ${v === true ? '' : 'ghost'}" data-inj="${r.id}" data-v="in">Plays</button>`; };
+  const line = r => `<tr><td class="l"><b>${r.name}</b> <span class="sub2">${r.pos} · ${r.team}</span></td><td>${r.status || ''}${r.p_play != null ? ' ' + Math.round(r.p_play * 100) + '%' : ''}</td><td class="r">${btns(r)}</td></tr>`;
+  const edits = Object.entries(st.injDraft).map(([id, v]) => by[id] ? {r: by[id], v} : null).filter(Boolean);
+  const q = (st.injQ || '').trim().toLowerCase();
+  const hits = q.length < 2 ? [] : pool.filter(r => r.name.toLowerCase().includes(q) || r.team.toLowerCase() === q).sort((a, b) => (P(b, 'proj') || 0) - (P(a, 'proj') || 0)).slice(0, 8);
+  const rep = pool.filter(r => ['Out', 'Doubtful', 'Questionable'].includes(r.status) && !(r.id in st.injDraft)).sort((a, b) => (b.avg || 0) - (a.avg || 0));
+  const showN = st.injMore || 10;
+  host.innerHTML = `<div class="card"><h3>Injury edits <span class="sub2">week ${st.week}</span></h3>
+    <p class="sub2" style="margin:0 0 10px">Take a player out for every simulation, or mark a Questionable/Out player as playing. Teammates absorb the usage, the team's scoring changes, and the betting-line blend is switched off for edited teams.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+      <input id="injQ" class="inp" placeholder="Search a player or team" value="${st.injQ || ''}" style="flex:1;min-width:200px;width:auto">
+      <button class="btn" style="width:auto" id="injApply" ${injDirty() ? '' : 'disabled'}>Apply and re-simulate</button>
+      <button class="btn ghost" style="width:auto" id="injClear" ${Object.keys(st.injDraft).length ? '' : 'disabled'}>Clear all</button></div>
+    ${hits.length ? `<table class="st" style="margin-bottom:12px">${hits.map(line).join('')}</table>` : ''}
+    ${edits.length ? `<div class="sub2" style="margin:6px 0 4px">YOUR EDITS</div><table class="st">${edits.map(e => `<tr><td class="l"><b>${e.r.name}</b> <span class="sub2">${e.r.pos} · ${e.r.team}</span></td><td style="color:${e.v ? C.good : C.bad}"><b>${e.v ? 'Plays' : 'Out'}</b></td><td class="r"><button class="btn sm ghost" data-inj="${e.r.id}" data-v="clear">Remove</button></td></tr>`).join('')}</table>` : '<div class="sub2">No edits yet.</div>'}</div>
+    <div class="card"><h3>On the injury report <span class="sub2">${rep.length}</span></h3>
+      <table class="st">${rep.slice(0, showN).map(line).join('') || '<tr><td class="sub2">Nobody listed.</td></tr>'}</table>
+      ${rep.length > showN ? `<button class="btn ghost sm" id="injMore" style="margin-top:8px;width:auto">Show more</button>` : ''}</div>
+    <div id="injImpact"></div>`;
+  host.querySelectorAll('[data-inj]').forEach(b => b.onclick = () => { const v = b.dataset.v, id = b.dataset.inj; injSet(id, v === 'out' ? (st.injDraft[id] === false ? null : false) : v === 'in' ? (st.injDraft[id] === true ? null : true) : null); });
+  const qi = $('#injQ'); qi.oninput = () => { st.injQ = qi.value; const p = qi.selectionStart; renderInjuries().then?.(); const n = $('#injQ'); n.focus(); n.setSelectionRange(p, p); };
+  $('#injApply').onclick = injApply; $('#injClear').onclick = () => { st.injDraft = {}; renderInjuries(); };
+  const mr = $('#injMore'); if (mr) mr.onclick = () => { st.injMore = showN + 15; renderInjuries(); };
+  if (Object.keys(st.inj).length && !injDirty() && S.edited && S.edited.length) injImpact(S);
+}
+async function injImpact(S) {
+  const host = $('#injImpact'); if (!host) return;
+  host.innerHTML = '<div class="card"><span class="spin dark"></span> Comparing with no edits…</div>';
+  const B = await injBase(), bRow = Object.fromEntries([...B.rows, ...(B.rows_idle || [])].map(r => [r.id, r])), bGame = Object.fromEntries(B.games.map(g => [g.id, g]));
+  const teams = new Set(S.edited), out = [];
+  const games = S.games.filter(g => teams.has(g.home) || teams.has(g.away));
+  const gt = games.map(g => { const b = bGame[g.id], n = (x, y) => ((y - x) >= 0 ? '+' : '') + (y - x).toFixed(1);
+    return `<tr><td class="l"><b>${g.away} @ ${g.home}</b></td><td>${b.sim_away.toFixed(1)} → ${g.sim_away.toFixed(1)} <span class="sub2">${g.away}</span></td><td>${b.sim_home.toFixed(1)} → ${g.sim_home.toFixed(1)} <span class="sub2">${g.home}</span></td><td>${Math.round(b.sim_home_win * 100)}% → ${Math.round(g.sim_home_win * 100)}% <span class="sub2">${g.home} win</span></td></tr>`; }).join('');
+  const ch = S.rows.filter(r => teams.has(r.team) && !(r.id in st.inj)).map(r => ({r, d: P(r, 'proj') - (bRow[r.id] ? P(bRow[r.id], 'proj') : 0), b: bRow[r.id] ? P(bRow[r.id], 'proj') : 0}))
+    .filter(x => Math.abs(x.d) >= 0.3).sort((a, b) => Math.abs(b.d) - Math.abs(a.d));
+  const showN = st.injImpN || 12;
+  host.innerHTML = `<div class="card"><h3>What changed</h3><table class="st mb">${gt}</table>
+    <div class="sub2" style="margin:8px 0 4px">PLAYER PROJECTIONS (${st.fmt.toUpperCase()}, change of 0.3 or more)</div>
+    <table class="st">${ch.slice(0, showN).map(x => `<tr><td class="l"><b>${x.r.name}</b> <span class="sub2">${x.r.pos} · ${x.r.team}</span></td><td>${x.b.toFixed(1)} → ${P(x.r, 'proj').toFixed(1)}</td><td style="color:${x.d > 0 ? C.good : C.bad}"><b>${x.d > 0 ? '+' : ''}${x.d.toFixed(1)}</b></td></tr>`).join('') || '<tr><td class="sub2">No other projection moved by 0.3 or more.</td></tr>'}</table>
+    ${ch.length > showN ? '<button class="btn ghost sm" id="injImpMore" style="margin-top:8px;width:auto">Show more</button>' : ''}</div>`;
+  const m = $('#injImpMore'); if (m) m.onclick = () => { st.injImpN = showN + 15; injImpact(S); };
+}
 function renderLeague() {
   const host = $('#tab-league'); const saved = localStorage.getItem('gs_league') || '1781890288';
   const L = st.lg, D = L && L.data;
@@ -1338,7 +1414,7 @@ async function loadRos(ctx) {
   const add = (w, rows) => { W.ros.pools[w] = Object.fromEntries(rows.map(r => [r.id, r])); rows.forEach(r => { if (!W.ros.any[r.id]) W.ros.any[r.id] = r; const k = r.team + '|' + r.pos; (W.ros.idx[k] = W.ros.idx[k] || []); if (!W.ros.idx[k].some(x => x.id === r.id)) W.ros.idx[k].push(r); }); };
   add(st.slate.week, [...(st.slate.rows_idle || []), ...st.slate.rows]); W.ros.done = 1; renderWhatIf(ctx);
   try {
-    for (const w of weeks.slice(1)) { const d = await post('/api/slate', {week: w, n: Math.min(DEPTH[st.depth].slate, 1000), weather: false}); add(w, [...(d.rows_idle || []), ...d.rows]); W.ros.done++; renderWhatIf(ctx); }
+    for (const w of weeks.slice(1)) { const d = await post('/api/slate', {week: w, n: Math.min(DEPTH[st.depth].slate, 1000), weather: false, ov: st.inj}); add(w, [...(d.rows_idle || []), ...d.rows]); W.ros.done++; renderWhatIf(ctx); }
   } catch (e) { W.ros.error = e.message; }
   W.ros.loading = false; renderWhatIf(ctx);
 }
@@ -1371,7 +1447,7 @@ async function ensureRos(tick) {
   const R = W.ros = {weeks, pools: {}, any: {}, idx: {}, loading: true, done: 0};
   const add = (w, rows) => { R.pools[w] = Object.fromEntries(rows.map(r => [r.id, r])); rows.forEach(r => { if (!R.any[r.id]) R.any[r.id] = r; const k = r.team + '|' + r.pos; (R.idx[k] = R.idx[k] || []); if (!R.idx[k].some(x => x.id === r.id)) R.idx[k].push(r); }); };
   add(st.slate.week, [...(st.slate.rows_idle || []), ...st.slate.rows]); R.done = 1; tick && tick(R);
-  try { for (const w of weeks.slice(1)) { const d = await post('/api/slate', {week: w, n: Math.min(DEPTH[st.depth].slate, 1000), weather: false}); add(w, [...(d.rows_idle || []), ...d.rows]); R.done++; tick && tick(R); } }
+  try { for (const w of weeks.slice(1)) { const d = await post('/api/slate', {week: w, n: Math.min(DEPTH[st.depth].slate, 1000), weather: false, ov: st.inj}); add(w, [...(d.rows_idle || []), ...d.rows]); R.done++; tick && tick(R); } }
   catch (e) { R.error = e.message; }
   R.loading = false; return R;
 }

@@ -42,6 +42,33 @@ async def lifespan(app):
 app = FastAPI(lifespan=lifespan)
 
 
+def _stamp():
+    import datetime
+    p = os.path.join(HERE, "data", "injuries_2026.parquet")
+    return datetime.datetime.fromtimestamp(os.path.getmtime(p)).isoformat(timespec="minutes") if os.path.exists(p) else None
+
+
+@app.get("/api/data_status")
+def data_status():
+    return {"updated": _stamp()}
+
+
+@app.post("/api/refresh")
+def refresh():
+    """Pull the latest nflverse data (injury reports, depth charts, results), rebuild the model, restart the workers."""
+    global MODEL, POOL
+    import subprocess, sys
+    for script in ("fetch_data.py", "build_model.py"):
+        p = subprocess.run([sys.executable, script], cwd=HERE, capture_output=True, text=True, timeout=600)
+        if p.returncode:
+            raise HTTPException(500, f"{script} failed: {(p.stderr or p.stdout)[-300:]}")
+    MODEL = sim.load_model()
+    sim._E = None
+    old, POOL = POOL, Pool(os.cpu_count() or 1, initializer=sim._init)
+    old.terminate()
+    return {"updated": _stamp()}
+
+
 class Req(BaseModel):
     home: str
     away: str
@@ -100,6 +127,7 @@ class SlateReq(BaseModel):
     week: int
     n: int = 500
     weather: bool = True
+    ov: dict[str, bool] = {}          # manual injury edits
 
 
 SLATE_CACHE = {}
@@ -109,7 +137,8 @@ SLATE_CACHE = {}
 def slate(r: SlateReq):
     import time
     n = max(100, min(r.n, 10000))
-    key = (r.week, n, r.weather)
+    ov = {k: bool(b) for k, b in r.ov.items()}
+    key = (r.week, n, r.weather, tuple(sorted(ov.items())))
     if key not in SLATE_CACHE:
         t0 = time.time()
         import weather
@@ -119,7 +148,7 @@ def slate(r: SlateReq):
         if r.weather and games:
             with ThreadPoolExecutor(8) as ex:
                 wx = {g["id"]: w for g, w in zip(games, ex.map(weather.forecast, games))}
-        res = sim.simulate_slate(r.week, n, pool=POOL, hist={k: v[-8:] for k, v in MODEL.get("hist", {}).items()}, weather=wx)
+        res = sim.simulate_slate(r.week, n, pool=POOL, hist={k: v[-8:] for k, v in MODEL.get("hist", {}).items()}, weather=wx, ov=ov)
         res["secs"] = round(time.time() - t0, 1)
         SLATE_CACHE[key] = res
     return SLATE_CACHE[key]
