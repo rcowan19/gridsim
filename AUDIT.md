@@ -26,7 +26,7 @@ Also: 2025 OT rule knob, `GRIDSIM_TUNE`, validation harness, one-command rerun.
 | Brier (raw) | .2334 | .2327 | .2219 | .2226 | .2352 | .2325 |
 | Log loss (raw) | - | .6574 | - | .6365 | - | .6592 |
 | Margin MAE (raw; market) | - | 10.72 (10.06) | - | 10.33 (9.55) | - | 10.80 (10.08) |
-| Brier, no-line fallback (Elo-tilt) | .2334 | .2318 | .2219 | .2106 | .2352 | .2249 |
+| Brier, no-line fallback (Elo-tilt, beta .7) | .2327 | .2318 | .2226 | .2106 | .2325 | .2249 |
 | Brier, market / Elo (ref.) | .2161 / .2330 | same | .1971 / .2062 | same | .2147 / .2267 | same |
 | Score-distribution Wasserstein (pts) | .87 | .48 | 1.11 | 1.06 | 1.05 | .67 |
 | KS | .037 | .028 | .062 | .062 | .042 | .048 |
@@ -51,7 +51,7 @@ Honest reading: the raw Brier barely moved (the sim's team ratings, not its vari
 | `ot_both` (2025 rules) | OT correct from 2025; ties still ~3x | adopted for 2025+ |
 | `comp_add` 0, `air_tail` 1.25 | completion gap +3.4 -> ~0.2 pts (dev) | **adopted** |
 | Vegas beta .8 -> .9 | blended Brier -.001 | **adopted** |
-| Elo-tilt fallback beta .7 | -.007 vs raw (higher beta overfits sim noise less than it helps? .9: .2218 vs .7: .2224, ~equal) | adopted .7 (conservative) |
+| Elo-tilt fallback beta .7 (no-line games) | mean Brier .2293 raw -> .2224; beta .9 gives .2218 (within noise) | adopted .7 (more conservative) |
 
 ## Remaining weaknesses (prioritized)
 1. **No edge vs market; ratings low-information.** Elo beats them. Fix would be better priors (QB-adjusted EPA, preseason/market win totals) - architectural, ask first.
