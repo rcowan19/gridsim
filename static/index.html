@@ -401,7 +401,8 @@ kbd{font:600 11px/1 var(--mono);border:1px solid var(--line-strong);border-botto
   .tabbar button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:56px;background:none;border:0;color:var(--muted);font-size:11px;font-weight:600;cursor:pointer}
   .tabbar svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
   .tabbar button.on{color:var(--text);box-shadow:inset 0 3px 0 var(--accent)}
-  .btn,.seg button,.pill,.subtabs button,select,.inp{min-height:44px}
+  .btn,.seg button,.pills .pill,.chips button,.subtabs button,select,.inp{min-height:44px}
+  .gcards{grid-template-columns:minmax(0,1fr)}.gcard{min-width:0}
   .btn.sm{min-height:40px}
 }
 /* ===== palette, toasts, skeleton, help ===== */
@@ -453,6 +454,8 @@ th.srt{cursor:pointer}th.srt:hover{color:var(--text)}
 .colmenu summary{display:inline-flex;align-items:center;gap:6px;width:auto}.tscroll.tall td.pin2{min-width:200px;white-space:nowrap}.tscroll.tall td.pin2 .nm{white-space:nowrap}.tscroll.tall td.pin2 .p{white-space:nowrap}
 @media(max-width:760px){th[data-k=pos],td[data-k=pos],th[data-k=rk],td[data-k=rk],th[data-k=opp],td[data-k=opp]{display:none}.tscroll.tall td.pin2,.tscroll.tall th.pin2{left:0;min-width:150px}.tscroll.tall{max-height:none}.ctx{position:static}.ctx-in .btn.ghost,.ctx-in .stamp{display:none}}
 .pbar{height:6px;border-radius:3px;background:var(--surface-2);overflow:hidden;max-width:320px;margin:12px auto 0}.pbar i{display:block;height:100%;width:2%;background:var(--accent);transition:width .25s linear}
+td[data-k=name],td.nm{white-space:nowrap}
+@media(max-width:760px){.subtabs{-webkit-mask-image:linear-gradient(90deg,#000 88%,transparent);mask-image:linear-gradient(90deg,#000 88%,transparent);scroll-snap-type:x proximity}.subtabs button{scroll-snap-align:start;white-space:nowrap}}
 </style>
 </head>
 <body>
@@ -598,7 +601,7 @@ function go(page, sub, o = {}) {
   if (page === 'settings') renderSettings();
   if (page === 'games') ensureSlate('games', renderNflWeek);
   if (page === 'players') ensureSlate('players', renderSlate);
-  if (page === 'team') renderLeague();
+  if (page === 'team') { renderLeague(); if (!st.lg && !st.lgTried && localStorage.getItem('gs_league')) { st.lgTried = true; setTimeout(() => { const b = $('#lgBtn'); if (b && !st.lg) b.click(); }, 50); } }
   if (page === 'inj') ensureSlate('players', renderInjuries);
   if (page === 'home') ensureSlate('games', renderHome);
   if (changed) { window.scrollTo(0, 0); const m = $('#main'); if (m && !o.fromRoute) m.focus({preventScroll: true}); }
@@ -1182,7 +1185,7 @@ async function loadLeague() {
   const id = $('#lgId').value.trim(), s2 = ($('#lgS2') || {}).value || '', sw = ($('#lgSW') || {}).value || '';
   if (!id) return;
   localStorage.setItem('gs_league', id);
-  busy($('#lgBtn'), true, 'Loading league…'); $('#lgErr').textContent = '';
+  st.lgErr = ''; busy($('#lgBtn'), true, 'Loading league…'); $('#lgErr').textContent = '';
   try {
     const q = new URLSearchParams({league: id, season: 2026, s2, swid: sw});
     const data = await fetch('/api/espn?' + q).then(async r => { if (!r.ok) throw new Error((await r.json()).detail || r.statusText); return r.json(); });
@@ -1195,8 +1198,8 @@ async function loadLeague() {
     if (st.sched.weeks.includes(data.week) && (!st.slate || st.slate.week !== data.week)) { st.week = data.week; st.slate = null; $('#g_week').value = st.week; }
     if (st.week == null) throw new Error('No schedule available. Run `python fetch_data.py` (or `git pull`), then restart the server.');
     if (!st.slate) { renderLeague(); await loadSlate('team'); }
-  } catch (e) { $('#lgErr').textContent = e.message; }
-  busy($('#lgBtn'), false); renderLeague();
+  } catch (e) { st.lgErr = e.message; toast('Could not load league: ' + e.message, {err: true, ms: 9000, action: {label: 'Retry', fn: () => { const b = $('#lgBtn'); if (b) b.click(); }}}); }
+  busy($('#lgBtn'), false); renderLeague(); if (st.lgErr && $('#lgErr')) $('#lgErr').textContent = st.lgErr;
 }
 function autoOpp() {
   const L = st.lg; if (!L) return;
@@ -1382,12 +1385,12 @@ function nflSlot(g) {
   if (dow === 4) return 'Thu'; if (dow === 1) return 'Mon'; if (dow === 0) return hr <= 13 ? 'Sun early' : hr <= 17 ? 'Sun late' : 'Sun night';
   return dow === 5 || dow === 6 ? 'Thu' : 'Sun late';
 }
-st.nfl = {slot: 'All', sort: 'time', view: 'cards'};
+st.nfl = {slot: 'All', sort: 'time', view: innerWidth < 760 ? 'table' : 'cards'};
 function renderNflShell() {
   $('#tab-nfl').innerHTML = `<div class="card"><div class="ctl">
       <div class="grow"><div class="chips" id="n_slots" role="group" aria-label="Kickoff slot">${SLOTS_NFL.map(s => `<button data-s="${s}" class="${st.nfl.slot === s ? 'on' : ''}">${s}</button>`).join('')}</div></div>
       <div class="fld sm"><label class="f" for="n_sort">Sort by</label><select id="n_sort"><option value="time">Kickoff</option><option value="total">Highest total</option><option value="close">Most competitive</option><option value="edge">Biggest market edge</option></select></div>
-      <div class="seg" id="n_view" role="group" aria-label="View"><button data-v="cards" class="on">Cards</button><button data-v="table">Table</button></div>
+      <div class="seg" id="n_view" role="group" aria-label="View"><button data-v="cards" class="${st.nfl.view === 'cards' ? 'on' : ''}">Cards</button><button data-v="table" class="${st.nfl.view === 'table' ? 'on' : ''}">Table</button></div>
       <label class="chk"><input type="checkbox" id="n_wx" checked> Weather and roof</label></div>
     <div class="note">Wind and roof adjust the simulation (about -0.4 points of game total per mph of wind above 5; indoors slightly higher). Temperature, weekday and kickoff time showed no usable effect in two seasons of data, so they are not modeled.</div></div>
     <div id="nflBody"></div>`;
