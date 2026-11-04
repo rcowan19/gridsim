@@ -76,3 +76,58 @@ URL: `#/<page>/<sub>?week=9&fmt=ppr&q=...` restored on load; back/forward work.
 ## Decisions log
 - Stay vanilla (see top). Tokens already exist, so the design system is formalized in `docs/ui/design-system.md` rather than adopting Tailwind/shadcn.
 - Use the existing `go(page, sub)` router; sidebar items map to (page, sub) pairs so no screen logic is rewritten.
+
+## Phase 6 results
+
+**Verification.** Playwright smoke tests (`pytest -q tests/ui/test_smoke.py`, 9 pass: every nav route and `aria-current`, URL restore of week/filters/search, back/forward, palette and shortcuts, table sort/filter/columns/CSV/zero-results, lab sim with SE and markers, theme persistence, phone no-horizontal-scroll and 44 px tab bar, failed-request error + retry). axe-core (WCAG 2.0/2.1/2.2 A and AA) on 7 pages x light/dark x 1440/390: **0 violations** (24 found at first, all colour contrast from hard-coded team/position colours; fixed by theme-aware colours). Layout checked at 1440, 820, 390 in light and dark (`docs/ui/after*`); no horizontal page scroll at any width; 200% browser zoom is equivalent to the 720 px layout (tablet/phone rules).
+
+**Click counts (cold load to answer).**
+
+| task | before | after |
+|---|---|---|
+| Read a game's sim result | 0-1 | 0-1 (phone now defaults to a compact table: page height 9,600 px -> 1,770 px) |
+| Run one custom matchup | 4-6 | 4 (form unchanged; Ctrl+K "lab" reaches it in 2 keystrokes) |
+| Change sim count, read distribution | 3 (hidden on phone) | 2 (Sims select is in the bar on every page; palette: 1 action) |
+| My team's projections | 2-3 | 1 (sidebar Lineup; saved league auto-loads) |
+| Find a trade / waiver | 2 (+load) | 1 |
+| League rankings / playoff odds | 2 (+load) | 1 |
+| Change settings | 1-2, scattered | 1 (Settings page; scoring and sims also in the bar) |
+
+**Lighthouse (local, throttled; before = Games page, after = Games and new Home).**
+
+| page / form factor | perf before | perf after | a11y before | a11y after | best practices |
+|---|---|---|---|---|---|
+| Games, mobile | 73 | 81 | 96 | 100 | 100 / 100 |
+| Games, desktop | 75 | 98 | 96 | 100 | 100 / 100 |
+| Home, mobile (new) | - | 70 | - | 100 | 100 |
+| Home, desktop (new) | - | 94 | - | 100 | 100 |
+
+Home mobile LCP is 7.6 s because the Home numbers wait for the week's simulation (about 12 s server side); the page now paints a header tile immediately and skeletons for the rest. Payload: `index.html` 190 KB -> 229 KB (68 KB gzipped); no new dependencies, no build step.
+
+## Executive summary
+
+**Top 10 problems found:** (1) two-row header crammed with 7 controls, nav clipped on phone; (2) Waivers/Trades/League buried 3 levels deep; (3) no home or overview; (4) URL kept only the page; (5) no palette or shortcuts; (6) no dark theme; (7) settings scattered, league state invisible; (8) bare spinners, errors invisible (league load failure showed nothing), no toasts; (9) wide table unusable on phone, nothing pinned, no column control or export; (10) text-only jargon, colour-only team labels failing contrast in places, 9,600 px phone page.
+
+**Top 10 changes made:** (1) sidebar -> icon rail -> bottom tab bar with one grouped IA; (2) persistent context bar (week, scoring, sims, Run, data stamp); (3) Home dashboard with answer tiles and links; (4) full URL state (`#/page/sub?week&fmt&sims&pos&q`) with back/forward; (5) Ctrl/Cmd+K palette (pages, teams, players, actions) and `?` shortcut sheet; (6) light/dark/system themes from one token set plus compact density; (7) Settings page (league, scoring, sims with standard-error note, theme, data); (8) skeleton loading with ETA bar and Cancel, error states with Retry, toasts; (9) data table: sticky header, pinned player column, `aria-sort`, column chooser, CSV, header tooltips, zero-result state; (10) percentile markers and standard error on matchup distributions, theme-aware colours (axe 0), phone compact games table.
+
+## Prioritized backlog (next 10)
+| # | item | effort | impact |
+|---|---|---|---|
+| 1 | Waiver add/drop pairs with FAAB range and confidence (needs model/API work, so out of scope for a UI-only pass) | L | high |
+| 2 | Playoff-odds fan chart / season outcome bars on League | M | high |
+| 3 | Win-probability-over-time chart and scrubbable timeline in Play-by-play | M | high |
+| 4 | Trade finder: live fairness meter and before/after playoff odds in the evaluation card; show Evaluation first on phone | M | high |
+| 5 | Stream slate results per game (server-sent events) so cards appear as they finish | L | high |
+| 6 | Cache rest-of-season sims (What-if/Waivers still take 100 s+ cold) | M | high |
+| 7 | Saved table views per user, virtualised rows for 1,000+ | M | med |
+| 8 | Layout-stable loading to cut CLS 0.15 -> <0.1 on mobile | S | med |
+| 9 | Glossary page and first-run onboarding tour | S | med |
+| 10 | Win % column earlier in the phone games table | S | med |
+
+## Honest notes
+- ESPN is unreachable from the sandbox, so My league screens (Lineup, Waivers, Trades, League, What-if) were verified against a synthetic ESPN payload built from GridSim's own data (`tests/ui/make_espn_mock.py`, served with `GRIDSIM_ESPN_MOCK`). They have not been seen with your real league. What-if was still running its rest-of-season sims after 100 s in the sandbox, so its screenshot (`docs/ui/after/*_whatif.png` from the fixture run, `/tmp` only) shows the loading state, not results; that screen was not visually verified.
+- 100k-sim runs are not offered by the UI (Deep = 10,000 per game); not tested.
+- Not done from the brief: the Game-sim "sample game scrubber with win-probability chart" (existing Play-by-play kept as is), saved views, fan charts, per-game streaming, trade fairness meter. They are in the backlog rather than half-built.
+- Two small non-UI behaviours changed: the saved ESPN league now auto-loads when you open a My league page, and a league-load failure now shows an error plus toast (it was silently swallowed).
+- I did not change any simulation or model code. `server.py` is untouched.
+- Branch is based on `audit/model-v2` (not `main`), because that has the injury tab and the model audit. Merge order: audit first, then this branch.

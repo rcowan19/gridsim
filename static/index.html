@@ -456,6 +456,7 @@ th.srt{cursor:pointer}th.srt:hover{color:var(--text)}
 .pbar{height:6px;border-radius:3px;background:var(--surface-2);overflow:hidden;max-width:320px;margin:12px auto 0}.pbar i{display:block;height:100%;width:2%;background:var(--accent);transition:width .25s linear}
 td[data-k=name],td.nm{white-space:nowrap}
 @media(max-width:760px){.subtabs{-webkit-mask-image:linear-gradient(90deg,#000 88%,transparent);mask-image:linear-gradient(90deg,#000 88%,transparent);scroll-snap-type:x proximity}.subtabs button{scroll-snap-align:start;white-space:nowrap}}
+.btnrow{display:inline-flex;gap:6px;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -1223,7 +1224,7 @@ async function renderInjuries() {
   const host = $('#tab-inj'); if (!host) return; const S = st.slate;
   if (!S) { host.innerHTML = '<div class="card empty"><span class="spin dark"></span><b>Loading week ' + st.week + '</b></div>'; return; }
   const pool = injPool(), by = Object.fromEntries(pool.map(r => [r.id, r]));
-  const btns = r => { const v = st.injDraft[r.id]; return `<button class="btn sm ${v === false ? '' : 'ghost'}" data-inj="${r.id}" data-v="out">Out</button> <button class="btn sm ${v === true ? '' : 'ghost'}" data-inj="${r.id}" data-v="in">Plays</button>`; };
+  const btns = r => { const v = st.injDraft[r.id]; return `<span class="btnrow"><button class="btn sm ${v === false ? '' : 'ghost'}" data-inj="${r.id}" data-v="out" aria-pressed="${v === false}">Out</button><button class="btn sm ${v === true ? '' : 'ghost'}" data-inj="${r.id}" data-v="in" aria-pressed="${v === true}">Plays</button></span>`; };
   const line = r => `<tr><td class="l"><b>${r.name}</b> <span class="sub2">${r.pos} · ${r.team}</span></td><td>${r.status || ''}${r.p_play != null ? ' ' + Math.round(r.p_play * 100) + '%' : ''}</td><td class="r">${btns(r)}</td></tr>`;
   const edits = Object.entries(st.injDraft).map(([id, v]) => by[id] ? {r: by[id], v} : null).filter(Boolean);
   const q = (st.injQ || '').trim().toLowerCase();
@@ -2117,7 +2118,9 @@ document.addEventListener('keydown', e => {
 /* Home */
 function renderHome() {
   const host = $('#tab-home'); const S = st.slate;
-  if (!S) { host.innerHTML = `<div class="tiles">${'<div class="tile"><div class="skel" style="height:14px;width:60%"></div><div class="skel" style="height:30px;width:40%;margin-top:6px"></div></div>'.repeat(4)}</div><div class="card"><div class="skel" style="height:160px"></div></div>`; return; }
+  if (!S) {
+    const ng = st.sched ? st.sched.games.filter(g => g.week === st.week).length : '';
+    host.innerHTML = `<div class="tiles"><div class="tile"><span class="tl">Week ${st.week} games</span><span class="tv">${ng}</span><span class="ts">Simulating ${DEPTH[st.depth].slate.toLocaleString()} times each…</span></div>${'<div class="tile"><div class="skel" style="height:14px;width:60%"></div><div class="skel" style="height:30px;width:40%;margin-top:6px"></div></div>'.repeat(3)}</div><div class="card"><div class="skel" style="height:160px"></div></div>`; return; }
   const gs = S.games, close = [...gs].sort((a, b) => Math.abs(a.sim_home_win - .5) - Math.abs(b.sim_home_win - .5))[0];
   const edge = g => g.spread == null ? 0 : Math.abs(rawM(g) - g.spread);
   const lean = [...gs].sort((a, b) => edge(b) - edge(a))[0];

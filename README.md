@@ -39,3 +39,7 @@ wind above 5, indoors about +0.5). Temperature, weekday and kickoff slot showed 
 ## Validation suite (audit branch)
 
 `sh validate/run_all.sh` runs the leak-free walk-forward backtest for 2023-2025 (model rebuilt each week from earlier data only), writes league-level and game-level reports to `validate/out/`, evaluates the Vegas/Elo blends, checks game-script realism and runs the engine invariant tests (`pytest -q tests`). See `AUDIT.md` for findings, `validate.grid` for knob experiments and `validate.players` for the player-level (fantasy) check.
+
+
+## UI (branch `ui/redesign`)
+Sidebar/rail/tab-bar shell, Home dashboard, Settings, light/dark themes, Ctrl/Cmd+K palette, URL-state routing. Design tokens and component guide: `docs/ui/design-system.md`; findings and before/after: `UI_AUDIT.md`. Checks: `python tests/ui/contrast.py`, `python tests/ui/axe_run.py`, `python -m pytest -q tests/ui` (server on :8000).
