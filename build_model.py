@@ -570,7 +570,8 @@ def main(cutoff=None, write=True, quiet=False, usage_decay=None, w_prev_use=None
             out[rt]["qbs"].append(q)
             if "_car_w" in p:
                 q["car"] = p["_car_u"] / max(T0["car"], 1e-9)
-                q["gl"] = (p["_gl_u"] + 8 * q["car"]) / (T0["gl"] + 8)
+                # QBs take about 2.1x their overall carry share of goal-line carries (sneaks / designed runs); fit on 118 QB-seasons
+                q["gl"] = (p["_gl_u"] + 24 * min(2.1 * q["car"] + 0.004, 0.45)) / (T0["gl"] + 24)
                 q["ypc"] = shrink(p["_ypc_x"], p["_car_w"], lg["ypc"], 60) - lg["ypc"]
             continue
         if p["pos"] == "K":

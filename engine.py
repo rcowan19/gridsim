@@ -81,7 +81,7 @@ def stoch_round(v, rng):
 class Engine:
     # knobs that calibrate.py can tune
     DEFAULT_TUNE = {"hfa_comp": 0.006, "hfa_ypc": 0.06, "pass_scale": 1.0, "ypc_scale": 1.0,
-                    "comp_add": 0.02, "pen_scale": 1.0, "yac_scale": 1.0, "air_scale": 1.0, "air_add": 0.8, "air_mult": 1.0, "air_tail": 1.0, "yds_mult": 1.0, "pace_mult": 0.985, "run_add": 0.1, "gl_add": 0.4, "pen_live": 1.0, "go_mult": 1.1, "mid_air": 1.0, "punt_td": 0.0055, "fum_td": 0.035, "eoh_fg": 0.9}
+                    "comp_add": 0.02, "pen_scale": 1.0, "yac_scale": 1.0, "air_scale": 1.0, "air_add": 0.8, "air_mult": 1.0, "air_tail": 1.0, "yds_mult": 1.0, "pace_mult": 0.985, "run_add": 0.1, "gl_add": 0.4, "pen_live": 1.0, "qb_y1": 2.55, "qb_y3": 1.35, "qb_rz": 1.7, "go_mult": 1.1, "mid_air": 1.0, "punt_td": 0.0055, "fum_td": 0.035, "eoh_fg": 0.9}
 
     def __init__(self, model, tune=None):
         self.m = m = model
@@ -512,10 +512,24 @@ class Game:
             return
         self.give_ball(1 - o, 100 - Y2)
 
+    def carry_cum(self, O, zone):
+        """Cumulative carry weights by field zone. QBs take a much larger share of designed runs near the goal line
+        (sneaks, read options) than in the open field, so their weight is scaled up there (fitted on 2024-26 play-by-play)."""
+        cache = O.__dict__.setdefault("_wc", {})
+        if zone not in cache:
+            t = self.e.tune
+            qbk = {1: t["qb_y1"], 3: t["qb_y3"], 20: t["qb_rz"], 0: 1.0}[zone]
+            if zone in (1, 3):
+                w = [max(q.get("gl", 0), 1e-4) * (qbk if q is O.qb else 1.0) for q in O.car]
+            else:
+                w = [q["car"] * (qbk if q is O.qb else 1.0) for q in O.car]
+            cache[zone] = list(accumulate(w))
+        return cache[zone]
+
     def rush(self, o, O, D):
         e, rng, mu = self.e, self.rng, self.mu[o]
         Y = self.Y
-        c = pick(O.car, O.gw if Y <= 3 else O.cw, rng)
+        c = pick(O.car, self.carry_cum(O, 1 if Y <= 1 else 3 if Y <= 3 else 20 if Y <= 20 else 0), rng)
         if Y <= 10:
             base = rng.choice(e.rungoal[Y])
         else:
