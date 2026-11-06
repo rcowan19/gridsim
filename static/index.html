@@ -873,7 +873,8 @@ function fantasyTable(host, id, rows, o = {}) {
     ...(o.vor ? [{k: 'vor', t: 'VOR', v: r => r._vor, h: r => `<span class="${r._vor > 0 ? 'pos' : 'neg'}">${sgn(r._vor)}</span>`}] : []),
     ...(o.tier ? [{k: 'tier', t: 'Tier', v: r => r._tier, first: 1, h: r => r._tier ? 'T' + r._tier : ''}] : []),
   ];
-  renderTable(host, id, cols, rows, {sort: 'proj', limit: o.limit, step: o.step, tools: !!o.rank, onRow: r => showPlayer(r)});
+  if (o.ros) { const keep = ['rk', 'name', 'pos', 'proj', 'range', 'med', 'sd', 'vor', 'tier']; cols.splice(0, cols.length, ...cols.filter(c => keep.includes(c.k))); const i = cols.findIndex(c => c.k === 'proj'); cols[i] = {...cols[i], t: 'ROS pts'}; cols.splice(i + 1, 0, {k: 'gp', t: 'Games', v: r => r._gp, h: r => r._gp}, {k: 'ppg', t: 'Per game', v: r => r._gp ? P(r, 'proj') / r._gp : null, h: r => r._gp ? fmt(P(r, 'proj') / r._gp) : '–'}); }
+  renderTable(host, o.ros ? id + '_ros' : id, cols, rows, {sort: 'proj', limit: o.limit, step: o.step, tools: !!o.rank, onRow: r => showPlayer(r)});
   if (o.note) host.insertAdjacentHTML('beforeend', `<div class="note">Proj = simulator mean, shrunk toward the field and blended with the player's season average (fit on a walk-forward backtest); range widened to cover ~80% of outcomes. Boom = ≥25 QB / ≥20 RB·WR / ≥15 TE; Bust = &lt;12 / &lt;7 / &lt;4. Half-PPR and Standard shift each player's receptions out (approximate). Click any player for the full breakdown.</div>`);
 }
 
@@ -971,8 +972,8 @@ function renderSlateShell() {
       <div class="chips" id="s_pos" role="group" aria-label="Position">${['ALL', 'QB', 'RB', 'WR', 'TE', 'FLEX', 'K', 'DST'].map(p => `<button data-p="${p}" class="${st.pos === p ? 'on' : ''}">${p}</button>`).join('')}</div></div></div>
     <div class="subtabs" data-sg="players"><button data-k="rank" class="on">Rankings</button><button data-k="trend">Trends</button><button data-k="stack">Stacks</button><button data-k="trade">Trade analyzer</button></div>
     <div id="s_body"></div>`;
-  $('#s_q').oninput = e => { st.q = e.target.value.toLowerCase(); delete st.pg.rank; if (st.slate) renderSlate(); };
-  $('#s_pos').onclick = e => { const b = e.target.closest('button'); if (!b) return; st.pos = b.dataset.p; delete st.pg.rank; [...$('#s_pos').children].forEach(x => x.classList.toggle('on', x === b)); if (st.slate) renderSlate(); };
+  $('#s_q').oninput = e => { st.q = e.target.value.toLowerCase(); delete st.pg.rank; delete st.pg.rank_ros; if (st.slate) renderSlate(); };
+  $('#s_pos').onclick = e => { const b = e.target.closest('button'); if (!b) return; st.pos = b.dataset.p; delete st.pg.rank; delete st.pg.rank_ros; [...$('#s_pos').children].forEach(x => x.classList.toggle('on', x === b)); if (st.slate) renderSlate(); };
 }
 let SLATE_ABORT = null;
 function loadingCard(n, eta) {
@@ -1018,8 +1019,36 @@ function renderSlate() {
     (!st.q || r.name.toLowerCase().includes(st.q) || r.team.toLowerCase() === st.q || (st.TEAMS[r.team] && st.TEAMS[r.team].name.toLowerCase().includes(st.q))));
   if (st.pos === 'ALL') rows = rows.filter(r => r.pos !== 'K' && r.pos !== 'DST' || r.proj > 5);
   host.innerHTML = `<div data-sp="players" data-k="rank" id="pl-rank"></div><div data-sp="players" data-k="trend" id="pl-trend" class="hide"></div><div data-sp="players" data-k="stack" id="pl-stack" class="hide"></div><div data-sp="players" data-k="trade" id="pl-trade" class="hide"></div>`;
-  $('#pl-rank').appendChild(card(`<h3>Rankings: ${st.pos}, ${FMTN[st.fmt]} <span class="sub2">${rows.length} players, week ${S.week}</span></h3><div id="rkTable"></div>`));
-  fantasyTable($('#rkTable'), 'rank', rows, {rank: true, opp: true, vor: true, tier: true, limit: 25, step: 25, note: true});
+  const ros = st.rkMode === 'ros', R = st.wi.ros && !st.wi.ros.loading && !st.wi.ros.error ? st.wi.ros : null;
+  const tog = `<div class="seg" id="rkMode" role="group" aria-label="Ranking period"><button data-m="week" class="${ros ? '' : 'on'}">This week</button><button data-m="ros" class="${ros ? 'on' : ''}">Rest of season</button></div>`;
+  const head = tt => `<div class="ctl" style="align-items:center;margin-bottom:var(--s2)"><h3 style="margin:0;flex:1">${tt}</h3>${tog}</div>`;
+  const bindTog = () => { $('#rkMode').onclick = e => { const b = e.target.closest('button'); if (!b || b.dataset.m === (st.rkMode || 'week')) return; st.rkMode = b.dataset.m; delete st.pg.rank_ros; syncURL(); renderSlate(); }; };
+  if (ros && !R) {
+    $('#pl-rank').appendChild(card(head(`Rest-of-season rankings`) + `<div class="empty" id="rosLoad" style="padding:var(--s5)"><span class="spin dark"></span><span id="rosMsg">Simulating the remaining weeks…</span><div class="pbar"><i id="rosBar"></i></div></div>`));
+    bindTog();
+    ensureRos(r => { const m = $('#rosMsg'); if (m) m.textContent = `Simulated ${r.done} of ${r.weeks.length} weeks`; const b = $('#rosBar'); if (b) b.style.width = (r.done / r.weeks.length * 100) + '%'; })
+      .then(r => { if (st.rkMode === 'ros' && st.page === 'players') renderSlate(); }).catch(() => {});
+  } else if (ros) {
+    const z = 1.2816, out = [];
+    for (const [id, base] of Object.entries(R.any)) {
+      let tot = 0, v = 0, gp = 0;
+      for (const w of R.weeks) { const r = R.pools[w] && R.pools[w][id]; if (!r || r.idle || r.proj == null) continue; tot += P(r, 'proj'); v += (r.sd || 0) ** 2; gp++; }
+      if (!gp || !['QB', 'RB', 'WR', 'TE', 'K', 'DST'].includes(base.pos)) continue;
+      const d = rdelta(base), sd = Math.sqrt(v);
+      out.push({...base, proj: tot + d, lo: Math.max(0, tot - z * sd) + d, hi: tot + z * sd + d, med: tot + d, sd, _gp: gp, avg: null, boom: null, bust: null, trend: [], opps: null, td1: null});
+    }
+    prepSlate(out);
+    let rr = out.filter(r => (st.pos === 'ALL' || (st.pos === 'FLEX' ? ['RB', 'WR', 'TE'].includes(r.pos) : r.pos === st.pos)) && (!st.q || r.name.toLowerCase().includes(st.q) || r.team.toLowerCase() === st.q));
+    if (st.pos === 'ALL') rr = rr.filter(r => r.pos !== 'K' && r.pos !== 'DST' || r.proj > 5 * r._gp);
+    $('#pl-rank').appendChild(card(head(`Rest-of-season rankings: ${st.pos}, ${FMTN[st.fmt]} <span class="sub2">${rr.length} players, weeks ${R.weeks[0]} to ${R.weeks[R.weeks.length - 1]}</span>`) + `<div id="rkTable"></div>`));
+    bindTog();
+    fantasyTable($('#rkTable'), 'rank', rr, {rank: true, vor: true, tier: true, limit: 25, step: 25, ros: true});
+    $('#rkTable').insertAdjacentHTML('beforeend', `<div class="note">ROS pts = sum of each remaining week's simulated projection (bye weeks count as zero games). The range is the middle 80% of season totals, assuming weeks are independent. Future injuries, trades and role changes are not known, so treat distant weeks as softer. VOR is points above the replacement-level player at that position over the same weeks.</div>`);
+  } else {
+    $('#pl-rank').appendChild(card(head(`Rankings: ${st.pos}, ${FMTN[st.fmt]} <span class="sub2">${rows.length} players, week ${S.week}</span>`) + `<div id="rkTable"></div>`));
+    bindTog();
+    fantasyTable($('#rkTable'), 'rank', rows, {rank: true, opp: true, vor: true, tier: true, limit: 25, step: 25, note: true});
+  }
   const g = S.games;
   const sg = [...g].sort((a, b) => b.sim_total - a.sim_total).slice(0, 6);
   const stackHtml = sg.map(x => { const pl = S.rows.filter(r => r.game === x.id && ['QB', 'WR', 'TE', 'RB'].includes(r.pos)).sort((a, b) => b.proj - a.proj).slice(0, 5);
@@ -2026,7 +2055,7 @@ function markNav() {
 /* URL state: #/page/sub?week=9&fmt=ppr&sims=std&pos=QB&q=text */
 function syncURL(push) {
   const q = new URLSearchParams(); if (st.week) q.set('week', st.week); if (st.fmt && st.fmt !== 'ppr') q.set('fmt', st.fmt); if (st.depth && st.depth !== 'std') q.set('sims', st.depth);
-  if (st.page === 'players') { if (st.pos && st.pos !== 'ALL') q.set('pos', st.pos); if (st.q) q.set('q', st.q); }
+  if (st.page === 'players') { if (st.pos && st.pos !== 'ALL') q.set('pos', st.pos); if (st.q) q.set('q', st.q); if (st.rkMode === 'ros') q.set('view', 'ros'); }
   const sub = ['players', 'team', 'lab'].includes(st.page) ? st.sub[st.page] : '';
   const u = '#/' + st.page + (sub ? '/' + sub : '') + (q.toString() ? '?' + q : '');
   if (u === location.hash) return;
@@ -2043,7 +2072,7 @@ function applyRoute(first) {
   const wk = +q.get('week'); if (wk && st.sched.weeks.includes(wk) && wk !== st.week) { st.week = wk; $('#g_week').value = wk; reload = true; }
   const f = q.get('fmt') || 'ppr'; if (FMTN[f] && f !== st.fmt) { st.fmt = f; syncFmtUI(); }
   const d = q.get('sims') || 'std'; if (DEPTH[d] && d !== st.depth) { st.depth = d; st.n = DEPTH[d].n; $('#g_depth').value = d; reload = true; }
-  if (page === 'players') { const ps = q.get('pos'); st.pos = ps || 'ALL'; st.q = (q.get('q') || '').toLowerCase(); }
+  if (page === 'players') { const ps = q.get('pos'); st.pos = ps || 'ALL'; st.q = (q.get('q') || '').toLowerCase(); const vw = q.get('view') === 'ros' ? 'ros' : 'week'; if (vw !== (st.rkMode || 'week')) { st.rkMode = vw; if (st.slate && !first) renderSlate(); } }
   if (reload && !first) reloadSlate();
   go(page, sub, {noUrl: true, fromRoute: true});
   if (page === 'players') { const i = $('#s_q'); if (i) i.value = st.q || ''; const sp = $('#s_pos'); if (sp) [...sp.children].forEach(b => b.classList.toggle('on', b.dataset.p === st.pos)); }
