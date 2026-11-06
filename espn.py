@@ -87,3 +87,47 @@ def normalize(raw):
                                       "faab_spent": (t.get("transactionCounter") or {}).get("acquisitionBudgetSpent")} for t in raw.get("teams", [])]},
             "scoring": {"coef": coef, "base": BASE_PPR, "custom": len(items) >= 4 and any(abs(coef[k] - BASE_PPR[k]) > 1e-9 for k in BASE_PPR), "unsupported": extra, "rec": rec, "format": "ppr" if rec >= 0.99 else "half" if rec >= 0.49 else "std",
                         "pass_td": items.get(STAT_PASS_TD), "pass_yd": items.get(STAT_PASS_YD)}}
+
+
+# ---- live / actual fantasy points -------------------------------------------------------------
+LIVE_FILTER = {"players": {"filterStatus": {"value": ["FREEAGENT", "WAIVERS", "ONTEAM"]}, "filterSlotIds": {"value": [0, 2, 4, 6, 7, 16, 17, 23]},
+                           "limit": 1500, "sortPercOwned": {"sortPriority": 1, "sortAsc": False}}}
+
+
+def fetch_live(league, season, week, s2=None, swid=None, timeout=25):
+    """One request: every relevant player with ESPN's own points for `week` under THIS league's scoring (so K and D/ST are exact)."""
+    url = BASE.format(season=season, league=league) + f"?view=kona_player_info&scoringPeriodId={week}"
+    req = urllib.request.Request(url, headers={"User-Agent": "GridSim/1.0", "Accept": "application/json", "X-Fantasy-Filter": json.dumps(LIVE_FILTER)})
+    if s2 and swid:
+        req.add_header("Cookie", f"espn_s2={s2}; SWID={swid}")
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return json.loads(r.read().decode())
+    except urllib.error.HTTPError as e:
+        if e.code in (401, 403):
+            raise EspnError("ESPN says this league is private. Add your espn_s2 and SWID cookies under 'Private league'.")
+        raise EspnError(f"ESPN returned HTTP {e.code}.")
+    except urllib.error.URLError as e:
+        raise EspnError(f"Could not reach ESPN: {e.reason}")
+
+
+def normalize_live(raw, week):
+    """-> list of {name,pos,team,pts} where ESPN has an ACTUAL score for the week (a game that has started)."""
+    out = []
+    for p in raw.get("players", []):
+        pe = p.get("playerPoolEntry") or p
+        pl = pe.get("player") or {}
+        pos = POS.get(pl.get("defaultPositionId"))
+        if not pos:
+            continue
+        pts = None
+        for s in pl.get("stats", []):
+            if s.get("scoringPeriodId") == week and s.get("statSourceId") == 0 and s.get("statSplitTypeId") == 1:
+                pts = s.get("appliedTotal")
+                break
+        if pts is None and pe.get("appliedStatTotal") is not None and (pl.get("stats") is None or not pl.get("stats")):
+            pts = pe.get("appliedStatTotal")
+        if pts is None:
+            continue
+        out.append({"name": pl.get("fullName", "?"), "pos": pos, "team": PRO.get(pl.get("proTeamId"), "FA"), "pts": round(float(pts), 1)})
+    return out

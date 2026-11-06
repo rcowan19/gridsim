@@ -470,6 +470,7 @@ td[data-k=name],td.nm{white-space:nowrap}
   <div class="seg" id="g_fmt" role="group" aria-label="Scoring"><button data-f="ppr" class="on">PPR</button><button data-f="half">Half</button><button data-f="std">Std</button></div>
   <label class="gl">Sims <select id="g_depth" aria-label="Simulations per game"><option value="fast">Fast (500)</option><option value="std" selected>Standard (1,000)</option><option value="deep">Deep (10,000)</option></select></label>
   <button class="btn primary sm" id="g_refresh" title="Re-run the simulations for this week">Run sims</button>
+  <button class="btn ghost sm" id="g_scores" title="Pull actual and in-progress fantasy points from ESPN">Live scores</button>
   <button class="btn ghost sm" id="g_update" title="Pull the latest injury reports, depth charts and results">Update data</button>
   <span class="stamp" id="g_stamp" aria-live="polite"></span>
 </div></header>
@@ -679,7 +680,7 @@ function fmtToggle(id, after) {
 function bindFmt(id, after) { const b = $('#' + id); if (!b) return; b.onclick = e => { const x = e.target.closest('button'); if (!x) return; setFmt(x.dataset.f); if (after) after(); }; }
 
 /* ---------- generic sortable table ---------- */
-const TIPS = {proj: 'Simulator mean for this week, shrunk toward the field and blended with the season average.', range: 'Middle 80% of simulated outcomes (10th to 90th percentile). The tick is the projection.', med: 'Half of simulated games land above this, half below.', boom: 'Share of sims that reach a big week: 25+ QB, 20+ RB/WR, 15+ TE.', bust: 'Share of sims that flop: under 12 QB, 7 RB/WR, 4 TE.', sd: 'Standard deviation of simulated points: bigger means a wider range of outcomes.', opps: 'Expected touches plus targets (QBs: dropbacks).', td1: 'Chance of at least one touchdown.', vor: 'Value over replacement: points above the best freely available player at this position.', tier: 'Group of players with similar value; tiers break where projections drop off.', dlt: 'Projection minus the player\'s season average.'};
+const TIPS = {act: 'Actual fantasy points so far this week, from ESPN under your league\'s scoring (updates while games are live).', proj: 'Simulator mean for this week, shrunk toward the field and blended with the season average.', range: 'Middle 80% of simulated outcomes (10th to 90th percentile). The tick is the projection.', med: 'Half of simulated games land above this, half below.', boom: 'Share of sims that reach a big week: 25+ QB, 20+ RB/WR, 15+ TE.', bust: 'Share of sims that flop: under 12 QB, 7 RB/WR, 4 TE.', sd: 'Standard deviation of simulated points: bigger means a wider range of outcomes.', opps: 'Expected touches plus targets (QBs: dropbacks).', td1: 'Chance of at least one touchdown.', vor: 'Value over replacement: points above the best freely available player at this position.', tier: 'Group of players with similar value; tiers break where projections drop off.', dlt: 'Projection minus the player\'s season average.'};
 function csvDownload(name, cols, rows) {
   const q = v => { v = v == null ? '' : String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
   const cs = cols.filter(c => c.v); const out = [cs.map(c => q(c.t)).join(',')].concat(rows.map(r => cs.map(c => { const x = c.v(r); return q(typeof x === 'number' ? Math.round(x * 100) / 100 : x); }).join(',')));
@@ -862,6 +863,7 @@ function fantasyTable(host, id, rows, o = {}) {
     {k: 'pos', t: 'Pos', v: r => posOrder[r.pos], first: 1, h: r => `<span class="posb" style="color:${POSCOL[r.pos]}">${r.pos}${r._pr ? r._pr : ''}</span>`},
     ...(o.opp ? [{k: 'opp', t: 'Opp', v: r => r.opp, first: 1, h: r => `<span class="sub2">${r.home ? 'vs' : '@'}</span> ${r.opp}`}] : []),
     {k: 'proj', t: 'Proj', v: r => P(r, 'proj'), cls: 'main', h: r => fmt(P(r, 'proj'))},
+    ...(o.ros || !st.live || !st.live.n ? [] : [{k: 'act', t: 'Actual', v: r => r._act, h: r => r._act == null ? '<span class="sub2">–</span>' : `<b title="${sgn(r._act - P(r, 'proj'))} vs projection">${fmt(r._act)}</b>`}]),
     {k: 'range', t: 'Range (10–90%)', v: r => P(r, 'hi'), w: '130px', h: r => `<span class="rtxt">${fmt(P(r, 'lo'), 0)}–${fmt(P(r, 'hi'), 0)}</span>` + rangeBar(Math.max(P(r, 'lo'), 0), P(r, 'hi'), P(r, 'proj'), mx, C.bar, 90)},
     {k: 'med', t: 'Median', v: r => P(r, 'med'), h: r => fmt(P(r, 'med'))},
     {k: 'boom', t: 'Boom%', v: r => r.boom, h: r => r.boom == null ? '–' : `<span class="${r.boom >= .3 ? 'pos' : ''}">${pct(r.boom)}</span>`},
@@ -925,7 +927,7 @@ function showPlayer(r) {
   const mainStat = r.pos === 'QB' ? 'pyd' : r.pos === 'RB' ? 'ryd' : r.pos === 'K' ? 'fgm' : r.stat_samples && r.stat_samples.recyd ? 'recyd' : stat[0];
   dp.innerHTML = `<button class="dx" id="dclose">✕</button>
     <div class="dh"><div><div class="dnm">${r.name}${badge(r.status, r.p_play, r.inj_note, r.idle)}</div><div class="dsub"><span class="posb" style="color:${POSCOL[r.pos]}">${r.pos}</span> · <span style="color:${col}">${r.team}</span> ${r.opp ? (r.home ? 'vs' : '@') + ' ' + r.opp : ''}${r.game_total ? ` · game total ${fmt(r.game_total)} · team ${fmt(r.team_total)}` : ''}</div></div>
-      <div class="dbig"><b>${fmt(pj)}</b><span>${FMTN[st.fmt]} proj</span></div></div>
+      <div class="dbig"><b>${fmt(pj)}</b><span>${FMTN[st.fmt]} proj</span>${r._act != null ? `<b style="margin-top:6px">${fmt(r._act)}</b><span>actual (ESPN)</span>` : ''}</div></div>
     <div class="seg fseg" id="dfmt" style="margin:10px 0">${Object.keys(FMTN).map(k => `<button data-f="${k}" class="${st.fmt === k ? 'on' : ''}">${FMTN[k]}</button>`).join('')}</div>
     <div class="kpis">
       <div><span>Floor (10%)</span><b>${fmt(lo)}</b></div><div><span>Median</span><b>${fmt(med)}</b></div><div><span>Ceiling (90%)</span><b>${fmt(hi)}</b></div>
@@ -993,7 +995,7 @@ async function loadSlate(mode) {
   const cb = $('#loadCancel'); if (cb) cb.onclick = () => ab.abort();
   try {
     st.slate = await post('/api/slate', {week: st.week, n: nSim, weather: st.useWx, ov: st.inj}, ab.signal); st.lab.trials = null; st.lastSecs = st.slate.secs; st.lastN = nSim;
-    renderNflWeek(); renderSlate(); if (st.page === 'team') renderLeague(); if (st.page === 'inj') renderInjuries(); if (st.page === 'home') renderHome(); if (st.page === 'draft') renderDraft();
+    applyLive(); renderNflWeek(); renderSlate(); if (st.page === 'team') renderLeague(); if (st.page === 'inj') renderInjuries(); if (st.page === 'home') renderHome(); if (st.page === 'draft') renderDraft(); loadLive(false);
   } catch (e) {
     if (e.name === 'AbortError') { if (host) host.innerHTML = `<div class="card empty"><b>Run cancelled</b><span>Nothing was changed.</span><button class="btn primary sm" id="retrySl" style="margin-top:10px">Run again</button></div>`; }
     else { if (host) host.innerHTML = `<div class="card empty err" role="alert"><b>Could not load projections</b><span>${e.message}</span><button class="btn primary sm" id="retrySl" style="margin-top:10px">Try again</button></div>`; toast(e.message, {err: true}); }
@@ -2233,6 +2235,40 @@ function bindDrSetup() {
   $('#drR').onchange = e => { DR.rounds = Math.max(1, Math.min(30, +e.target.value || 15)); re(); };
   $('#drReset').onclick = () => { if (!DR.picks.length) return; const old = DR.picks; DR.picks = []; re(); toast('Draft reset', {action: {label: 'Undo', fn: () => { DR.picks = old; re(); }}, ms: 8000}); };
 }
+
+/* ================= live scores from ESPN ================= */
+st.live = {n: 0, week: null, at: null, err: null};
+function liveIdx() { const idx = {}; if (!st.slate) return idx; [...(st.slate.rows_idle || []), ...st.slate.rows].forEach(r => (idx[r.team + '|' + r.pos] = idx[r.team + '|' + r.pos] || []).push(r)); return idx; }
+function applyLive() {
+  if (!st.slate) return; const L = st.live; [...(st.slate.rows_idle || []), ...st.slate.rows].forEach(r => { delete r._act; });
+  if (!L.players || L.week !== st.slate.week) { L.n = 0; return; }
+  const idx = liveIdx(); let n = 0;
+  L.players.forEach(p => { const r = matchRow(p, idx); if (r) { r._act = p.pts; n++; } });
+  L.n = n;
+}
+function liveChip() {
+  const L = st.live, b = $('#g_scores'); if (!b) return;
+  b.title = L.err ? 'ESPN scores unavailable: ' + L.err : L.at ? `Scores from ESPN at ${L.at.toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'})}. Click to refresh.` : 'Pull actual fantasy points from ESPN';
+  b.textContent = L.err ? 'Scores unavailable' : L.n ? 'Live scores · ' + L.at.toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'}) : 'Live scores';
+}
+let LIVE_BUSY = false;
+async function loadLive(manual) {
+  if (LIVE_BUSY || !st.slate) return; LIVE_BUSY = true;
+  const id = (localStorage.getItem('gs_league') || '1781890288'), s2 = ($('#lgS2') || {}).value || '', sw = ($('#lgSW') || {}).value || '';
+  const b = $('#g_scores'); if (b && manual) busy(b, true, 'Fetching');
+  try {
+    const q = new URLSearchParams({league: id, week: st.slate.week, season: 2026, s2, swid: sw});
+    const r = await fetch('/api/espn_live?' + q); if (!r.ok) { let m = r.statusText; try { m = (await r.json()).detail || m; } catch (e) {} throw new Error(m); }
+    const d = await r.json(); Object.assign(st.live, {players: d.players, week: d.week, at: new Date(), err: null}); applyLive();
+    if (manual) toast(st.live.n ? `Live scores loaded for ${st.live.n} players.` : 'No games have started yet for this week, so there are no actual points.');
+    if (st.page === 'players') renderSlate(); else if (st.page === 'team') renderLeague();
+  } catch (e) {
+    const first = !st.live.err; st.live.err = e.message; st.live.n = 0; if (manual || first) toast('Live scores unavailable: ' + e.message, {err: true, action: {label: 'Retry', fn: () => loadLive(true)}, ms: 8000});
+  }
+  LIVE_BUSY = false; if (b && manual) busy(b, false); liveChip();
+}
+$('#g_scores').onclick = () => loadLive(true);
+setInterval(() => { if (document.visibilityState === 'visible' && st.live.n && (st.page === 'players' || st.page === 'team' || st.page === 'home')) loadLive(false); }, 90000);
 
 /* Home */
 function renderHome() {

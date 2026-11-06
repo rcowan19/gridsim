@@ -124,6 +124,18 @@ def espn_league(league: str, season: int = 2026, s2: str = "", swid: str = ""):
         raise HTTPException(502, str(e))
 
 
+@app.get("/api/espn_live")
+def espn_live(league: str, week: int, season: int = 2026, s2: str = "", swid: str = ""):
+    """Actual (or in-progress) fantasy points for a week, straight from ESPN under the league's own scoring."""
+    import espn, time
+    try:
+        mock = os.environ.get("GRIDSIM_ESPN_LIVE_MOCK")      # dev/testing: serve a saved payload
+        raw = json.load(open(mock)) if mock else espn.fetch_live(league, season, week, s2 or None, swid or None)
+        return {"week": week, "fetched": time.strftime("%Y-%m-%dT%H:%M:%S"), "players": espn.normalize_live(raw, week)}
+    except espn.EspnError as e:
+        raise HTTPException(502, str(e))
+
+
 class SlateReq(BaseModel):
     week: int
     n: int = 500
