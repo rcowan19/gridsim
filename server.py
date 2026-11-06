@@ -131,9 +131,17 @@ def espn_live(league: str, week: int, season: int = 2026, s2: str = "", swid: st
     try:
         mock = os.environ.get("GRIDSIM_ESPN_LIVE_MOCK")      # dev/testing: serve a saved payload
         raw = json.load(open(mock)) if mock else espn.fetch_live(league, season, week, s2 or None, swid or None)
-        return {"week": week, "fetched": time.strftime("%Y-%m-%dT%H:%M:%S"), "players": espn.normalize_live(raw, week)}
+        players = espn.normalize_live(raw, week)
     except espn.EspnError as e:
         raise HTTPException(502, str(e))
+    # game status is best-effort: the page falls back to kickoff times when the scoreboard is unreachable
+    games, games_err = [], None
+    try:
+        gm = os.environ.get("GRIDSIM_NFL_STATUS_MOCK")
+        games = espn.normalize_scoreboard(json.load(open(gm)) if gm else espn.fetch_scoreboard(season, week))
+    except (espn.EspnError, OSError, ValueError) as e:
+        games_err = str(e)
+    return {"week": week, "fetched": time.strftime("%Y-%m-%dT%H:%M:%S"), "players": players, "games": games, "games_err": games_err}
 
 
 class SlateReq(BaseModel):

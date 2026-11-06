@@ -131,3 +131,39 @@ def normalize_live(raw, week):
             continue
         out.append({"name": pl.get("fullName", "?"), "pos": pos, "team": PRO.get(pl.get("proTeamId"), "FA"), "pts": round(float(pts), 1)})
     return out
+
+
+# ---- game status (which games are final / live) from ESPN's public scoreboard ----
+SCOREBOARD = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates={season}&seasontype=2&week={week}"
+SB_ABBR = {"WSH": "WAS", "LAR": "LA"}        # ESPN scoreboard abbreviations -> GridSim's
+
+
+def fetch_scoreboard(season, week, timeout=15):
+    req = urllib.request.Request(SCOREBOARD.format(season=season, week=week), headers={"User-Agent": "GridSim/1.0", "Accept": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return json.loads(r.read().decode())
+    except urllib.error.HTTPError as e:
+        raise EspnError(f"ESPN scoreboard returned HTTP {e.code}.")
+    except urllib.error.URLError as e:
+        raise EspnError(f"Could not reach the ESPN scoreboard: {e.reason}")
+
+
+def normalize_scoreboard(raw):
+    """-> [{home, away, state: pre|in|post, period, clock}] with GridSim team abbreviations."""
+    out = []
+    for ev in raw.get("events", []):
+        comp = (ev.get("competitions") or [{}])[0]
+        stt = comp.get("status") or ev.get("status") or {}
+        typ = stt.get("type") or {}
+        side = {}
+        for c in comp.get("competitors", []):
+            ab = (c.get("team") or {}).get("abbreviation")
+            if ab:
+                side[c.get("homeAway")] = SB_ABBR.get(ab, ab)
+        if not side.get("home") or not side.get("away"):
+            continue
+        state = typ.get("state") or ("post" if typ.get("completed") else "pre")
+        out.append({"home": side["home"], "away": side["away"], "state": state, "period": int(stt.get("period") or 0),
+                    "clock": stt.get("displayClock") or "", "detail": typ.get("shortDetail") or ""})
+    return out

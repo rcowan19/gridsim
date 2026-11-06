@@ -30,6 +30,15 @@ Enter your league ID (public leagues need nothing else; private leagues need the
 rosters/settings/schedule from ESPN (`espn.py`), matches players to projections, and shows lineup advice, league matchup win
 probabilities, power rankings and a waiver wire. Dev/testing: `GRIDSIM_ESPN_MOCK=path.json python server.py` serves a saved ESPN payload.
 
+### Live scores
+`/api/espn_live` returns each player's actual fantasy points for the week (ESPN's own numbers under your league's scoring, so K and D/ST
+are exact) plus game status from ESPN's public scoreboard; if the scoreboard is unreachable the page estimates status from kickoff times.
+Projections then update for the rest of the week: a finished game locks the player at his actual score, a game in progress counts actual
+so far plus the unplayed share of the pre-game projection, and a game not started keeps the pre-game projection. Lineup totals, win
+probabilities, best-lineup and rest-of-season numbers all read that one updated value, and players whose games have started are locked in
+their slots (as on ESPN). The pre-game projection stays visible in its own column. No model or simulation logic changes.
+Dev/testing: `GRIDSIM_ESPN_LIVE_MOCK` and `GRIDSIM_NFL_STATUS_MOCK` serve saved payloads.
+
 ## Game conditions
 Wind and roof adjust the simulation (`engine.env_factors`; fitted to 2025-26 play-by-play and shrunk: about -0.4 points of total per mph of
 wind above 5, indoors about +0.5). Temperature, weekday and kickoff slot showed no usable signal. Forecasts come from Open-Meteo
