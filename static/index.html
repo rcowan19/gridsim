@@ -378,7 +378,7 @@ kbd{font:600 11px/1 var(--mono);border:1px solid var(--line-strong);border-botto
 .gl select{width:auto;padding:6px var(--s3);min-height:34px}
 .stamp{font-size:12px;color:var(--muted)}
 .searchbtn svg{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round}.searchbtn kbd{white-space:nowrap}
-#tab-home,#tab-settings{display:flex;flex-direction:column;gap:var(--s4)}
+#tab-home,#tab-settings,#tab-draft{display:flex;flex-direction:column;gap:var(--s4)}
 .tabbar{display:none}
 .rail-only{display:none}
 @media(max-width:1100px){
@@ -475,6 +475,7 @@ td[data-k=name],td.nm{white-space:nowrap}
 </div></header>
 <main class="wrap" id="main" tabindex="-1">
   <section id="pg-home" class="page hide"><div id="tab-home"></div></section>
+  <section id="pg-draft" class="page hide"><div id="tab-draft"></div></section>
   <section id="pg-settings" class="page hide"><div id="tab-settings"></div></section>
   <section id="pg-games" class="page"><div id="tab-nfl"></div></section>
   <section id="pg-players" class="page hide"><div id="tab-slate"></div></section>
@@ -587,7 +588,7 @@ async function init() {
 }
 st.page = 'games'; st.sub = {lab: 'ov', players: 'rank', team: 'lineup'}; st.pg = {}; st.depth = 'std'; st.loading = false;
 const DEPTH = {fast: {n: 1000, slate: 500, hint: ''}, std: {n: 2000, slate: 1000, hint: ''}, deep: {n: 10000, slate: 10000, hint: 'Deep runs take a minute or two for a full week.'}};
-const PAGES = ['home', 'games', 'players', 'team', 'inj', 'lab', 'settings'];
+const PAGES = ['home', 'games', 'players', 'team', 'inj', 'lab', 'draft', 'settings'];
 function setSub(group, key, quiet) {
   st.sub[group] = key;
   document.querySelectorAll(`[data-sg="${group}"] button`).forEach(b => b.classList.toggle('on', b.dataset.k === key));
@@ -600,6 +601,7 @@ function go(page, sub, o = {}) {
   if (sub) setSub(page, sub, true);
   if (page === 'home') renderHome();
   if (page === 'settings') renderSettings();
+  if (page === 'draft') ensureSlate('players', renderDraft);
   if (page === 'games') ensureSlate('games', renderNflWeek);
   if (page === 'players') ensureSlate('players', renderSlate);
   if (page === 'team') { renderLeague(); if (!st.lg && !st.lgTried && localStorage.getItem('gs_league')) { st.lgTried = true; setTimeout(() => { const b = $('#lgBtn'); if (b && !st.lg) b.click(); }, 50); } }
@@ -991,7 +993,7 @@ async function loadSlate(mode) {
   const cb = $('#loadCancel'); if (cb) cb.onclick = () => ab.abort();
   try {
     st.slate = await post('/api/slate', {week: st.week, n: nSim, weather: st.useWx, ov: st.inj}, ab.signal); st.lab.trials = null; st.lastSecs = st.slate.secs; st.lastN = nSim;
-    renderNflWeek(); renderSlate(); if (st.page === 'team') renderLeague(); if (st.page === 'inj') renderInjuries(); if (st.page === 'home') renderHome();
+    renderNflWeek(); renderSlate(); if (st.page === 'team') renderLeague(); if (st.page === 'inj') renderInjuries(); if (st.page === 'home') renderHome(); if (st.page === 'draft') renderDraft();
   } catch (e) {
     if (e.name === 'AbortError') { if (host) host.innerHTML = `<div class="card empty"><b>Run cancelled</b><span>Nothing was changed.</span><button class="btn primary sm" id="retrySl" style="margin-top:10px">Run again</button></div>`; }
     else { if (host) host.innerHTML = `<div class="card empty err" role="alert"><b>Could not load projections</b><span>${e.message}</span><button class="btn primary sm" id="retrySl" style="margin-top:10px">Try again</button></div>`; toast(e.message, {err: true}); }
@@ -2028,13 +2030,13 @@ const NAV = [
   {g: 'Simulate'}, {id: 'games', label: 'Games', ic: 'games', page: 'games'}, {id: 'lab', label: 'Matchup lab', ic: 'lab', page: 'lab', sub: 'ov'},
   {g: 'Players'}, {id: 'proj', label: 'Projections', ic: 'proj', page: 'players', sub: 'rank'}, {id: 'stack', label: 'Stacks', ic: 'stack', page: 'players', sub: 'stack'}, {id: 'inj', label: 'Injuries', ic: 'inj', page: 'inj'},
   {g: 'My league'}, {id: 'lineup', label: 'Lineup', ic: 'lineup', page: 'team', sub: 'lineup'}, {id: 'waivers', label: 'Waivers', ic: 'waiver', page: 'team', sub: 'waivers'},
-  {id: 'trades', label: 'Trades', ic: 'trade', page: 'team', sub: 'trades'}, {id: 'league', label: 'League', ic: 'league', page: 'team', sub: 'league'}, {id: 'whatif', label: 'What-if', ic: 'whatif', page: 'team', sub: 'whatif'},
+  {id: 'trades', label: 'Trades', ic: 'trade', page: 'team', sub: 'trades'}, {id: 'league', label: 'League', ic: 'league', page: 'team', sub: 'league'}, {id: 'whatif', label: 'What-if', ic: 'whatif', page: 'team', sub: 'whatif'}, {id: 'draft', label: 'Draft helper', ic: 'stack', page: 'draft'},
   {g: 'App'}, {id: 'settings', label: 'Settings', ic: 'settings', page: 'settings'}
 ];
 const NAVI = NAV.filter(n => n.page);
 const TABS = [['home', 'Home', 'home'], ['games', 'Games', 'games'], ['proj', 'Players', 'proj'], ['lineup', 'My league', 'league']];
 const navOn = n => st.page === n.page && (!n.sub || n.page === 'lab' || (n.page === 'players' ? (n.sub === 'stack') === (st.sub.players === 'stack') : st.sub[n.page] === n.sub));
-const TITLE = {home: 'Home', games: 'Games', lab: 'Matchup lab', players: 'Players', team: 'My league', inj: 'Injuries', settings: 'Settings'};
+const TITLE = {home: 'Home', games: 'Games', lab: 'Matchup lab', players: 'Players', team: 'My league', inj: 'Injuries', draft: 'Draft helper', settings: 'Settings'};
 function buildShell() {
   let h = `<div class="brand">GridSim</div><button class="searchbtn" id="openPal" aria-label="Search or jump to (Control K)">${icon('search')}<span>Search</span><kbd>Ctrl K</kbd></button><nav class="sidenav" id="nav" aria-label="Sections">`;
   NAV.forEach(n => { h += n.g ? `<div class="ngrp">${n.g}</div>` : `<button class="nlink" data-nav="${n.id}" title="${n.label}">${icon(n.ic)}<span class="nl">${n.label}</span></button>`; });
@@ -2126,7 +2128,7 @@ function openPalette() {
   draw();
 }
 /* shortcuts */
-const SHORT = [['Ctrl/Cmd K', 'Command palette'], ['/', 'Search players'], ['?', 'This help'], ['g h', 'Go to Home'], ['g g', 'Games'], ['g p', 'Projections'], ['g l', 'Matchup lab'], ['g i', 'Injuries'], ['g t', 'My league lineup'], ['g w', 'Waivers'], ['g s', 'Settings'], ['r', 'Run sims'], ['t', 'Toggle theme']];
+const SHORT = [['Ctrl/Cmd K', 'Command palette'], ['/', 'Search players'], ['?', 'This help'], ['g h', 'Go to Home'], ['g g', 'Games'], ['g p', 'Projections'], ['g l', 'Matchup lab'], ['g i', 'Injuries'], ['g t', 'My league lineup'], ['g w', 'Waivers'], ['g d', 'Draft helper'], ['g s', 'Settings'], ['r', 'Run sims'], ['t', 'Toggle theme']];
 function showHelp() {
   if (document.querySelector('.pal-back.help-b')) return;
   const back = el('div', 'pal-back help-b', `<div class="pal help" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts" style="padding:18px"><h3 style="margin:0 0 12px;font:700 17px var(--serif)">Keyboard shortcuts</h3><dl>${SHORT.map(([k, d]) => `<dt><kbd>${k}</kbd></dt><dd>${d}</dd>`).join('')}</dl><p style="color:var(--muted);margin:12px 0 0">Press Esc to close.</p></div>`);
@@ -2140,10 +2142,98 @@ document.addEventListener('keydown', e => {
   const tg = e.target; if (e.ctrlKey || e.metaKey || e.altKey || PAL || /INPUT|TEXTAREA|SELECT/.test(tg.tagName) || tg.isContentEditable) return;
   if (e.key === '?') { showHelp(); return; }
   if (e.key === '/') { const i = $('#s_q'); go('players', 'rank'); setTimeout(() => { const i2 = $('#s_q'); if (i2) i2.focus(); }, 60); e.preventDefault(); return; }
-  if (gPend && Date.now() - gPend < 1200) { const m = {h: 'home', g: 'games', p: 'proj', l: 'lab', i: 'inj', t: 'lineup', w: 'waivers', s: 'settings'}[e.key]; gPend = 0; if (m) { const n = NAVI.find(x => x.id === m); go(n.page, n.sub); e.preventDefault(); } return; }
+  if (gPend && Date.now() - gPend < 1200) { const m = {h: 'home', g: 'games', p: 'proj', l: 'lab', i: 'inj', t: 'lineup', w: 'waivers', d: 'draft', s: 'settings'}[e.key]; gPend = 0; if (m) { const n = NAVI.find(x => x.id === m); go(n.page, n.sub); e.preventDefault(); } return; }
   if (e.key === 'g') { gPend = Date.now(); return; }
   if (e.key === 'r') { $('#g_refresh').click(); return; } if (e.key === 't') toggleTheme();
 });
+/* ================= draft helper ================= */
+let DR; try { DR = JSON.parse(localStorage.getItem('gs_draft')); } catch (e) {}
+DR = Object.assign({teams: 12, slot: 1, rounds: 15, picks: [], pos: 'ALL', q: '', more: 40}, DR || {});
+const saveDr = () => { try { localStorage.setItem('gs_draft', JSON.stringify({teams: DR.teams, slot: DR.slot, rounds: DR.rounds, picks: DR.picks})); } catch (e) {} };
+const drSlot = pk => { const r = Math.floor(pk / DR.teams), i = pk % DR.teams; return r % 2 === 0 ? i + 1 : DR.teams - i; };
+let _drc = null;
+function drRows(R) {
+  if (_drc && _drc.R === R && _drc.fmt === st.fmt) return _drc.rows;
+  const z = 1.2816, rows = [];
+  for (const [id, base] of Object.entries(R.any)) {
+    if (!['QB', 'RB', 'WR', 'TE', 'K', 'DST'].includes(base.pos)) continue;
+    let tot = 0, v = 0, gp = 0;
+    for (const w of R.weeks) { const r = R.pools[w] && R.pools[w][id]; if (!r || r.idle || r.proj == null) continue; tot += P(r, 'proj'); v += (r.sd || 0) ** 2; gp++; }
+    if (gp) rows.push({id, name: base.name, pos: base.pos, team: base.team, pts: tot, lo: Math.max(0, tot - z * Math.sqrt(v)), hi: tot + z * Math.sqrt(v), gp, ref: base});
+  }
+  _drc = {R, fmt: st.fmt, rows}; return rows;
+}
+function drCompute(rows) {
+  const c = st.lab.counts, f = c.FLEX || 0, op = c.OP || 0, share = {QB: op, RB: f * .45, WR: f * .45, TE: f * .1, K: 0, DST: 0};
+  const per = {}; ['QB', 'RB', 'WR', 'TE', 'K', 'DST'].forEach(k => per[k] = (c[k] || 0) + (share[k] || 0));
+  const taken = new Set(DR.picks.map(x => x.id)), mine = DR.picks.filter(x => x.who === 'me').map(x => x.id);
+  const byId = Object.fromEntries(rows.map(r => [r.id, r]));
+  const league = {}, mineAt = {}; DR.picks.forEach(x => { const r = byId[x.id]; if (!r) return; league[r.pos] = (league[r.pos] || 0) + 1; if (x.who === 'me') mineAt[r.pos] = (mineAt[r.pos] || 0) + 1; });
+  const avail = rows.filter(r => !taken.has(r.id) && per[r.pos] > 0).sort((a, b) => b.pts - a.pts), out = [];
+  for (const pos of Object.keys(per)) {
+    if (!per[pos]) continue; const L = avail.filter(r => r.pos === pos); if (!L.length) continue;
+    const remain = Math.max(1, Math.round(DR.teams * per[pos] - (league[pos] || 0))), base = L[Math.min(remain, L.length - 1)].pts;
+    const have = mineAt[pos] || 0, need = Math.max(1, Math.round(per[pos])), factor = have < need ? 1 : have < need + 2 ? .6 : .35;
+    L.forEach(r => { r.vor = r.pts - base; r.factor = factor; r.score = r.vor * factor; r.have = have; r.need = need; r.left = remain; });
+    out.push(...L);
+  }
+  const late = mine.length >= DR.rounds - 2; // K and DST only in the last rounds
+  const rec = out.filter(r => (r.pos !== 'K' && r.pos !== 'DST') || late).sort((a, b) => b.score - a.score);
+  return {avail: out.sort((a, b) => b.vor - a.vor), rec, mineAt, byId, per};
+}
+function renderDraft() {
+  const host = $('#tab-draft'); if (!host) return;
+  const R = st.wi.ros && !st.wi.ros.loading && !st.wi.ros.error ? st.wi.ros : null;
+  const setup = `<div class="card"><h3>Your draft</h3><div class="ctl"><div class="fld sm"><label class="f" for="drT">Teams</label><input class="inp" id="drT" type="number" min="4" max="20" value="${DR.teams}"></div>
+    <div class="fld sm"><label class="f" for="drS">Your draft slot</label><select id="drS">${Array.from({length: DR.teams}, (_, i) => `<option value="${i + 1}" ${DR.slot === i + 1 ? 'selected' : ''}>#${i + 1}</option>`).join('')}</select></div>
+    <div class="fld sm"><label class="f" for="drR">Rounds</label><input class="inp" id="drR" type="number" min="1" max="30" value="${DR.rounds}"></div>
+    <button class="btn ghost sm" id="drReset">Reset draft</button></div>
+    <div class="note">Snake draft. Starting lineup comes from your league settings (${Object.entries(st.lab.counts).filter(([, v]) => v).map(([k, v]) => (v > 1 ? v + ' ' : '') + k).join(', ')}). Mark each pick as it happens: "Mine" for your picks, "Gone" for everyone else's.</div></div>`;
+  if (!R) {
+    host.innerHTML = setup + `<div class="card empty" id="drLoad"><span class="spin dark"></span><b>Building draft values</b><span id="drMsg">Simulating the remaining weeks…</span><div class="pbar"><i id="drBar"></i></div></div>`;
+    bindDrSetup();
+    ensureRos(r => { const m = $('#drMsg'); if (m) m.textContent = `Simulated ${r.done} of ${r.weeks.length} weeks`; const b = $('#drBar'); if (b) b.style.width = (r.done / r.weeks.length * 100) + '%'; }).then(() => { if (st.page === 'draft') renderDraft(); }).catch(() => {});
+    return;
+  }
+  const rows = drRows(R), D = drCompute(rows), pk = DR.picks.length, total = DR.teams * DR.rounds, done = pk >= total;
+  const onClock = done ? null : drSlot(pk), mineTurn = onClock === DR.slot;
+  const nextMine = []; for (let i = pk; i < total && nextMine.length < 4; i++) if (drSlot(i) === DR.slot) nextMine.push(i + 1);
+  const status = done ? 'Draft complete' : mineTurn ? `<b style="color:var(--accent)">You are on the clock</b>` : `On the clock: team #${onClock}`;
+  const myPicks = DR.picks.map((x, i) => ({...x, n: i + 1})).filter(x => x.who === 'me');
+  const rosterByPos = ['QB', 'RB', 'WR', 'TE', 'K', 'DST'].filter(k => D.per[k] > 0).map(k => `${k} ${D.mineAt[k] || 0}/${Math.max(1, Math.round(D.per[k]))}`).join(' · ');
+  const top = D.rec.slice(0, 6);
+  const why = r => r.factor === 1 ? `fills your ${r.pos} (${r.have}/${r.need}), ${fmt(r.vor, 0)} pts over replacement` : `depth only: your ${r.pos} starters are set`;
+  const btn = id => `<span class="btnrow"><button class="btn sm" data-dm="${id}">Mine</button><button class="btn ghost sm" data-dg="${id}">Gone</button></span>`;
+  host.innerHTML = setup + `<div class="tiles"><div class="tile"><span class="tl">Pick</span><span class="tv">${done ? '–' : pk + 1}</span><span class="ts">${done ? '' : `round ${Math.floor(pk / DR.teams) + 1} of ${DR.rounds} · ${status}`}</span></div>
+    <div class="tile"><span class="tl">Your next picks</span><span class="tv">${nextMine.length ? nextMine.map(n => '#' + n).join(', ') : '–'}</span><span class="ts">overall pick numbers</span></div>
+    <div class="tile"><span class="tl">Your roster</span><span class="tv">${myPicks.length}</span><span class="ts">${rosterByPos}</span></div></div>
+  <div class="card"><h3>${mineTurn ? 'Best picks for you right now' : 'If you were picking now'} <span class="sub2">value over replacement, adjusted for what your roster still needs</span></h3>
+    ${top.map((r, i) => `<div class="rowlink" style="cursor:default"><span class="posb" style="color:${POSCOL[r.pos]}">${r.pos}</span><b>${i + 1}. ${r.name}</b><span class="sub2">${r.team}</span><span class="sub2" style="flex:1">${why(r)}</span><span class="r"><b style="color:var(--text)">${fmt(r.pts, 0)}</b> ROS pts</span>${btn(r.id)}</div>`).join('') || '<div class="note">No players left.</div>'}
+    <div class="note">Replacement level moves as players leave the board: when a position gets picked over, its remaining starters rise in value. Kickers and defenses are held back until your last two rounds.</div></div>
+  <div class="card"><h3>Available players <span class="sub2">${D.avail.length} left</span></h3><div class="ctl"><div class="grow"><label class="f" for="drQ">Search</label><input class="inp" id="drQ" value="${DR.q}" placeholder="Player or team"></div>
+    <div class="chips" id="drP">${['ALL', 'QB', 'RB', 'WR', 'TE', 'K', 'DST'].filter(k => k === 'ALL' || D.per[k] > 0).map(k => `<button data-p="${k}" class="${DR.pos === k ? 'on' : ''}">${k}</button>`).join('')}</div></div><div id="drAvail"></div></div>
+  <div class="card"><h3>Pick log <span class="sub2">${pk} picks</span></h3>${pk ? `<div class="tscroll"><table class="st"><tr><th class="l">#</th><th class="l">Player</th><th class="l">By</th><th></th></tr>${[...DR.picks].map((x, i) => ({x, i})).reverse().slice(0, 40).map(({x, i}) => { const r = D.byId[x.id]; return `<tr><td class="l">${i + 1}</td><td class="l">${r ? r.name + ' <span class="sub2">' + r.pos + ' · ' + r.team + '</span>' : x.id}</td><td class="l">${x.who === 'me' ? '<b>Me</b>' : `team #${drSlot(i)}`}</td><td>${i === pk - 1 ? '<button class="btn ghost sm" id="drUndo">Undo</button>' : ''}</td></tr>`; }).join('')}</table></div>` : '<div class="note">Nothing picked yet.</div>'}</div>`;
+  bindDrSetup(); drDrawAvail(D, btn);
+  host.querySelectorAll('[data-dm]').forEach(b => b.onclick = () => drPick(b.dataset.dm, 'me')); host.querySelectorAll('[data-dg]').forEach(b => b.onclick = () => drPick(b.dataset.dg, 'other'));
+  $('#drQ').oninput = e => { DR.q = e.target.value.toLowerCase(); DR.more = 40; drDrawAvail(D, btn); bindDrBtns(); };
+  $('#drP').onclick = e => { const b = e.target.closest('button'); if (!b) return; DR.pos = b.dataset.p; DR.more = 40; renderDraft(); };
+  const u = $('#drUndo'); if (u) u.onclick = () => { DR.picks.pop(); saveDr(); renderDraft(); };
+}
+function bindDrBtns() { const h = $('#tab-draft'); h.querySelectorAll('#drAvail [data-dm]').forEach(b => b.onclick = () => drPick(b.dataset.dm, 'me')); h.querySelectorAll('#drAvail [data-dg]').forEach(b => b.onclick = () => drPick(b.dataset.dg, 'other')); const m = $('#drMore'); if (m) m.onclick = () => { DR.more += 40; renderDraft(); }; }
+function drDrawAvail(D, btn) {
+  const rows = D.avail.filter(r => (DR.pos === 'ALL' || r.pos === DR.pos) && (r.pos !== 'K' && r.pos !== 'DST' || DR.pos !== 'ALL') && (!DR.q || r.name.toLowerCase().includes(DR.q) || r.team.toLowerCase() === DR.q));
+  $('#drAvail').innerHTML = rows.length ? `<div class="tscroll"><table class="st"><tr><th class="l">Player</th><th>ROS pts</th><th>Range (10 to 90%)</th><th>Over repl.</th><th>For you</th><th></th></tr>${rows.slice(0, DR.more).map(r => `<tr><td class="l"><span class="pdot" style="background:${POSCOL[r.pos]}"></span><b>${r.name}</b> <span class="sub2">${r.pos} · ${r.team}</span></td><td>${fmt(r.pts, 0)}</td><td>${fmt(r.lo, 0)} to ${fmt(r.hi, 0)}</td><td class="${r.vor > 0 ? 'pos' : 'neg'}">${sgn(r.vor, 0)}</td><td>${r.factor === 1 ? 'need' : 'depth'}</td><td>${btn(r.id)}</td></tr>`).join('')}</table></div>${rows.length > DR.more ? `<div class="more"><span class="sub2">Showing ${DR.more} of ${rows.length}</span><button class="btn ghost sm" id="drMore">Show 40 more</button></div>` : ''}` : '<div class="card empty"><b>No players match</b><span>Clear the search or position filter.</span></div>';
+  bindDrBtns();
+}
+function drPick(id, who) { if (DR.picks.length >= DR.teams * DR.rounds) { toast('The draft is complete. Reset to start over.'); return; } DR.picks.push({id, who}); saveDr(); const y = scrollY; renderDraft(); scrollTo(0, y); }
+function bindDrSetup() {
+  const re = () => { saveDr(); renderDraft(); };
+  $('#drT').onchange = e => { DR.teams = Math.max(4, Math.min(20, +e.target.value || 12)); DR.slot = Math.min(DR.slot, DR.teams); re(); };
+  $('#drS').onchange = e => { DR.slot = +e.target.value; re(); };
+  $('#drR').onchange = e => { DR.rounds = Math.max(1, Math.min(30, +e.target.value || 15)); re(); };
+  $('#drReset').onclick = () => { if (!DR.picks.length) return; const old = DR.picks; DR.picks = []; re(); toast('Draft reset', {action: {label: 'Undo', fn: () => { DR.picks = old; re(); }}, ms: 8000}); };
+}
+
 /* Home */
 function renderHome() {
   const host = $('#tab-home'); const S = st.slate;
