@@ -1094,6 +1094,13 @@ function fantasyTable(host, id, rows, o = {}) {
     ...(o.tier ? [{k: 'tier', t: 'Tier', v: r => r._tier, first: 1, h: r => r._tier ? 'T' + r._tier : ''}] : []),
   ];
   if (o.ros) { const keep = ['rk', 'name', 'pos', 'proj', 'range', 'med', 'sd', 'vor', 'tier']; cols.splice(0, cols.length, ...cols.filter(c => keep.includes(c.k))); const i = cols.findIndex(c => c.k === 'proj'); cols[i] = {...cols[i], t: 'ROS pts'}; cols.splice(i + 1, 0, {k: 'gp', t: 'Games', v: r => r._gp, h: r => r._gp}, {k: 'ppg', t: 'Per game', v: r => r._gp ? P(r, 'proj') / r._gp : null, h: r => r._gp ? fmt(P(r, 'proj') / r._gp) : '–'}); }
+  if (!o.ros) {   // "Projected pts" is the pre-game projection; what a player has actually scored sits in its own column
+    const mx0 = Math.max(...rows.map(r => P0(r, 'hi') || 0), 1), pi = cols.findIndex(c => c.k === 'proj'), ri = cols.findIndex(c => c.k === 'range'), upd = {...cols[pi], k: 'upd', t: 'Updated proj', cls: ''};
+    cols[pi] = {...cols[pi], v: r => P0(r, 'proj'), h: r => fmt(P0(r, 'proj'))};
+    if (ri >= 0) cols[ri] = {...cols[ri], v: r => P0(r, 'hi'), h: r => `<span class="rtxt">${fmt(Math.max(P0(r, 'lo'), 0), 0)}–${fmt(P0(r, 'hi'), 0)}</span>` + rangeBar(Math.max(P0(r, 'lo'), 0), P0(r, 'hi'), P0(r, 'proj'), mx0, C.bar, 90)};
+    const pre = cols.findIndex(c => c.k === 'pre'); if (pre >= 0) cols.splice(pre, 1);
+    if (st.live && st.live.n && st.moreStats) cols.splice(cols.findIndex(c => c.k === 'proj') + 1, 0, upd);
+  }
   if (st.mode === 'easy') {
     if (!st.moreStats) { const keep = o.ros ? ['rk', 'name', 'proj', 'ppg'] : ['rk', 'name', ...(rows.some(r => r._act != null) ? ['act'] : []), 'proj', 'range'], by = Object.fromEntries(cols.map(c => [c.k, c])); cols.splice(0, cols.length, ...keep.filter(k => by[k]).map(k => by[k])); }
     cols.forEach(c => { if (c.k === 'name') c.h = r => pcell(r, 36, !o.ros); if (c.k === 'proj') c.t = o.ros ? 'Rest of season' : 'Projected pts'; if (c.k === 'range') c.t = 'Likely range'; if (c.k === 'act') c.t = 'Scored'; if (c.k === 'ppg') c.t = 'Per game'; });
@@ -1287,7 +1294,7 @@ function prepSlate(rows) {
     let tier = 1, top = P(arr[0], 'proj');
     arr.forEach((r, i) => { const v = P(r, 'proj'); r._pr = i + 1; r._vor = v - base; if (top - v > Math.max(2.5, 0.16 * top)) { tier++; top = v; } r._tier = tier; });
   }
-  [...rows].sort((a, b) => P(b, 'proj') - P(a, 'proj')).forEach((r, i) => r._rk = i + 1);
+  [...rows].sort((a, b) => (P0(b, 'proj') || 0) - (P0(a, 'proj') || 0)).forEach((r, i) => r._rk = i + 1);   // # follows the pre-game projection (what the table shows)
 }
 function renderSlate() {
   const S = st.slate, host = $('#s_body'); if (!host || !S) return;

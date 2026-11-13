@@ -193,3 +193,13 @@ def test_game_simulator_views_and_watch(br):
     pg.click(".plseg[data-sg=lab] [data-k=mu]"); assert pg.locator("#gl-mu table.mb:visible").count() >= 1 and pg.locator("#gl-mu .rowc.cp").count() >= 4
     pg.click("#gameBtn"); pg.wait_for_selector("#gameBody:not(.hide) .sb", timeout=60000); assert pg.evaluate("st.sub.lab") == "pbp" and pg.locator("#gameBody .sb .tlg").count() == 2
     pg.click("#bNext"); assert pg.evaluate("st.i") == 1 and pg.evaluate("document.documentElement.scrollWidth") <= 1440 and not pg.errs
+
+def test_rankings_show_projection_not_actual(br):
+    pg = page(br, "#/players/rank", league=True)
+    r = pg.evaluate("(() => { const x = st.slate.rows.find(r => r._act != null && r._left === 0 && Math.abs(P0(r, 'proj') - r._act) > 1 && r.pos !== 'DST'); return x && {n: x.name, p: fmt(P0(x, 'proj')), a: fmt(x._act)}; })()")
+    assert r, "mock data needs a finished game"
+    pg.fill("#s_q", r["n"].lower()); pg.wait_for_timeout(400)
+    assert pg.locator("#rkTable tbody tr td[data-k=proj]").first.inner_text().strip() == r["p"] != r["a"]
+    assert r["a"] in pg.locator("#rkTable tbody tr td[data-k=act]").first.inner_text()      # what he scored sits in its own column
+    pg.fill("#s_q", ""); pg.wait_for_timeout(300)
+    ranks = pg.eval_on_selector_all("#rkTable tbody tr", "t=>t.map(x=>x.cells[0].innerText.trim()).map(Number)"); assert ranks == sorted(ranks) and not pg.errs
