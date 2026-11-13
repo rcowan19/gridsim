@@ -748,8 +748,9 @@ async function init() {
   st.home = g0 ? g0.home : (st.TEAMS.KC ? 'KC' : abbrs[0]); st.away = g0 ? g0.away : (st.TEAMS.BUF ? 'BUF' : abbrs[1]);
   if (g0 && g0.neutral) { st.neutral = true; $('#neutral').checked = true; }
   $('#home').value = st.home; $('#away').value = st.away;
-  $('#home').onchange = e => { st.home = e.target.value; renderLineups(); };
-  $('#away').onchange = e => { st.away = e.target.value; renderLineups(); };
+  const schedNeutral = () => { const g = st.sched.games.find(x => x.home === st.home && x.away === st.away && !x.played); st.neutral = !!(g && g.neutral); $('#neutral').checked = st.neutral; };
+  $('#home').onchange = e => { st.home = e.target.value; schedNeutral(); renderLineups(); };
+  $('#away').onchange = e => { st.away = e.target.value; schedNeutral(); renderLineups(); };
   $('#neutral').onchange = e => st.neutral = e.target.checked;
   $('#condMode').onchange = e => { st.cond.mode = e.target.value; $('#condManual').classList.toggle('hide', st.cond.mode !== 'manual'); };
   $('#condRoof').onchange = e => st.cond.roof = e.target.value; $('#condWind').oninput = e => st.cond.wind = e.target.value; $('#condTemp').oninput = e => st.cond.temp = e.target.value;
@@ -961,7 +962,7 @@ function renderProj(d) {
   const fav = w.home >= w.away ? H : A, fp = Math.max(w.home, w.away), mg = Math.abs(d.margin.median);
   const verdict = fp < .55 ? 'Too close to call. Either team could win.' : `${nmT(fav)} ${fp >= .65 ? 'are favored' : 'have a slight edge'}. They win ${pct(fp)} of simulated games, usually by about ${fmt(mg, 0)} points.`;
   const side = (t, wp, sc, lab, col) => `<div class="sht">${tlogo(t, 56)}<div class="shn">${nmT(t)}</div><div class="shw" style="color:${col}">${pct(wp)}</div><div class="shs">${lab} · avg ${fmt(sc, 0)} pts</div></div>`;
-  const note = d.blend_note ? (d.blend ? `Blended ${Math.round(d.blend.beta * 100)}% toward ${d.blend.src === 'elo' ? 'an Elo rating (no betting line yet)' : 'the betting line'}. Simulation alone: ${A} ${fmt(d.blend.sim_away)} · ${H} ${fmt(d.blend.sim_home)}.` : d.blend_note === 'off: lineup changed' ? 'Betting-line blend is off because you changed a lineup, so this is the pure simulation.' : '') : '';
+  const note = d.blend_note ? (d.blend ? `Blended ${Math.round(d.blend.beta * 100)}% toward ${d.blend.src === 'elo' ? 'an Elo rating (no betting line yet)' : 'the betting line'}. Simulation alone: ${A} ${fmt(d.blend.sim_away)} · ${H} ${fmt(d.blend.sim_home)}.` : d.blend_note === 'off: lineup changed' ? 'Betting-line blend is off because you changed a lineup, so this is the pure simulation.' : (() => { const sg = st.sched.games.find(x => x.home === H && x.away === A && !x.played); return !sg ? 'Pure simulation: these teams have no scheduled game, so there is no betting line to blend with.' : !!sg.neutral !== !!st.neutral ? 'Pure simulation: the neutral-site setting differs from the schedule, so the betting-line blend is off.' : ''; })()) : '';
   OV.appendChild(card(`<div class="shg">${side(A, w.away, d.score.away.mean, 'Away', ac)}
       <div class="shm"><div class="sub2">Chance to win</div><div class="wbar"><div style="width:${w.away * 100}%;background:${ac}"></div><div style="width:${w.tie * 100}%;background:${C.rule2}"></div><div style="width:${w.home * 100}%;background:${hc}"></div></div><div class="shl">${verdict}</div></div>
       ${side(H, w.home, d.score.home.mean, 'Home', hc)}</div>

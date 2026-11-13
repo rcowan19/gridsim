@@ -203,3 +203,12 @@ def test_rankings_show_projection_not_actual(br):
     assert r["a"] in pg.locator("#rkTable tbody tr td[data-k=act]").first.inner_text()      # what he scored sits in its own column
     pg.fill("#s_q", ""); pg.wait_for_timeout(300)
     ranks = pg.eval_on_selector_all("#rkTable tbody tr", "t=>t.map(x=>x.cells[0].innerText.trim()).map(Number)"); assert ranks == sorted(ranks) and not pg.errs
+
+def test_simulator_neutral_follows_the_schedule(br):
+    pg = page(br, "#/lab/ov")
+    g = pg.evaluate("st.sched.games.find(g => g.neutral && !g.played && g.spread != null)"); assert g, "schedule needs an unplayed neutral-site game with a line"
+    pg.select_option("#away", g["away"]); pg.select_option("#home", g["home"]); assert pg.is_checked("#neutral")      # the schedule says neutral
+    pg.click("#runBtn"); pg.wait_for_selector("#gl-ov .simhero", timeout=90000); assert "Blended" in pg.inner_text("#gl-ov .simhero")   # and the line blend still applies
+    other = pg.evaluate("(a => Object.keys(st.TEAMS).find(t => t !== a && !st.sched.games.some(x => x.home === t && x.away === a)))(%r)" % g["away"])
+    pg.select_option("#home", other); assert not pg.is_checked("#neutral")                                         # picking another opponent resets it
+    pg.click("#runBtn"); pg.wait_for_function("document.querySelector('#gl-ov').innerText.includes('no scheduled game')", timeout=90000); assert not pg.errs

@@ -222,7 +222,8 @@ def simulate(r: Req):
     res = sim.simulate(r.home, r.away, n, seed, r.overrides, r.neutral, pool=POOL, cond=cond)
     binfo, note = None, "off"
     g = sim.vegas_for(r.home, r.away)
-    if r.vegas and g and not r.overrides and not r.neutral:
+    # the line describes the scheduled game, so blend only when the site setting matches the schedule (a neutral-site game stays neutral)
+    if r.vegas and g and not r.overrides and bool(r.neutral) == bool(g.get("neutral")):
         res, binfo = sim.apply_blend(res, g.get("spread"), g.get("total"), seed=seed, home=r.home, away=r.away, neutral=r.neutral)
         note = "on" if binfo else "no line"
     elif r.vegas and r.overrides:
