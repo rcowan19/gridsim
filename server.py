@@ -5,11 +5,15 @@ import random
 from contextlib import asynccontextmanager
 from multiprocessing import Pool
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+import accounts
+import auth
+import billing
+import db
 import sim
 from engine import PSTATS, TSTATS, env_factors
 
@@ -34,12 +38,16 @@ POOL = None
 @asynccontextmanager
 async def lifespan(app):
     global POOL
+    auth.check_production_config()      # a paid app refuses to start half-configured
+    db.engine()
     POOL = Pool(os.cpu_count() or 1, initializer=sim._init)
     yield
     POOL.terminate()
 
 
 app = FastAPI(lifespan=lifespan)
+app.include_router(accounts.router)
+app.include_router(billing.router)
 
 
 def _stamp():
@@ -53,7 +61,7 @@ def data_status():
     return {"updated": _stamp()}
 
 
-@app.post("/api/refresh")
+@app.post("/api/refresh", dependencies=[Depends(auth.admin)])
 def refresh():
     """Pull the latest nflverse data (injury reports, depth charts, results), rebuild the model, restart the workers."""
     global MODEL, POOL
@@ -92,7 +100,7 @@ def check(r):
         raise HTTPException(400, "pick two different teams")
 
 
-@app.get("/api/teams")
+@app.get("/api/teams", dependencies=[Depends(auth.plan)])
 def teams():
     out = {}
     for abbr, t in MODEL["teams"].items():
@@ -106,14 +114,14 @@ def teams():
     return {"teams": out, "meta": MODEL["meta"], "league": MODEL["league_actual"], "league_rates": lg}
 
 
-@app.get("/api/schedule")
+@app.get("/api/schedule", dependencies=[Depends(auth.plan)])
 def schedule_():
     weeks = sorted({g["week"] for g in sim.SCHEDULE})
     nxt = next((w for w in weeks if any(g["week"] == w and not g["played"] for g in sim.SCHEDULE)), weeks[-1] if weeks else None)
     return {"games": sim.SCHEDULE, "weeks": weeks, "next_week": nxt}
 
 
-@app.get("/api/espn")
+@app.get("/api/espn", dependencies=[Depends(auth.limited("league"))])
 def espn_league(league: str, season: int = 2026, s2: str = "", swid: str = ""):
     import espn
     try:
@@ -124,7 +132,7 @@ def espn_league(league: str, season: int = 2026, s2: str = "", swid: str = ""):
         raise HTTPException(502, str(e))
 
 
-@app.get("/api/espn_live")
+@app.get("/api/espn_live", dependencies=[Depends(auth.limited("league"))])
 def espn_live(league: str, week: int, season: int = 2026, s2: str = "", swid: str = ""):
     """Actual (or in-progress) fantasy points for a week, straight from ESPN under the league's own scoring."""
     import espn, time
@@ -142,6 +150,78 @@ def espn_live(league: str, week: int, season: int = 2026, s2: str = "", swid: st
     except (espn.EspnError, OSError, ValueError) as e:
         games_err = str(e)
     return {"week": week, "fetched": time.strftime("%Y-%m-%dT%H:%M:%S"), "players": players, "games": games, "games_err": games_err}
+
+
+# ---- multi-platform league access: one URL family for ESPN and Sleeper (the UI uses these; /api/espn* stay for older callers) ----
+def _games_status(season, week):
+    import espn
+    try:
+        gm = os.environ.get("GRIDSIM_NFL_STATUS_MOCK")
+        return espn.normalize_scoreboard(json.load(open(gm)) if gm else espn.fetch_scoreboard(season, week)), None
+    except (espn.EspnError, OSError, ValueError) as e:
+        return [], str(e)
+
+
+def _sleeper_mock():
+    m = os.environ.get("GRIDSIM_SLEEPER_MOCK")             # dev/testing: {"find": ..., "raw": ..., "players": ..., "live": [...]}
+    return json.load(open(m)) if m else None
+
+
+@app.get("/api/league", dependencies=[Depends(auth.limited("league"))])
+def league(platform: str = "espn", league: str = "", season: int = 2026, s2: str = "", swid: str = "", saved: int | None = None, u=Depends(auth.user)):
+    import espn, sleeper
+    if saved is not None:           # a saved league: use the stored (encrypted) credentials, the browser never needs the cookies again
+        platform, league, season, s2, swid = accounts.saved_creds(u, saved)
+    if not league.strip():
+        raise HTTPException(400, "Enter a league ID.")
+    try:
+        if platform == "espn":
+            mock = os.environ.get("GRIDSIM_ESPN_MOCK")
+            out = espn.normalize(json.load(open(mock)) if mock else espn.fetch(league, season, s2 or None, swid or None))
+        elif platform == "sleeper":
+            mk = _sleeper_mock()
+            out = sleeper.normalize(mk["raw"], mk["players"]) if mk else sleeper.normalize(sleeper.fetch(league, season))
+        else:
+            raise HTTPException(400, f"Unknown platform '{platform}'.")
+    except (espn.EspnError, sleeper.SleeperError) as e:
+        raise HTTPException(502, str(e))
+    out["platform"] = platform
+    return out
+
+
+@app.get("/api/league_live", dependencies=[Depends(auth.limited("league"))])
+def league_live(platform: str = "espn", league: str = "", week: int = 1, season: int = 2026, s2: str = "", swid: str = "", saved: int | None = None,
+                u=Depends(auth.user)):
+    """Actual (or in-progress) points for a week under the league's own scoring, plus which NFL games have started."""
+    import espn, sleeper, time
+    if saved is not None:
+        platform, league, season, s2, swid = accounts.saved_creds(u, saved)
+    try:
+        if platform == "espn":
+            mock = os.environ.get("GRIDSIM_ESPN_LIVE_MOCK")
+            players = espn.normalize_live(json.load(open(mock)) if mock else espn.fetch_live(league, season, week, s2 or None, swid or None), week)
+        elif platform == "sleeper":
+            mk = _sleeper_mock()
+            players = sleeper.normalize_live(mk["live"], week, mk["players"]) if mk else sleeper.normalize_live(sleeper.fetch_live(league, week), week)
+        else:
+            raise HTTPException(400, f"Unknown platform '{platform}'.")
+    except (espn.EspnError, sleeper.SleeperError) as e:
+        raise HTTPException(502, str(e))
+    games, games_err = _games_status(season, week)
+    return {"week": week, "fetched": time.strftime("%Y-%m-%dT%H:%M:%S"), "players": players, "games": games, "games_err": games_err}
+
+
+@app.get("/api/sleeper/find", dependencies=[Depends(auth.limited("league"))])
+def sleeper_find(user: str, season: int = 2026):
+    """Sleeper username -> that user's leagues for the season, so they can pick one instead of hunting for an ID."""
+    import sleeper
+    mk = _sleeper_mock()
+    if mk:
+        return mk["find"]
+    try:
+        return sleeper.find_leagues(user, season)
+    except sleeper.SleeperError as e:
+        raise HTTPException(502, str(e))
 
 
 class SlateReq(BaseModel):
@@ -177,7 +257,7 @@ def _attach_faces(res):
             row.update({k: v for k, v in f.items() if v})
 
 
-@app.post("/api/slate")
+@app.post("/api/slate", dependencies=[Depends(auth.limited("sim"))])
 def slate(r: SlateReq):
     import time
     n = max(100, min(r.n, 10000))
@@ -213,7 +293,7 @@ def resolve_conditions(r):
     return {"roof": g.get("roof"), "wind": wx.get("wind"), "temp": wx.get("temp")}, ("forecast" if wx else ("roof only" if g.get("roof") else "none"))
 
 
-@app.post("/api/simulate")
+@app.post("/api/simulate", dependencies=[Depends(auth.limited("sim"))])
 def simulate(r: Req):
     check(r)
     n = max(50, min(r.n, 20000))
@@ -234,7 +314,7 @@ def simulate(r: Req):
     return out
 
 
-@app.post("/api/game")
+@app.post("/api/game", dependencies=[Depends(auth.limited("sim"))])
 def one_game(r: Req):
     check(r)
     e = sim.get_engine()

@@ -3,3 +3,9 @@ pandas
 pyarrow
 fastapi
 uvicorn
+pydantic>=2
+pyjwt[crypto]>=2.8
+cryptography
+stripe>=10
+sqlalchemy>=2
+psycopg[binary]>=3.1
