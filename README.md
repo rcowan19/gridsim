@@ -50,17 +50,21 @@ wind above 5, indoors about +0.5). Temperature, weekday and kickoff slot showed 
 `sh validate/run_all.sh` runs the leak-free walk-forward backtest for 2023-2025 (model rebuilt each week from earlier data only), writes league-level and game-level reports to `validate/out/`, evaluates the Vegas/Elo blends, checks game-script realism and runs the engine invariant tests (`pytest -q tests`). See `AUDIT.md` for findings, `validate.grid` for knob experiments and `validate.players` for the player-level (fantasy) check.
 
 
-## Simple and Advanced views
-GridSim opens in the **Simple** view for first-time users: Home (this week's matchup and the one thing to do next), My lineup (suggested
-swaps), Add / trade (one page with two choices: add a free agent, or find a trade), Players and Games. Every team has its logo and every
-player a headshot. Projections are shown as "projected points" with a likely range; boom/bust, medians, standard deviations, market
-spreads and distributions are hidden. **Advanced** (button at the bottom of the menu, or Settings, Experience) adds the Matchup lab, Stacks,
-Injuries, detailed Lineup, Waivers, Trades, League and What-if pages and every stat column, exactly as before. Opening an advanced
-link while in Simple view switches to Advanced automatically. The saved league ID connects automatically on load.
+## One simple view, with detail on demand
+GridSim has a single interface built for first-time users: Home (this week's matchup and the one thing to do next), My lineup
+(suggested swaps), Add / trade (add a free agent, or find a trade), Players and Games. Every team has its logo and every player a
+headshot. Projections are "projected points" with a likely range.
+
+The advanced material opens in place, without switching the interface:
+- **Trade suggestion, See full analysis** (or **Build my own trade**) opens the full Trade builder (both rosters, before/after, lineup changes) in a side sheet over the Add / trade page.
+- **Player panel, Show advanced stats** shows the full distribution, boom/bust, prop calculator and game script; **Back to summary** returns.
+- **Players, More stats** adds every statistic column, the column picker and CSV export.
+- **Games, Matchup details** (per game) shows market vs sim lines, the margin distribution and weather; **More options** adds sort, table view and the weather toggle.
+- **More tools** (collapsed in the menu): Matchup lab, Stacks, Injuries, detailed Lineup, Waivers, Trades, League, What-if. These open as full pages.
 
 Logos load from ESPN's image server and headshots from the NFL's (with an ESPN fallback). They load in your browser, not on the server. If an
 image is blocked or missing, the team abbreviation or the player's initials show instead. `server.py` only adds display metadata
 (`fn`, `hs`, `eid`) to slate rows; no model or simulation code changed.
 
 ## UI (branch `ui/redesign`)
-Sidebar/rail/tab-bar shell, Simple/Advanced views, Home dashboard, Settings, light/dark themes, Ctrl/Cmd+K palette, URL-state routing. Design tokens and component guide: `docs/ui/design-system.md`; findings and before/after: `UI_AUDIT.md`. Checks: `python tests/ui/contrast.py`, `python tests/ui/axe_run.py`, `python -m pytest -q tests/ui` (server on :8000; start it with `GRIDSIM_ESPN_MOCK=/tmp/espn_mock.json` from `tests/ui/make_espn_mock.py` for the league tests).
+Sidebar/rail/tab-bar shell, single simple view with detail on demand, Home dashboard, Settings, light/dark themes, Ctrl/Cmd+K palette, URL-state routing. Design tokens and component guide: `docs/ui/design-system.md`; findings and before/after: `UI_AUDIT.md`. Checks: `python tests/ui/contrast.py`, `python tests/ui/axe_run.py`, `python -m pytest -q tests/ui` (server on :8000; start it with `GRIDSIM_ESPN_MOCK=/tmp/espn_mock.json` from `tests/ui/make_espn_mock.py` for the league tests).
