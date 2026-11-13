@@ -152,6 +152,29 @@ class SlateReq(BaseModel):
 
 
 SLATE_CACHE = {}
+_FACES = None
+
+
+def _attach_faces(res):
+    """Display-only metadata for the UI: full name, headshot URL and ESPN id from the nflverse roster files. Does not touch any projection."""
+    global _FACES
+    if _FACES is None:
+        _FACES = {}
+        try:
+            import pandas as pd
+            for yr in (2025, 2026):                       # newer file wins
+                f = os.path.join(os.path.dirname(__file__), "data", f"roster_{yr}.parquet")
+                if os.path.exists(f):
+                    d = pd.read_parquet(f, columns=["gsis_id", "full_name", "espn_id", "headshot_url"]).dropna(subset=["gsis_id"])
+                    for g, n, e, h in d.itertuples(index=False):
+                        cur = _FACES.get(g, {})
+                        _FACES[g] = {"fn": n or cur.get("fn"), "eid": (str(int(e)) if e == e and e is not None else cur.get("eid")), "hs": h if isinstance(h, str) and h else cur.get("hs")}
+        except Exception as e:                            # images are optional; never break the slate over them
+            print("faces unavailable:", e)
+    for row in list(res.get("rows", [])) + list(res.get("rows_idle", [])):
+        f = _FACES.get(row.get("id"))
+        if f:
+            row.update({k: v for k, v in f.items() if v})
 
 
 @app.post("/api/slate")
@@ -171,6 +194,7 @@ def slate(r: SlateReq):
                 wx = {g["id"]: w for g, w in zip(games, ex.map(weather.forecast, games))}
         res = sim.simulate_slate(r.week, n, pool=POOL, hist={k: v[-8:] for k, v in MODEL.get("hist", {}).items()}, weather=wx, ov=ov)
         res["secs"] = round(time.time() - t0, 1)
+        _attach_faces(res)
         SLATE_CACHE[key] = res
     return SLATE_CACHE[key]
 

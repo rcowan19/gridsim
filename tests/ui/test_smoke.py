@@ -1,5 +1,5 @@
 """Playwright smoke tests (server must be running on :8000):  python -m pytest -q tests/ui/test_smoke.py"""
-import json, pytest
+import json, re, pytest
 from playwright.sync_api import sync_playwright
 URL = "http://localhost:8000/"
 
@@ -8,10 +8,13 @@ def br():
     with sync_playwright() as p:
         b = p.chromium.launch(); yield b; b.close()
 
-def page(br, hash_="", w=1440, h=900):
-    pg = br.new_page(viewport={"width": w, "height": h}); pg.errs = []
+def page(br, hash_="", w=1440, h=900, mode="adv", league=False, block_images=False):
+    ctx = br.new_context(viewport={"width": w, "height": h}); pg = ctx.new_page(); pg.errs = []
     pg.on("pageerror", lambda e: pg.errs.append(str(e)))
+    if block_images: ctx.route(re.compile(r"(espncdn\.com|nfl\.com)"), lambda r: r.abort())
+    pg.add_init_script((f"if(!sessionStorage.getItem('t_init')){{sessionStorage.setItem('t_init','1');localStorage.setItem('gs_mode','{mode}');}}") + ("localStorage.setItem('gs_league','1781890288');" if league else ""))
     pg.goto(URL + hash_); pg.wait_for_function("typeof st!=='undefined' && st.sched", timeout=20000)
+    if league: pg.wait_for_function("st.lg && st.slate", timeout=120000)
     pg.wait_for_function("!document.body.innerText.includes('Simulating')", timeout=90000)
     return pg
 
@@ -70,3 +73,52 @@ def test_phone_no_hscroll_and_tabbar(br):
 def test_error_state_retry(br):
     pg = page(br, "#/games"); pg.route("**/api/slate", lambda r: r.abort()); pg.click("#g_refresh"); pg.wait_for_selector("#retrySl", timeout=15000)
     assert "Could not reach" in pg.inner_text("#nflBody"); pg.unroute("**/api/slate"); pg.click("#retrySl"); pg.wait_for_selector(".gcard", timeout=90000)
+
+
+# ---------- Easy (default) experience; the league fixture is served by GRIDSIM_ESPN_MOCK ----------
+def test_easy_nav_is_short_and_has_no_advanced_tools(br):
+    pg = page(br, "#/home", mode="easy")
+    ids = pg.eval_on_selector_all("#side [data-nav]", "b=>b.map(x=>x.dataset.nav)")
+    assert ids == ["home", "mylineup", "moves", "proj", "games", "settings"], ids
+    for nid in ids:
+        pg.click(f"#side [data-nav={nid}]"); pg.wait_for_timeout(300); assert pg.locator(f"#side [data-nav={nid}][aria-current=page]").count() == 1, nid
+    assert pg.locator(".adv-only:visible").count() == 0
+    assert not pg.errs
+
+def test_easy_connect_card_then_lineup_and_images(br):
+    pg = page(br, "#/home", mode="easy", block_images=True)
+    assert pg.locator("#ezBtn").count() == 1 and "Connect my league" in pg.inner_text("#tab-home")
+    pg.fill("#ezId", "1781890288"); pg.click("#ezBtn"); pg.wait_for_function("st.lg && st.slate", timeout=120000); pg.wait_for_selector(".hero", timeout=20000)
+    assert "chance to win" in pg.inner_text("#tab-home")
+    pg.click("#side [data-nav=mylineup]"); pg.wait_for_selector("#tab-mylineup .slotl", timeout=20000)
+    assert pg.locator("#tab-mylineup .slotl").count() >= 8 and pg.locator("#tab-mylineup .hs").count() >= 8
+    # blocked image servers: letters stay visible, no broken <img> is left behind
+    pg.wait_for_timeout(800); assert pg.locator("#tab-mylineup .hs img").count() == 0
+    assert pg.locator("#tab-mylineup .hs b").first.is_visible()
+    pg.click("#tab-mylineup .rowc >> nth=0"); pg.wait_for_selector("#dpanel .dnm"); assert pg.locator("#dpanel .kpis.easy-only").is_visible() and not pg.locator("#dpanel .kpis.adv-only").is_visible()
+    assert not pg.errs
+
+def test_easy_moves_one_page_two_choices(br):
+    pg = page(br, "#/moves", mode="easy", league=True)
+    assert pg.locator(".choice").count() == 2
+    assert pg.locator("#mvBody .pick .card, #mvBody .card.empty").count() >= 1
+    pg.click(".choice[data-mv=trade]"); pg.wait_for_selector("#mvFind"); pg.click("#mvFind")
+    pg.wait_for_selector("#mvBody .tcard", timeout=180000)
+    assert pg.locator("#mvBody .tcard").count() >= 1 and "you give" in pg.inner_text("#mvBody").lower()
+    assert not pg.errs
+
+def test_easy_players_and_games_are_simple(br):
+    pg = page(br, "#/players/rank", mode="easy", league=True)
+    heads = pg.eval_on_selector_all("#rkTable thead th", "t=>t.map(x=>x.innerText.trim().toLowerCase())")
+    assert not any(h in heads for h in ("boom%", "bust%", "sd", "median")), heads
+    assert pg.locator("#pg-players .subtabs button:visible").count() == 1
+    pg.click("#side [data-nav=games]"); pg.wait_for_selector(".gcard.ez"); assert pg.locator(".gcard.ez .hist, .gcard.ez table").count() == 0
+    assert pg.evaluate("document.documentElement.scrollWidth") <= 1440 and not pg.errs
+
+def test_mode_switch_persists_and_deep_links_open_advanced(br):
+    pg = page(br, "#/home", mode="easy", league=True)
+    pg.click("#modeBtn"); pg.wait_for_timeout(300)
+    assert pg.evaluate("st.mode") == "adv" and pg.locator("#side [data-nav=lab]").count() == 1
+    pg.reload(); pg.wait_for_function("typeof st!=='undefined'"); assert pg.evaluate("st.mode") == "adv"
+    pg.click("#modeBtn"); pg.wait_for_timeout(300); assert pg.evaluate("st.mode") == "easy"
+    pg.evaluate("location.hash='#/lab/ov'"); pg.wait_for_timeout(800); assert pg.evaluate("st.mode") == "adv" and pg.evaluate("st.page") == "lab"

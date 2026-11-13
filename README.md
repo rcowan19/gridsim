@@ -50,5 +50,17 @@ wind above 5, indoors about +0.5). Temperature, weekday and kickoff slot showed 
 `sh validate/run_all.sh` runs the leak-free walk-forward backtest for 2023-2025 (model rebuilt each week from earlier data only), writes league-level and game-level reports to `validate/out/`, evaluates the Vegas/Elo blends, checks game-script realism and runs the engine invariant tests (`pytest -q tests`). See `AUDIT.md` for findings, `validate.grid` for knob experiments and `validate.players` for the player-level (fantasy) check.
 
 
+## Simple and Advanced views
+GridSim opens in the **Simple** view for first-time users: Home (this week's matchup and the one thing to do next), My lineup (suggested
+swaps), Add / trade (one page with two choices: add a free agent, or find a trade), Players and Games. Every team has its logo and every
+player a headshot. Projections are shown as "projected points" with a likely range; boom/bust, medians, standard deviations, market
+spreads and distributions are hidden. **Advanced** (button at the bottom of the menu, or Settings, Experience) adds the Matchup lab, Stacks,
+Injuries, detailed Lineup, Waivers, Trades, League and What-if pages and every stat column, exactly as before. Opening an advanced
+link while in Simple view switches to Advanced automatically. The saved league ID connects automatically on load.
+
+Logos load from ESPN's image server and headshots from the NFL's (with an ESPN fallback). They load in your browser, not on the server. If an
+image is blocked or missing, the team abbreviation or the player's initials show instead. `server.py` only adds display metadata
+(`fn`, `hs`, `eid`) to slate rows; no model or simulation code changed.
+
 ## UI (branch `ui/redesign`)
-Sidebar/rail/tab-bar shell, Home dashboard, Settings, light/dark themes, Ctrl/Cmd+K palette, URL-state routing. Design tokens and component guide: `docs/ui/design-system.md`; findings and before/after: `UI_AUDIT.md`. Checks: `python tests/ui/contrast.py`, `python tests/ui/axe_run.py`, `python -m pytest -q tests/ui` (server on :8000).
+Sidebar/rail/tab-bar shell, Simple/Advanced views, Home dashboard, Settings, light/dark themes, Ctrl/Cmd+K palette, URL-state routing. Design tokens and component guide: `docs/ui/design-system.md`; findings and before/after: `UI_AUDIT.md`. Checks: `python tests/ui/contrast.py`, `python tests/ui/axe_run.py`, `python -m pytest -q tests/ui` (server on :8000; start it with `GRIDSIM_ESPN_MOCK=/tmp/espn_mock.json` from `tests/ui/make_espn_mock.py` for the league tests).

@@ -37,6 +37,7 @@
 html,body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 var(--font)}
 button,select,input{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--text);outline-offset:2px}
+#main:focus,#main:focus-visible{outline:none}
 
 
 
@@ -378,7 +379,7 @@ kbd{font:600 11px/1 var(--mono);border:1px solid var(--line-strong);border-botto
 .gl select{width:auto;padding:6px var(--s3);min-height:34px}
 .stamp{font-size:12px;color:var(--muted)}
 .searchbtn svg{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round}.searchbtn kbd{white-space:nowrap}
-#tab-home,#tab-settings{display:flex;flex-direction:column;gap:var(--s4)}
+#tab-home,#tab-mylineup,#tab-moves,#tab-settings{display:flex;flex-direction:column;gap:var(--s4)}
 .tabbar{display:none}
 .rail-only{display:none}
 @media(max-width:1100px){
@@ -457,6 +458,99 @@ th.srt{cursor:pointer}th.srt:hover{color:var(--text)}
 td[data-k=name],td.nm{white-space:nowrap}
 @media(max-width:760px){.subtabs{-webkit-mask-image:linear-gradient(90deg,#000 88%,transparent);mask-image:linear-gradient(90deg,#000 88%,transparent);scroll-snap-type:x proximity}.subtabs button{scroll-snap-align:start;white-space:nowrap}}
 .btnrow{display:inline-flex;gap:6px;white-space:nowrap}
+/* ===== v2: clearer controls, motion, logos and headshots, Easy experience ===== */
+:root{--shadow-1:0 1px 2px rgba(60,45,20,.07),0 2px 10px rgba(60,45,20,.05);--shadow-2:0 10px 30px rgba(60,45,20,.14);--ease:cubic-bezier(.22,.7,.2,1);--logo-bg:#fff;--accent-soft:rgba(143,69,36,.10)}
+:root[data-theme="dark"]{--shadow-1:0 1px 2px rgba(0,0,0,.45),0 2px 10px rgba(0,0,0,.25);--shadow-2:0 12px 32px rgba(0,0,0,.5);--logo-bg:#f4f0e6;--accent-soft:rgba(230,147,95,.14)}
+html{scroll-behavior:smooth}
+:root[data-mode="easy"] .adv-only{display:none!important}
+:root[data-mode="adv"] .easy-only{display:none!important}
+:root[data-mode="easy"].has-league #g_fmt{display:none}
+.card{border-radius:14px;box-shadow:var(--shadow-1);transition:box-shadow .2s var(--ease),border-color .2s var(--ease)}
+.page{animation:pgin .28s var(--ease)}
+@keyframes pgin{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes pop{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+/* buttons: obvious at a glance, clear hover and pressed states */
+.btn{min-height:40px;border-radius:10px;font-weight:700;letter-spacing:.005em;transition:background-color .16s var(--ease),border-color .16s var(--ease),box-shadow .16s var(--ease),transform .08s var(--ease),filter .16s;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.btn.primary{box-shadow:0 1px 2px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.14)}
+.btn.primary:hover{filter:brightness(1.07);box-shadow:0 4px 14px rgba(143,69,36,.34),inset 0 1px 0 rgba(255,255,255,.14)}
+.btn.ghost{background:var(--surface);border:1.5px solid var(--line-strong);color:var(--text)}
+.btn.ghost:hover{background:var(--surface-2);border-color:var(--text)}
+.btn:not(.primary):not(.ghost){background:var(--surface);border:1.5px solid var(--line-strong);color:var(--text)}.btn:not(.primary):not(.ghost):hover{background:var(--surface-2);border-color:var(--text)}
+.btn:active:not(:disabled){transform:translateY(1px)}
+.btn.sm{min-height:34px;padding:6px 12px;font-size:13px}
+.btn.lg{min-height:48px;font-size:15px;padding:0 24px}
+.btn.auto{width:auto}
+.btn:focus-visible,.chips button:focus-visible,.seg button:focus-visible,.nlink:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.seg{border-radius:12px;padding:4px;gap:4px}
+.seg button{border-radius:9px;min-height:32px;padding:6px 14px;font-weight:650;transition:background-color .16s var(--ease),color .16s}
+.seg button:hover{color:var(--text)}
+.seg button.on{background:var(--text);color:var(--bg);box-shadow:none}
+.chips button{border:1.5px solid var(--line-strong);background:var(--surface);color:var(--text);min-height:36px;font-weight:600;transition:background-color .16s var(--ease),transform .08s}
+.chips button:hover{background:var(--surface-2)}
+.chips button:active{transform:translateY(1px)}
+.chips button.on{background:var(--text);color:var(--bg);border-color:var(--text)}
+.inp,select{min-height:40px;border-radius:10px;border:1.5px solid var(--line-strong);background:var(--surface);transition:border-color .16s,box-shadow .16s}
+.inp:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.nlink{min-height:42px;border-radius:10px;transition:background-color .16s var(--ease),color .16s}
+.nlink.on{background:var(--accent);color:var(--accent-ink);box-shadow:none}
+.brand{display:flex;align-items:center;gap:10px}.brand i{width:30px;height:30px;border-radius:9px;background:var(--accent);display:grid;place-items:center;flex:none}.brand i svg{width:18px;height:18px;stroke:var(--accent-ink);fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+tbody tr.clk{transition:background-color .12s}tbody tr.clk:hover{background:var(--accent-soft)}
+.gcard,.tile{box-shadow:var(--shadow-1);border-radius:14px;transition:transform .18s var(--ease),box-shadow .18s var(--ease)}
+.gcard:hover,button.tile:hover{box-shadow:var(--shadow-2);transform:translateY(-2px)}
+.skel{border-radius:8px;background:linear-gradient(90deg,var(--surface-2) 25%,var(--line-soft) 50%,var(--surface-2) 75%);background-size:200% 100%;animation:shim 1.3s linear infinite}
+@keyframes shim{to{background-position:-200% 0}}
+.toast{animation:pop .2s var(--ease)}
+.drawer .dpanel{animation:slidein .26s var(--ease)}@keyframes slidein{from{transform:translateX(24px);opacity:0}to{transform:none;opacity:1}}
+/* team logos and headshots: letters sit underneath, so a blocked or slow image still looks intentional */
+.tlg{position:relative;display:inline-grid;place-items:center;width:var(--s,24px);height:var(--s,24px);border-radius:50%;background:var(--logo-bg);border:2px solid var(--tc,var(--line-strong));flex:none;overflow:hidden;vertical-align:middle}
+.tlg b{font:800 calc(var(--s,24px)*.33)/1 var(--font);color:#1d1b17;letter-spacing:-.02em}
+.tlg img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;padding:10%;background:var(--logo-bg)}
+.tlg.bare{border-width:0;background:none;overflow:visible}.tlg.bare img{background:none;padding:0}
+.hs{position:relative;display:inline-grid;place-items:center;width:var(--s,40px);height:var(--s,40px);border-radius:50%;background:var(--surface-2);border:2px solid var(--pc,var(--line-strong));flex:none;overflow:hidden;vertical-align:middle}
+.hs b{font:700 calc(var(--s,40px)*.34)/1 var(--font);color:var(--text)}
+.hs img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 14%;background:var(--surface-2)}
+.pcell{display:flex;align-items:center;gap:10px;min-width:0;text-align:left}
+.pcell .pn{display:flex;flex-direction:column;min-width:0;line-height:1.25}
+.pcell .pn b{font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pcell .pn span.psub{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:5px;white-space:nowrap}
+.chip{display:inline-block;padding:2px 9px;border-radius:var(--pill);font-size:11.5px;font-weight:700;line-height:1.5;white-space:nowrap}
+.chip.ok{background:var(--good-bg);color:var(--good)}.chip.warn{background:var(--warn-bg);color:var(--warn)}.chip.bad{background:var(--bad-bg);color:var(--bad)}.chip.ink{background:var(--ink-bg);color:var(--muted)}.chip.acc{background:var(--accent-soft);color:var(--accent)}
+/* easy pages */
+.hero{display:grid;grid-template-columns:1fr auto 1fr;gap:var(--s4);align-items:center;padding:var(--s5)}
+.hero .hsd{position:static;height:auto;border:0;padding:0;background:none;display:flex;flex-direction:column;gap:2px;overflow:visible}
+.hero .hsd.r{text-align:right;align-items:flex-end}
+.hero .htn{font:700 15px/1.3 var(--font);color:var(--muted)}.hero .htp{display:block;font:800 44px/1.05 var(--font);font-variant-numeric:tabular-nums;cursor:default}
+.hero .vs{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:120px}.hero .vs b{font:800 13px var(--font);letter-spacing:.08em;color:var(--dim)}
+.wbar2{height:12px;border-radius:99px;background:var(--surface-2);overflow:hidden;display:flex;border:1px solid var(--line)}.wbar2 i{display:block;height:100%;background:var(--accent);transition:width .5s var(--ease)}
+.wline{grid-column:1/-1;display:flex;flex-direction:column;gap:8px}.wline .wt{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}.wline .wt b{font:800 20px var(--font)}
+.acts{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:var(--s4)}
+.act{display:flex;flex-direction:column;gap:10px;align-items:flex-start}.act h3{margin:0}.act .big{font:800 24px/1.2 var(--font)}.act p{margin:0;color:var(--muted)}
+.step{display:flex;gap:12px;align-items:flex-start}.step .n{width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font-weight:800;display:grid;place-items:center;flex:none}
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:var(--s4)}
+.welcome{padding:var(--s6);display:flex;flex-direction:column;gap:var(--s4);background:linear-gradient(135deg,var(--surface),var(--surface-2))}.welcome h2{margin:0;font:800 30px/1.15 var(--font);letter-spacing:-.01em}.welcome p{margin:0;font-size:15px;color:var(--muted);max-width:60ch}
+.rowc{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line-soft);width:100%;text-align:left;background:none;border-width:0 0 1px;font:inherit;color:inherit}
+.rowc:last-child{border-bottom:0}button.rowc{cursor:pointer;transition:background-color .12s}button.rowc:hover{background:var(--accent-soft)}
+.rowc .grow{flex:1;min-width:0}.rowc .pts{font:800 20px var(--font);font-variant-numeric:tabular-nums;text-align:right;min-width:56px}.rowc .pts small{display:block;font:600 11px var(--font);color:var(--muted)}
+.slotl{width:46px;flex:none;text-align:center;font:800 12px var(--font);color:var(--muted);letter-spacing:.04em}
+.swp{display:flex;align-items:center;gap:12px;padding:14px;border-radius:12px;background:var(--accent-soft);border:1px solid var(--line);flex-wrap:wrap}
+.swp .arrow{font-weight:800;color:var(--accent)}
+.tcard{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center}.sideh{font:700 11px var(--font);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}.tcard .tarr{font-size:22px;color:var(--accent);font-weight:800}
+.pick{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:var(--s3)}.pick .card{display:flex;flex-direction:column;gap:12px}
+.choice{display:flex;gap:14px;align-items:flex-start;text-align:left;width:100%;background:var(--surface);border:2px solid var(--line-strong);border-radius:14px;padding:16px 18px;cursor:pointer;transition:border-color .16s var(--ease),box-shadow .16s var(--ease),background-color .16s}
+.choice:hover{border-color:var(--text);box-shadow:var(--shadow-1)}.choice.on{border-color:var(--accent);background:var(--accent-soft)}
+.choice .ci{width:40px;height:40px;border-radius:12px;background:var(--accent);display:grid;place-items:center;flex:none}.choice .ci svg{width:22px;height:22px;stroke:var(--accent-ink);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.choice b{display:block;font:800 17px var(--font);margin-bottom:2px}.choice span{color:var(--muted);font-size:13.5px}
+.choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:var(--s3)}
+.gline{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.gcard .gt{display:flex;flex-direction:column;align-items:center;gap:4px}.gcard .gt.r{align-items:center}.gcard .gnm{font-weight:700;text-align:center}
+.crumbhelp{color:var(--muted);font-size:14px;margin:-6px 0 0}
+.hello{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}.hello h1{margin:0;font:800 28px/1.15 var(--font);letter-spacing:-.01em}.hello p{margin:4px 0 0;color:var(--muted)}
+.modebox{display:flex;gap:10px;flex-wrap:wrap}.modebox .choice{flex:1;min-width:230px}
+@media(max-width:760px){.hero{grid-template-columns:1fr;text-align:left;padding:var(--s4)}.hero .hsd.r{text-align:left;align-items:flex-start}.hero .vs{flex-direction:row;justify-content:flex-start}.hero .htp{font-size:36px}.tcard{grid-template-columns:1fr}.tcard .tarr{transform:rotate(90deg);justify-self:center}.welcome{padding:var(--s4)}.welcome h2{font-size:24px}.hello h1{font-size:23px}}
+.gcard.ez .gteams{align-items:flex-start}.gcard.ez .gt{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}.gcard.ez .gt.r{align-items:center}.gcard.ez .gnm{font:600 13px/1.25 var(--font);color:var(--muted)}.gcard.ez .gsc{font-size:30px}.gcard.ez .gplayers.ez{display:flex;flex-direction:column;gap:var(--s2);margin-top:var(--s3);border-top:1px solid var(--line-soft);padding-top:var(--s3)}.gcard.ez .gplayers.ez>div{min-width:0}.gcard.ez .gplayers.ez .sub2{display:flex;align-items:center;gap:6px;margin-bottom:2px}.rowc.cmp .pcell{min-width:0}.rowc.cmp .pn{min-width:0}.rowc.cmp .pn b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}.rowc.cmp{padding:6px 4px;gap:8px;min-height:0}.rowc.cmp .pts{font-size:15px}.rowc.cmp .pcell .pn b{font-size:13px}.rowc.cmp .psub{display:none}
+.dh .hs{flex:none}.dh .grow{min-width:0}
+:root[data-mode=adv] .sidenav .nlink{min-height:36px;padding-top:5px;padding-bottom:5px}:root[data-mode=adv] .side-foot .nlink{min-height:36px}
 </style>
 </head>
 <body>
@@ -468,14 +562,16 @@ td[data-k=name],td.nm{white-space:nowrap}
   <div class="crumb" id="crumb">GridSim</div>
   <label class="gl">Week <select id="g_week" aria-label="Week"></select></label>
   <div class="seg" id="g_fmt" role="group" aria-label="Scoring"><button data-f="ppr" class="on">PPR</button><button data-f="half">Half</button><button data-f="std">Std</button></div>
-  <label class="gl">Sims <select id="g_depth" aria-label="Simulations per game"><option value="fast">Fast (500)</option><option value="std" selected>Standard (1,000)</option><option value="deep">Deep (10,000)</option></select></label>
-  <button class="btn primary sm" id="g_refresh" title="Re-run the simulations for this week">Run sims</button>
+  <label class="gl adv-only">Sims <select id="g_depth" aria-label="Simulations per game"><option value="fast">Fast (500)</option><option value="std" selected>Standard (1,000)</option><option value="deep">Deep (10,000)</option></select></label>
+  <button class="btn primary sm adv-only" id="g_refresh" title="Re-run the simulations for this week">Run sims</button>
   <button class="btn ghost sm" id="g_scores" title="Pull actual and in-progress fantasy points from ESPN">Live scores</button>
-  <button class="btn ghost sm" id="g_update" title="Pull the latest injury reports, depth charts and results">Update data</button>
-  <span class="stamp" id="g_stamp" aria-live="polite"></span>
+  <button class="btn ghost sm adv-only" id="g_update" title="Pull the latest injury reports, depth charts and results">Update data</button>
+  <span class="stamp adv-only" id="g_stamp" aria-live="polite"></span>
 </div></header>
 <main class="wrap" id="main" tabindex="-1">
   <section id="pg-home" class="page hide"><div id="tab-home"></div></section>
+  <section id="pg-mylineup" class="page hide"><div id="tab-mylineup"></div></section>
+  <section id="pg-moves" class="page hide"><div id="tab-moves"></div></section>
   <section id="pg-settings" class="page hide"><div id="tab-settings"></div></section>
   <section id="pg-games" class="page"><div id="tab-nfl"></div></section>
   <section id="pg-players" class="page hide"><div id="tab-slate"></div></section>
@@ -584,11 +680,11 @@ async function init() {
   renderLineups(); renderSlateShell(); renderNflShell();
   const empty = `<div class="card empty"><b>No simulation yet</b><span>Choose two teams above and press "Simulate matchup".</span></div>`;
   ['gl-ov', 'gl-fan', 'gl-mu'].forEach(id => $('#' + id).innerHTML = empty);
-  applyRoute(true);
+  applyRoute(true); autoConnect();
 }
 st.page = 'games'; st.sub = {lab: 'ov', players: 'rank', team: 'lineup'}; st.pg = {}; st.depth = 'std'; st.loading = false;
 const DEPTH = {fast: {n: 1000, slate: 500, hint: ''}, std: {n: 2000, slate: 1000, hint: ''}, deep: {n: 10000, slate: 10000, hint: 'Deep runs take a minute or two for a full week.'}};
-const PAGES = ['home', 'games', 'players', 'team', 'inj', 'lab', 'settings'];
+const PAGES = ['home', 'mylineup', 'moves', 'games', 'players', 'team', 'inj', 'lab', 'settings'];
 function setSub(group, key, quiet) {
   st.sub[group] = key;
   document.querySelectorAll(`[data-sg="${group}"] button`).forEach(b => b.classList.toggle('on', b.dataset.k === key));
@@ -596,26 +692,27 @@ function setSub(group, key, quiet) {
   if (!quiet && typeof markNav === 'function') { markNav(); syncURL(true); }
 }
 function go(page, sub, o = {}) {
+  if (st.mode === 'easy' && (ADV_PAGES.includes(page) || (page === 'players' && sub && sub !== 'rank'))) { setMode('adv', true); toast('Switched to Advanced tools. Use the button at the bottom of the menu to go back.'); }
   const changed = st.page !== page; st.page = page;
+  EZ_PAGES.forEach(p => { if (p !== page) { const h = $('#tab-' + p); if (h) h.innerHTML = ''; } });
   PAGES.forEach(p => $('#pg-' + p).classList.toggle('hide', p !== page));
   if (sub) setSub(page, sub, true);
-  if (page === 'home') renderHome();
+  if (EZ_PAGES.includes(page)) renderEasy();
   if (page === 'settings') renderSettings();
   if (page === 'games') ensureSlate('games', renderNflWeek);
   if (page === 'players') ensureSlate('players', renderSlate);
-  if (page === 'team') { renderLeague(); if (!st.lg && !st.lgTried && localStorage.getItem('gs_league')) { st.lgTried = true; setTimeout(() => { const b = $('#lgBtn'); if (b && !st.lg) b.click(); }, 50); } }
+  if (page === 'team') { renderLeague(); if (!st.lg && !st.lgTried && !st.lgBusy && localStorage.getItem('gs_league')) { st.lgTried = true; setTimeout(() => { const b = $('#lgBtn'); if (b && !st.lg) b.click(); }, 50); } }
   if (page === 'inj') ensureSlate('players', renderInjuries);
-  if (page === 'home') ensureSlate('games', renderHome);
   if (changed) { window.scrollTo(0, 0); const m = $('#main'); if (m && !o.fromRoute) m.focus({preventScroll: true}); }
   markNav(); if (!o.noUrl) syncURL(changed);
 }
 const LEGACY = {proj: ['lab', 'ov'], game: ['lab', 'pbp'], nfl: ['games'], slate: ['players'], lab: ['team', 'sandbox'], league: ['team']};
 function tab(t) { const [p, s] = LEGACY[t] || [t]; go(p, s); }
 function ensureSlate(mode, after) { if (st.slate) { if (after) after(); return Promise.resolve(); } return loadSlate(mode); }
-function rerender() { if (st.slate) { renderNflWeek(); renderSlate(); } if (st.page === 'team') renderLeague(); if (st.last) renderProj(st.last); }
+function rerender() { if (st.slate) { renderNflWeek(); renderSlate(); } if (st.page === 'team') renderLeague(); renderEasy(); if (st.last) renderProj(st.last); }
 function syncFmtUI() { document.querySelectorAll('#g_fmt button').forEach(b => b.classList.toggle('on', b.dataset.f === st.fmt)); }
 function setFmt(f) { st.fmt = f; if (st.lab.trials) st.lab.trials.cache = {}; syncFmtUI(); rerender(); }
-function reloadSlate() { st.ss.res = null; st.tr.px = null; st.tr.sugg = null; st.slate = null; st.wi.ros = null; st.wi.targets = null; if (st.lab.trials) st.lab.trials = null; const m = {home: 'games', games: 'games', players: 'players', team: 'team', inj: 'players', lab: null, settings: null}[st.page]; if (m) loadSlate(m); }
+function reloadSlate() { st.ss.res = null; st.tr.px = null; st.tr.sugg = null; st.slate = null; st.wi.ros = null; st.wi.targets = null; if (st.lab.trials) st.lab.trials = null; const m = {home: 'home', mylineup: 'home', moves: 'home', games: 'games', players: 'players', team: 'team', inj: 'players', lab: null, settings: null}[st.page]; if (m) loadSlate(m); }
 
 /* ---------- lineups sidebar ---------- */
 function renderLineups() {
@@ -703,7 +800,7 @@ function renderTable(host, id, cols, rows, opts = {}) {
   const pgN = st.pg[id] != null ? st.pg[id] : (opts.limit || 0), step = opts.step || opts.limit || 25;
   const lim = pgN ? sorted.slice(0, pgN) : sorted;
   const pin = c => c.k === 'rk' ? ' pin1' : c.k === 'name' ? ' pin2' : '';
-  const tools = opts.tools ? `<div class="ttools"><span class="sub2">Click a header to sort; hover a header for what it means</span><span class="sp"></span><details class="colmenu"><summary class="btn ghost sm">Columns</summary><div class="colpop">${allCols.filter(c => !c.first && c.v !== null).map(c => `<label class="chk"><input type="checkbox" data-col="${c.k}" ${hid.includes(c.k) ? '' : 'checked'}> ${c.t}</label>`).join('')}</div></details><button class="btn ghost sm" data-csv>Export CSV</button></div>` : '';
+  const tools = opts.tools ? `<div class="ttools"><span class="sub2">Click a header to sort; hover a header for what it means</span><span class="sp"></span><details class="colmenu adv-only"><summary class="btn ghost sm">Columns</summary><div class="colpop">${allCols.filter(c => !c.first && c.v !== null).map(c => `<label class="chk"><input type="checkbox" data-col="${c.k}" ${hid.includes(c.k) ? '' : 'checked'}> ${c.t}</label>`).join('')}</div></details><button class="btn ghost sm adv-only" data-csv>Export CSV</button></div>` : '';
   host.innerHTML = tools + `<div class="tscroll${opts.tools ? ' tall' : ''}"><table class="st"><thead><tr>${cols.map(c => `<th data-k="${c.k}" ${c.v ? 'tabindex="0" aria-sort="' + (S.k === c.k ? (S.dir < 0 ? 'descending' : 'ascending') : 'none') + '"' : ''} ${TIPS[c.k] ? 'data-tip="' + TIPS[c.k].replace(/"/g, '&quot;') + '"' : ''} class="${c.v ? 'srt' : ''} ${S.k === c.k ? 'on' : ''} ${c.first ? 'l' : ''}${pin(c)}" style="${c.w ? 'width:' + c.w : ''}">${c.t}${S.k === c.k ? (S.dir < 0 ? ' ▾' : ' ▴') : ''}</th>`).join('')}</tr></thead><tbody>` +
     lim.map((r, i) => `<tr data-i="${i}" class="${opts.onRow ? 'clk' : ''}">${cols.map(c => `<td data-k="${c.k}" class="${c.cls || ''} ${c.first ? 'l' : ''}${pin(c)}">${c.h ? c.h(r, i) : fmt(c.v(r))}</td>`).join('')}</tr>`).join('') + `</tbody></table></div>` +
     (rows.length ? '' : `<div class="card empty" style="margin-top:8px"><b>No rows match</b><span>Try clearing the search or position filter.</span></div>`) +
@@ -884,8 +981,13 @@ function fantasyTable(host, id, rows, o = {}) {
     ...(o.tier ? [{k: 'tier', t: 'Tier', v: r => r._tier, first: 1, h: r => r._tier ? 'T' + r._tier : ''}] : []),
   ];
   if (o.ros) { const keep = ['rk', 'name', 'pos', 'proj', 'range', 'med', 'sd', 'vor', 'tier']; cols.splice(0, cols.length, ...cols.filter(c => keep.includes(c.k))); const i = cols.findIndex(c => c.k === 'proj'); cols[i] = {...cols[i], t: 'ROS pts'}; cols.splice(i + 1, 0, {k: 'gp', t: 'Games', v: r => r._gp, h: r => r._gp}, {k: 'ppg', t: 'Per game', v: r => r._gp ? P(r, 'proj') / r._gp : null, h: r => r._gp ? fmt(P(r, 'proj') / r._gp) : '–'}); }
+  if (st.mode === 'easy') {
+    const keep = o.ros ? ['rk', 'name', 'proj', 'ppg'] : ['rk', 'name', 'act', 'proj', 'range'], by = Object.fromEntries(cols.map(c => [c.k, c]));
+    cols.splice(0, cols.length, ...keep.filter(k => by[k]).map(k => by[k]));
+    cols.forEach(c => { if (c.k === 'name') c.h = r => pcell(r, 36, !o.ros); if (c.k === 'proj') c.t = o.ros ? 'Rest of season' : 'Projected pts'; if (c.k === 'range') c.t = 'Likely range'; if (c.k === 'act') c.t = 'Scored'; if (c.k === 'ppg') c.t = 'Per game'; });
+  }
   renderTable(host, o.ros ? id + '_ros' : id, cols, rows, {sort: 'proj', limit: o.limit, step: o.step, tools: !!o.rank, onRow: r => showPlayer(r)});
-  if (o.note) host.insertAdjacentHTML('beforeend', `<div class="note">Proj = simulator mean, shrunk toward the field and blended with the player's season average (fit on a walk-forward backtest); range widened to cover ~80% of outcomes. Boom = ≥25 QB / ≥20 RB·WR / ≥15 TE; Bust = &lt;12 / &lt;7 / &lt;4. Half-PPR and Standard shift each player's receptions out (approximate). Click any player for the full breakdown.${st.live && st.live.n ? ' Where ESPN has scores, Proj is the actual points so far plus the unplayed share of the pre-game projection, so finished games sit at their real score.' : ''}</div>`);
+  if (o.note) host.insertAdjacentHTML('beforeend', `<div class="note adv-only">Proj = simulator mean, shrunk toward the field and blended with the player's season average (fit on a walk-forward backtest); range widened to cover ~80% of outcomes. Boom = ≥25 QB / ≥20 RB·WR / ≥15 TE; Bust = &lt;12 / &lt;7 / &lt;4. Half-PPR and Standard shift each player's receptions out (approximate). Click any player for the full breakdown.${st.live && st.live.n ? ' Where ESPN has scores, Proj is the actual points so far plus the unplayed share of the pre-game projection, so finished games sit at their real score.' : ''}</div>`);
 }
 
 /* correlation heat map + stack finder */
@@ -932,24 +1034,25 @@ function showPlayer(r) {
   const stat = r.stat_samples ? Object.keys(r.stat_samples) : [];
   const mainStat = r.pos === 'QB' ? 'pyd' : r.pos === 'RB' ? 'ryd' : r.pos === 'K' ? 'fgm' : r.stat_samples && r.stat_samples.recyd ? 'recyd' : stat[0];
   dp.innerHTML = `<button class="dx" id="dclose">✕</button>
-    <div class="dh"><div><div class="dnm">${r.name}${badge(r.status, r.p_play, r.inj_note, r.idle)}</div><div class="dsub"><span class="posb" style="color:${POSCOL[r.pos]}">${r.pos}</span> · <span style="color:${col}">${r.team}</span> ${r.opp ? (r.home ? 'vs' : '@') + ' ' + r.opp : ''}${r.game_total ? ` · game total ${fmt(r.game_total)} · team ${fmt(r.team_total)}` : ''}</div></div>
+    <div class="dh">${hshot(r, 60)}<div class="grow"><div class="dnm">${r.name}${badge(r.status, r.p_play, r.inj_note, r.idle)}</div><div class="dsub"><span class="posb" style="color:${POSCOL[r.pos]}">${r.pos}</span> · <span style="color:${col}">${r.team}</span> ${r.opp ? (r.home ? 'vs' : '@') + ' ' + r.opp : ''}${r.game_total ? ` · game total ${fmt(r.game_total)} · team ${fmt(r.team_total)}` : ''}</div></div>
       <div class="dbig"><b>${fmt(pj)}</b><span>${lv ? (r._left === 0 ? 'final' : 'projected final') : FMTN[st.fmt] + ' proj'}</span>${r._act != null ? `<b style="margin-top:6px">${fmt(r._act)}</b><span>actual so far (ESPN)</span>` : ''}${lv ? `<b style="margin-top:6px;color:var(--muted)">${fmt(P0(r, 'proj'))}</b><span>pre-game proj</span>` : ''}</div></div>
-    <div class="seg fseg" id="dfmt" style="margin:10px 0">${Object.keys(FMTN).map(k => `<button data-f="${k}" class="${st.fmt === k ? 'on' : ''}">${FMTN[k]}</button>`).join('')}</div>
+    <div class="seg fseg adv-only" id="dfmt" style="margin:10px 0">${Object.keys(FMTN).map(k => `<button data-f="${k}" class="${st.fmt === k ? 'on' : ''}">${FMTN[k]}</button>`).join('')}</div>
     ${lv ? `<div class="note" style="margin:0 0 10px">${fin ? 'Game final: the projection is locked at the actual score.' : 'Game under way: projection = actual so far plus ' + Math.round(r._left * 100) + '% of the pre-game projection.'} The distribution chart and stat line below are the pre-game projection.</div>` : ''}
-    <div class="kpis">
+    <div class="kpis easy-only"><div><span>Low end</span><b>${fmt(lo)}</b></div><div><span>Expected</span><b>${fmt(pj)}</b></div><div><span>High end</span><b>${fmt(hi)}</b></div></div>
+    <div class="kpis adv-only">
       <div><span>Floor (10%)</span><b>${fmt(lo)}</b></div><div><span>Median</span><b>${fmt(med)}</b></div><div><span>Ceiling (90%)</span><b>${fmt(hi)}</b></div>
       <div><span>Boom</span><b>${fin ? '–' : pct(r.boom)}</b></div><div><span>Bust</span><b>${fin ? '–' : pct(r.bust)}</b></div><div><span>Std dev</span><b>${fin ? '–' : fmt(r.sd)}</b></div>
       <div><span>Season avg</span><b>${fmt(avgF(r))}</b></div><div><span>Proj vs avg</span><b>${avgF(r) == null ? '–' : sgn(pj - avgF(r))}</b></div><div><span>Opportunities</span><b>${fmt(r.opps)}</b></div>
       <div><span>Anytime TD</span><b>${fin || r.pos === 'QB' || r.pos === 'K' || r.pos === 'DST' ? '–' : pct(r.td1)}</b></div><div><span>2+ TD</span><b>${fin || r.pos === 'QB' || r.pos === 'K' || r.pos === 'DST' ? '–' : pct(r.td2, 1)}</b></div><div><span>Raw sim</span><b>${fmt(r.sim - d)}</b></div></div>
-    <h4>${lv ? 'Pre-game outcome distribution' : 'Outcome distribution'}</h4>
+    <div class="adv-only"><h4>${lv ? 'Pre-game outcome distribution' : 'Outcome distribution'}</h4>
     ${hist(r.hist, {lo: -4, hi: Math.max(40, Math.ceil((hi0 + 6) / 2) * 2), w: 520, hgt: 150, colors: x => x + 1 < lo0 + d ? C.bad : x > hi0 + d ? C.good : C.bar, ticks: [0, 10, 20, 30, 40].map(x => x), marks: [{x: lo0 + d, c: C.bad, t: 'P10'}, {x: med0 + d, c: C.ink, t: 'median'}, {x: hi0 + d, c: C.good, t: 'P90'}].map(m => ({...m, x: m.x}))})}
     <div class="note">Axis is PPR points; markers shown at your selected format's values are shifted by the receptions adjustment.</div>
-    <h4>Projected stat line</h4><div class="statline">${Object.entries(r.st || {}).map(([k, v]) => `<div><span>${STATN[k] || k}</span><b>${fmt(v, v < 10 ? 2 : 1)}</b></div>`).join('')}</div>
-    <h4>Prop calculator</h4>
+    </div><h4>Projected stats</h4><div class="statline">${Object.entries(r.st || {}).map(([k, v]) => `<div><span>${STATN[k] || k}</span><b>${fmt(v, v < 10 ? 2 : 1)}</b></div>`).join('')}</div>
+    <div class="adv-only"><h4>Prop calculator</h4>
     <div class="props"><div class="prow"><label>Fantasy points</label><input type="number" step="0.5" id="pl_fp" value="${(Math.round(pj * 2) / 2 + 0.5).toFixed(1)}"><div id="pr_fp" class="pres"></div></div>
       ${stat.length ? `<div class="prow"><select id="pl_stat">${stat.map(k => `<option value="${k}" ${k === mainStat ? 'selected' : ''}>${STATN[k] || k}</option>`).join('')}</select><input type="number" step="0.5" id="pl_line"><div id="pr_st" class="pres"></div></div><div id="ladder"></div>` : '<div class="note">Stat-level props are available from the Matchup tab (it simulates with full stat detail).</div>'}</div>
     ${r.split && (r.split.win != null) ? `<h4>Game script</h4><div class="kpis k4"><div><span>Team wins</span><b>${fmt(r.split.win - d)}</b></div><div><span>Team loses</span><b>${fmt(r.split.loss - d)}</b></div><div><span>Leads 10+</span><b>${fmt(r.split.lead10 == null ? null : r.split.lead10 - d)}</b></div><div><span>Trails 10+</span><b>${fmt(r.split.trail10 == null ? null : r.split.trail10 - d)}</b></div></div>` : ''}
-    ${r.trend && r.trend.length && Array.isArray(r.trend[0]) ? histPanel(r, pj, col) : ''}`;
+    ${r.trend && r.trend.length && Array.isArray(r.trend[0]) ? histPanel(r, pj, col) : ''}</div>`;
   $('#drawer').classList.remove('hide');
   $('#dclose').onclick = closeDrawer;
   bindFmt('dfmt', () => showPlayer(r));
@@ -981,7 +1084,7 @@ function renderSlateShell() {
   $('#tab-slate').innerHTML = `<div class="card"><div class="ctl">
       <div class="grow"><label class="f" for="s_q">Search</label><input id="s_q" class="inp" placeholder="Player or team"></div>
       <div class="chips" id="s_pos" role="group" aria-label="Position">${['ALL', 'QB', 'RB', 'WR', 'TE', 'FLEX', 'K', 'DST'].map(p => `<button data-p="${p}" class="${st.pos === p ? 'on' : ''}">${p}</button>`).join('')}</div></div></div>
-    <div class="subtabs" data-sg="players"><button data-k="rank" class="on">Rankings</button><button data-k="trend">Trends</button><button data-k="stack">Stacks</button><button data-k="trade">Trade analyzer</button></div>
+    <div class="subtabs" data-sg="players"><button data-k="rank" class="on">Rankings</button><button data-k="trend" class="adv-only">Trends</button><button data-k="stack" class="adv-only">Stacks</button><button data-k="trade" class="adv-only">Trade analyzer</button></div>
     <div id="s_body"></div>`;
   $('#s_q').oninput = e => { st.q = e.target.value.toLowerCase(); delete st.pg.rank; delete st.pg.rank_ros; if (st.slate) renderSlate(); };
   $('#s_pos').onclick = e => { const b = e.target.closest('button'); if (!b) return; st.pos = b.dataset.p; delete st.pg.rank; delete st.pg.rank_ros; [...$('#s_pos').children].forEach(x => x.classList.toggle('on', x === b)); if (st.slate) renderSlate(); };
@@ -993,7 +1096,7 @@ function loadingCard(n, eta) {
 }
 async function loadSlate(mode) {
   if (st.loading) return; st.loading = true;
-  const hostSel = {home: '#tab-home', games: '#nflBody', players: '#s_body', team: '#lgStatus', sandbox: '#tab-lab'}[mode], host = hostSel && $(hostSel);
+  const hostSel = {home: '#tab-' + (EZ_PAGES.includes(st.page) ? st.page : 'home'), games: '#nflBody', players: '#s_body', team: '#lgStatus', sandbox: '#tab-lab'}[mode], host = hostSel && $(hostSel);
   const nSim = DEPTH[st.depth].slate, last = st.lastSecs ? Math.round(st.lastSecs * nSim / (st.lastN || nSim)) : Math.round(nSim / 80);
   if (host && mode !== 'home') host.innerHTML = loadingCard(nSim, last);
   busy($('#g_refresh'), true, 'Simulating');
@@ -1002,7 +1105,7 @@ async function loadSlate(mode) {
   const cb = $('#loadCancel'); if (cb) cb.onclick = () => ab.abort();
   try {
     st.slate = await post('/api/slate', {week: st.week, n: nSim, weather: st.useWx, ov: st.inj}, ab.signal); st.lab.trials = null; st.lastSecs = st.slate.secs; st.lastN = nSim;
-    applyLive(); renderNflWeek(); renderSlate(); if (st.page === 'team') renderLeague(); if (st.page === 'inj') renderInjuries(); if (st.page === 'home') renderHome(); loadLive(false);
+    applyLive(); renderNflWeek(); renderSlate(); if (st.page === 'team') renderLeague(); if (st.page === 'inj') renderInjuries(); renderEasy(); loadLive(false);
   } catch (e) {
     if (e.name === 'AbortError') { if (host) host.innerHTML = `<div class="card empty"><b>Run cancelled</b><span>Nothing was changed.</span><button class="btn primary sm" id="retrySl" style="margin-top:10px">Run again</button></div>`; }
     else { if (host) host.innerHTML = `<div class="card empty err" role="alert"><b>Could not load projections</b><span>${e.message}</span><button class="btn primary sm" id="retrySl" style="margin-top:10px">Try again</button></div>`; toast(e.message, {err: true}); }
@@ -1226,25 +1329,26 @@ function teamModel(t, idx) {
 const sumP = ids => ids.reduce((a, i) => a + (labPool()[i] ? P(labPool()[i], 'proj') : 0), 0);
 const names = ids => ids.map(i => labPool()[i]).filter(Boolean);
 
+async function connectLeague(id, s2 = '', sw = '') {
+  localStorage.setItem('gs_league', id);
+  const q = new URLSearchParams({league: id, season: 2026, s2, swid: sw});
+  const data = await fetch('/api/espn?' + q).then(async r => { if (!r.ok) throw new Error((await r.json()).detail || r.statusText); return r.json(); });
+  setCustomFmt(!!data.scoring.custom); st.fmt = data.scoring.custom ? 'custom' : data.scoring.format;
+  const c = {QB: 0, RB: 0, WR: 0, TE: 0, FLEX: 0, OP: 0, K: 0, DST: 0}; Object.entries(data.slots).forEach(([k, v]) => { if (k in c) c[k] = v; });
+  st.lab.counts = c; localStorage.setItem('gs_counts', JSON.stringify(c));
+  const rowdy = data.teams.find(t => /rowdy/i.test(t.name)); const saved = localStorage.getItem('gs_myteam');
+  const my = (data.teams.find(t => String(t.id) === saved) || rowdy || data.teams[0]).id;
+  st.lg = {data, my, opp: null}; autoOpp(); st.lgErr = ''; document.documentElement.classList.add('has-league'); syncFmtUI();
+  if (st.sched.weeks.includes(data.week) && (!st.slate || st.slate.week !== data.week)) { st.week = data.week; st.slate = null; $('#g_week').value = st.week; }
+  if (st.week == null) throw new Error('No schedule available. Run `python fetch_data.py` (or `git pull`), then restart the server.');
+}
 async function loadLeague() {
   const id = $('#lgId').value.trim(), s2 = ($('#lgS2') || {}).value || '', sw = ($('#lgSW') || {}).value || '';
   if (!id) return;
-  localStorage.setItem('gs_league', id);
   st.lgErr = ''; busy($('#lgBtn'), true, 'Loading league…'); $('#lgErr').textContent = '';
-  try {
-    const q = new URLSearchParams({league: id, season: 2026, s2, swid: sw});
-    const data = await fetch('/api/espn?' + q).then(async r => { if (!r.ok) throw new Error((await r.json()).detail || r.statusText); return r.json(); });
-    setCustomFmt(!!data.scoring.custom); st.fmt = data.scoring.custom ? 'custom' : data.scoring.format;
-    const c = {QB: 0, RB: 0, WR: 0, TE: 0, FLEX: 0, OP: 0, K: 0, DST: 0}; Object.entries(data.slots).forEach(([k, v]) => { if (k in c) c[k] = v; });
-    st.lab.counts = c; localStorage.setItem('gs_counts', JSON.stringify(c));
-    const rowdy = data.teams.find(t => /rowdy/i.test(t.name)); const saved = localStorage.getItem('gs_myteam');
-    const my = (data.teams.find(t => String(t.id) === saved) || rowdy || data.teams[0]).id;
-    st.lg = {data, my, opp: null}; autoOpp();
-    if (st.sched.weeks.includes(data.week) && (!st.slate || st.slate.week !== data.week)) { st.week = data.week; st.slate = null; $('#g_week').value = st.week; }
-    if (st.week == null) throw new Error('No schedule available. Run `python fetch_data.py` (or `git pull`), then restart the server.');
-    if (!st.slate) { renderLeague(); await loadSlate('team'); }
-  } catch (e) { st.lgErr = e.message; toast('Could not load league: ' + e.message, {err: true, ms: 9000, action: {label: 'Retry', fn: () => { const b = $('#lgBtn'); if (b) b.click(); }}}); }
-  busy($('#lgBtn'), false); renderLeague(); if (st.lgErr && $('#lgErr')) $('#lgErr').textContent = st.lgErr;
+  try { await connectLeague(id, s2, sw); if (!st.slate) { renderLeague(); await loadSlate('team'); } }
+  catch (e) { st.lgErr = e.message; toast('Could not load league: ' + e.message, {err: true, ms: 9000, action: {label: 'Retry', fn: () => { const b = $('#lgBtn'); if (b) b.click(); }}}); }
+  busy($('#lgBtn'), false); renderLeague(); if (st.lgErr && $('#lgErr')) $('#lgErr').textContent = st.lgErr; renderEasy();
 }
 function autoOpp() {
   const L = st.lg; if (!L) return;
@@ -1434,10 +1538,10 @@ st.nfl = {slot: 'All', sort: 'time', view: innerWidth < 760 ? 'table' : 'cards'}
 function renderNflShell() {
   $('#tab-nfl').innerHTML = `<div class="card"><div class="ctl">
       <div class="grow"><div class="chips" id="n_slots" role="group" aria-label="Kickoff slot">${SLOTS_NFL.map(s => `<button data-s="${s}" class="${st.nfl.slot === s ? 'on' : ''}">${s}</button>`).join('')}</div></div>
-      <div class="fld sm"><label class="f" for="n_sort">Sort by</label><select id="n_sort"><option value="time">Kickoff</option><option value="total">Highest total</option><option value="close">Most competitive</option><option value="edge">Biggest market edge</option></select></div>
-      <div class="seg" id="n_view" role="group" aria-label="View"><button data-v="cards" class="${st.nfl.view === 'cards' ? 'on' : ''}">Cards</button><button data-v="table" class="${st.nfl.view === 'table' ? 'on' : ''}">Table</button></div>
-      <label class="chk"><input type="checkbox" id="n_wx" checked> Weather and roof</label></div>
-    <div class="note">Wind and roof adjust the simulation (about -0.4 points of game total per mph of wind above 5; indoors slightly higher). Temperature, weekday and kickoff time showed no usable effect in two seasons of data, so they are not modeled.</div></div>
+      <div class="fld sm adv-only"><label class="f" for="n_sort">Sort by</label><select id="n_sort"><option value="time">Kickoff</option><option value="total">Highest total</option><option value="close">Most competitive</option><option value="edge">Biggest market edge</option></select></div>
+      <div class="seg adv-only" id="n_view" role="group" aria-label="View"><button data-v="cards" class="${st.nfl.view === 'cards' ? 'on' : ''}">Cards</button><button data-v="table" class="${st.nfl.view === 'table' ? 'on' : ''}">Table</button></div>
+      <label class="chk adv-only"><input type="checkbox" id="n_wx" checked> Weather and roof</label></div>
+    <div class="note adv-only">Wind and roof adjust the simulation (about -0.4 points of game total per mph of wind above 5; indoors slightly higher). Temperature, weekday and kickoff time showed no usable effect in two seasons of data, so they are not modeled.</div></div>
     <div id="nflBody"></div>`;
   $('#n_wx').onchange = e => { st.useWx = e.target.checked; reloadSlate(); };
   $('#n_sort').onchange = e => { st.nfl.sort = e.target.value; renderNflWeek(); };
@@ -1467,7 +1571,7 @@ function renderNflWeek() {
   const edge = g => g.spread == null ? 0 : Math.max(Math.abs(rawM(g) - g.spread), Math.abs(g.total == null ? 0 : rawT(g) - g.total));
   const key = {time: g => g.day + g.time, total: g => -g.sim_total, close: g => Math.abs(g.sim_home_win - .5), edge: g => -edge(g)}[st.nfl.sort];
   gs = [...gs].sort((a, b) => key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0);
-  if (st.nfl.view === 'table') {
+  if (st.nfl.view === 'table' && st.mode === 'adv') {
     host.innerHTML = `<div class="card"><h3>Games · week ${S.week} <span class="sub2">· simulated ${S.n.toLocaleString()}× each in ${S.secs}s</span></h3><div id="gTable"></div></div>`;
     gamesTable($('#gTable'), gs); return;
   }
@@ -1481,6 +1585,17 @@ function renderNflWeek() {
     const es = g.spread == null ? null : rawM(g) - g.spread, et = g.total == null ? null : rawT(g) - g.total;
     const pillE = (e, a, b) => e == null || Math.abs(e) < 1.5 ? '' : `<span class="pill hot">lean ${e > 0 ? a : b}</span>`;
     const windy = g.cond && g.cond.wind != null && g.cond.wind >= 10 && g.roof !== 'dome' && g.roof !== 'closed';
+    if (st.mode === 'easy') {
+      const fav = wH >= .5 ? g.home : g.away, fp = Math.max(wH, 1 - wH - (g.tie || 0)), mg = Math.abs(g.sim_margin), pcs = ids => ids.map(r => `<button class="rowc cmp" data-pid="${r.id}">${pcell(r, 32, false)}<div class="pts">${fmt(P(r, 'proj'))}</div></button>`).join('');
+      const side = (t, sc, wp, right) => `<div class="gt${right ? ' r' : ''}">${tlogo(t, 44)}<div class="gnm">${esc(st.TEAMS[t].name)}</div><div class="gsc">${fmt(sc)}</div><div class="gwp">${pct(wp)}</div></div>`;
+      const topr = t => rows.filter(r => r.team === t).sort((a, b) => P(b, 'proj') - P(a, 'proj')).slice(0, 2);
+      wrap.appendChild(el('div', 'gcard ez', `<div class="gtop"><span class="sub2">${new Date(g.day + 'T12:00:00').toLocaleDateString(undefined, {weekday: 'short'})} ${g.time} ET</span><span class="chip ${fp >= .65 ? 'ok' : 'ink'}">${fp >= .52 ? esc(st.TEAMS[fav].name.split(' ').pop()) + ' favored' : 'Toss-up'}</span></div>
+        <div class="gteams">${side(g.away, g.sim_away, 1 - wH - (g.tie || 0), 0)}<div class="gat">@</div>${side(g.home, g.sim_home, wH, 1)}</div>
+        <div class="wbar"><div style="width:${(1 - wH) * 100}%;background:${ac}"></div><div style="width:${wH * 100}%;background:${hc}"></div></div>
+        <div class="sub2" style="text-align:center">${fp >= .52 ? `${esc(st.TEAMS[fav].name)} win by about ${fmt(mg, 0)} points` : 'Too close to call'} · ${fmt(g.sim_total, 0)} total points expected</div>
+        <div class="gplayers ez"><div><div><div class="sub2">${tlogo(g.away, 16)}${esc(st.TEAMS[g.away].name)} players to watch</div>${pcs(topr(g.away))}</div><div><div class="sub2">${tlogo(g.home, 16)}${esc(st.TEAMS[g.home].name)} players to watch</div>${pcs(topr(g.home))}</div></div>`));
+      return;
+    }
     const c = el('div', 'gcard',
       `<div class="gtop"><span class="sub2">${new Date(g.day + 'T12:00:00').toLocaleDateString(undefined, {weekday: 'short'})} ${g.time} ET${g.neutral ? ' · neutral site' : ''}</span><span class="pill ${windy ? 'hot' : ''}">${condText(g.cond, g.roof)}</span></div>
        <div class="gteams"><div class="gt"><div class="gab" style="color:${ac}">${g.away}</div><div class="gnm">${st.TEAMS[g.away].name}</div><div class="gsc">${fmt(g.sim_away)}</div><div class="gwp">${pct(1 - wH - (g.tie || 0))}</div></div>
@@ -1497,7 +1612,7 @@ function renderNflWeek() {
     wrap.appendChild(c);
   });
   if (!gs.length) wrap.innerHTML = '<div class="card empty">No games in this slot.</div>';
-  wrap.querySelectorAll('.tp').forEach(d => d.onclick = () => { const r = S.rows.find(x => x.id === d.dataset.id); if (r) showPlayer(r); });
+  wrap.querySelectorAll('.tp,[data-pid]').forEach(d => d.onclick = () => { const r = S.rows.find(x => x.id === (d.dataset.id || d.dataset.pid)); if (r) showPlayer(r); });
   wrap.querySelectorAll('.gfull').forEach(b => b.onclick = () => { const g = S.games.find(x => x.id === b.dataset.g); st.home = g.home; st.away = g.away; $('#home').value = g.home; $('#away').value = g.away; st.neutral = g.neutral; $('#neutral').checked = g.neutral; st.cond.mode = 'auto'; $('#condMode').value = 'auto'; $('#condManual').classList.add('hide'); renderLineups(); tab('proj'); runSim(); });
 }
 
@@ -2038,27 +2153,29 @@ const IC = {
   search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>', help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"/>'
 };
 const icon = k => `<svg viewBox="0 0 24 24" aria-hidden="true">${IC[k] || ''}</svg>`;
-const NAV = [
-  {id: 'home', label: 'Home', ic: 'home', page: 'home'},
-  {g: 'Simulate'}, {id: 'games', label: 'Games', ic: 'games', page: 'games'}, {id: 'lab', label: 'Matchup lab', ic: 'lab', page: 'lab', sub: 'ov'},
-  {g: 'Players'}, {id: 'proj', label: 'Projections', ic: 'proj', page: 'players', sub: 'rank'}, {id: 'stack', label: 'Stacks', ic: 'stack', page: 'players', sub: 'stack'}, {id: 'inj', label: 'Injuries', ic: 'inj', page: 'inj'},
-  {g: 'My league'}, {id: 'lineup', label: 'Lineup', ic: 'lineup', page: 'team', sub: 'lineup'}, {id: 'waivers', label: 'Waivers', ic: 'waiver', page: 'team', sub: 'waivers'},
+const NAV_ALL = [
+  {id: 'home', label: 'Home', ic: 'home', page: 'home', e: 1}, {id: 'mylineup', label: 'My lineup', ic: 'lineup', page: 'mylineup', e: 1}, {id: 'moves', label: 'Add / trade', ic: 'trade', page: 'moves', e: 1},
+  {id: 'proj', label: 'Players', ic: 'proj', page: 'players', sub: 'rank', e: 1}, {id: 'games', label: 'Games', ic: 'games', page: 'games', e: 1},
+  {g: 'Advanced tools'}, {id: 'lab', label: 'Matchup lab', ic: 'lab', page: 'lab', sub: 'ov'}, {id: 'stack', label: 'Stacks', ic: 'stack', page: 'players', sub: 'stack'}, {id: 'inj', label: 'Injuries', ic: 'inj', page: 'inj'},
+  {id: 'lineup', label: 'Lineup (detailed)', ic: 'lineup', page: 'team', sub: 'lineup'}, {id: 'waivers', label: 'Waivers', ic: 'waiver', page: 'team', sub: 'waivers'},
   {id: 'trades', label: 'Trades', ic: 'trade', page: 'team', sub: 'trades'}, {id: 'league', label: 'League', ic: 'league', page: 'team', sub: 'league'}, {id: 'whatif', label: 'What-if', ic: 'whatif', page: 'team', sub: 'whatif'},
-  {g: 'App'}, {id: 'settings', label: 'Settings', ic: 'settings', page: 'settings'}
+  {g: 'App', e: 1}, {id: 'settings', label: 'Settings', ic: 'settings', page: 'settings', e: 1}
 ];
-const NAVI = NAV.filter(n => n.page);
-const TABS = [['home', 'Home', 'home'], ['games', 'Games', 'games'], ['proj', 'Players', 'proj'], ['lineup', 'My league', 'league']];
+const navVisible = () => NAV_ALL.filter(n => n.e || st.mode === 'adv');
+const NAVI = NAV_ALL.filter(n => n.page);
+const tabsFor = () => st.mode === 'easy' ? [['home', 'Home', 'home'], ['mylineup', 'Lineup', 'lineup'], ['moves', 'Moves', 'trade'], ['proj', 'Players', 'proj'], ['games', 'Games', 'games']] : [['home', 'Home', 'home'], ['games', 'Games', 'games'], ['proj', 'Players', 'proj'], ['lineup', 'My league', 'league']];
 const navOn = n => st.page === n.page && (!n.sub || n.page === 'lab' || (n.page === 'players' ? (n.sub === 'stack') === (st.sub.players === 'stack') : st.sub[n.page] === n.sub));
-const TITLE = {home: 'Home', games: 'Games', lab: 'Matchup lab', players: 'Players', team: 'My league', inj: 'Injuries', settings: 'Settings'};
+const TITLE = {home: 'Home', mylineup: 'My lineup', moves: 'Add / trade', games: 'Games', lab: 'Matchup lab', players: 'Players', team: 'My league', inj: 'Injuries', settings: 'Settings'};
 function buildShell() {
-  let h = `<div class="brand">GridSim</div><button class="searchbtn" id="openPal" aria-label="Search or jump to (Control K)">${icon('search')}<span>Search</span><kbd>Ctrl K</kbd></button><nav class="sidenav" id="nav" aria-label="Sections">`;
-  NAV.forEach(n => { h += n.g ? `<div class="ngrp">${n.g}</div>` : `<button class="nlink" data-nav="${n.id}" title="${n.label}">${icon(n.ic)}<span class="nl">${n.label}</span></button>`; });
-  h += `</nav><div class="side-foot"><button class="nlink" id="themeBtn" title="Switch light and dark theme">${icon('sun')}<span class="nl">Theme</span></button><button class="nlink" id="helpBtn" title="Keyboard shortcuts (?)">${icon('help')}<span class="nl">Shortcuts</span></button></div>`;
+  const brand = `<div class="brand"><i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4zM4 12h16M12 4v16"/></svg></i>GridSim</div>`;
+  let h = `${brand}<button class="searchbtn" id="openPal" aria-label="Search or jump to (Control K)">${icon('search')}<span>Search</span><kbd>Ctrl K</kbd></button><nav class="sidenav" id="nav" aria-label="Sections">`;
+  navVisible().forEach(n => { h += n.g ? (st.mode === 'adv' ? `<div class="ngrp">${n.g}</div>` : '') : `<button class="nlink" data-nav="${n.id}" title="${n.label}">${icon(n.ic)}<span class="nl">${n.label}</span></button>`; });
+  h += `</nav><div class="side-foot"><button class="nlink" id="modeBtn" title="${st.mode === 'easy' ? 'Show every simulator tool and stat' : 'Go back to the simple view'}">${icon('stack')}<span class="nl">${st.mode === 'easy' ? 'Show advanced tools' : 'Switch to Easy view'}</span></button><button class="nlink" id="themeBtn" title="Switch light and dark theme">${icon('sun')}<span class="nl">Theme</span></button><button class="nlink" id="helpBtn" title="Keyboard shortcuts (?)">${icon('help')}<span class="nl">Shortcuts</span></button></div>`;
   $('#side').innerHTML = h;
-  $('#tabbar').innerHTML = TABS.map(([id, l, ic]) => `<button data-nav="${id}">${icon(ic)}${l}</button>`).join('') + `<button id="moreBtn">${icon('more')}More</button>`;
-  document.addEventListener('click', e => { const b = e.target.closest('[data-nav]'); if (b) { const n = NAVI.find(x => x.id === b.dataset.nav); if (n) go(n.page, n.sub); } });
-  $('#openPal').onclick = $('#moreBtn').onclick = openPalette; $('#themeBtn').onclick = toggleTheme; $('#helpBtn').onclick = showHelp;
-  ['g_week', 'g_depth'].forEach(id => $('#' + id).addEventListener('change', () => syncURL())); $('#g_fmt').addEventListener('click', () => setTimeout(() => syncURL()));
+  $('#tabbar').innerHTML = tabsFor().map(([id, l, ic]) => `<button data-nav="${id}">${icon(ic)}${l}</button>`).join('') + (st.mode === 'adv' ? `<button id="moreBtn">${icon('more')}More</button>` : '');
+  if (!buildShell.bound) { buildShell.bound = 1; document.addEventListener('click', e => { const b = e.target.closest('[data-nav]'); if (b) { const n = NAVI.find(x => x.id === b.dataset.nav); if (n) go(n.page, n.sub); } });
+    ['g_week', 'g_depth'].forEach(id => $('#' + id).addEventListener('change', () => syncURL())); $('#g_fmt').addEventListener('click', () => setTimeout(() => syncURL())); }
+  $('#openPal').onclick = openPalette; const mb = $('#moreBtn'); if (mb) mb.onclick = openPalette; $('#themeBtn').onclick = toggleTheme; $('#helpBtn').onclick = showHelp; $('#modeBtn').onclick = () => setMode(st.mode === 'easy' ? 'adv' : 'easy');
 }
 function markNav() {
   document.querySelectorAll('[data-nav]').forEach(b => { const n = NAVI.find(x => x.id === b.dataset.nav); const on = n && navOn(n); b.classList.toggle('on', !!on); if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
@@ -2094,7 +2211,7 @@ function applyRoute(first) {
 }
 addEventListener('popstate', () => applyRoute(false));
 /* theme */
-function setTheme(t) { try { localStorage.setItem('gs_theme', t); } catch (e) {} const dark = t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches); document.documentElement.dataset.theme = dark ? 'dark' : 'light'; Object.assign(C, CPAL[dark ? 'dark' : 'light']); if (st.slate) { try { rerender(); if (st.page === 'home') renderHome(); } catch (e) {} } const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = dark ? '#171510' : '#f2eee4'; }
+function setTheme(t) { try { localStorage.setItem('gs_theme', t); } catch (e) {} const dark = t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches); document.documentElement.dataset.theme = dark ? 'dark' : 'light'; Object.assign(C, CPAL[dark ? 'dark' : 'light']); if (st.slate) { try { rerender(); } catch (e) {} } const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = dark ? '#171510' : '#f2eee4'; }
 const getTheme = () => { try { return localStorage.getItem('gs_theme') || 'system'; } catch (e) { return 'system'; } };
 function toggleTheme() { setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'); if (st.page === 'settings') renderSettings(); }
 setTheme(getTheme());
@@ -2109,7 +2226,7 @@ function toast(msg, {err = false, action = null, ms = 4500} = {}) {
 let PAL = null;
 function palItems() {
   const it = [];
-  NAVI.forEach(n => it.push({k: 'Go to', t: n.label, run: () => go(n.page, n.sub)}));
+  navVisible().filter(n => n.page).forEach(n => it.push({k: 'Go to', t: n.label, run: () => go(n.page, n.sub)}));
   it.push({k: 'Action', t: `Run sims for week ${st.week}`, run: () => $('#g_refresh').click()}, {k: 'Action', t: 'Update data (injuries, depth charts, results)', run: () => $('#g_update').click()},
     {k: 'Action', t: 'Toggle light / dark theme', run: toggleTheme}, {k: 'Action', t: 'Show keyboard shortcuts', run: showHelp});
   Object.entries(DEPTH).forEach(([k, v]) => it.push({k: 'Action', t: `Sims per game: ${{fast: 'Fast 500', std: 'Standard 1,000', deep: 'Deep 10,000'}[k]}`, run: () => { $('#g_depth').value = k; $('#g_depth').dispatchEvent(new Event('change')); }}));
@@ -2141,7 +2258,7 @@ function openPalette() {
   draw();
 }
 /* shortcuts */
-const SHORT = [['Ctrl/Cmd K', 'Command palette'], ['/', 'Search players'], ['?', 'This help'], ['g h', 'Go to Home'], ['g g', 'Games'], ['g p', 'Projections'], ['g l', 'Matchup lab'], ['g i', 'Injuries'], ['g t', 'My league lineup'], ['g w', 'Waivers'], ['g s', 'Settings'], ['r', 'Run sims'], ['t', 'Toggle theme']];
+const SHORT = [['Ctrl/Cmd K', 'Command palette'], ['/', 'Search players'], ['?', 'This help'], ['g h', 'Go to Home'], ['g g', 'Games'], ['g p', 'Projections'], ['g l', 'Matchup lab'], ['g i', 'Injuries'], ['g t', 'My lineup'], ['g w', 'Add / trade'], ['g s', 'Settings'], ['r', 'Run sims'], ['t', 'Toggle theme']];
 function showHelp() {
   if (document.querySelector('.pal-back.help-b')) return;
   const back = el('div', 'pal-back help-b', `<div class="pal help" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts" style="padding:18px"><h3 style="margin:0 0 12px;font:700 17px var(--serif)">Keyboard shortcuts</h3><dl>${SHORT.map(([k, d]) => `<dt><kbd>${k}</kbd></dt><dd>${d}</dd>`).join('')}</dl><p style="color:var(--muted);margin:12px 0 0">Press Esc to close.</p></div>`);
@@ -2155,7 +2272,7 @@ document.addEventListener('keydown', e => {
   const tg = e.target; if (e.ctrlKey || e.metaKey || e.altKey || PAL || /INPUT|TEXTAREA|SELECT/.test(tg.tagName) || tg.isContentEditable) return;
   if (e.key === '?') { showHelp(); return; }
   if (e.key === '/') { const i = $('#s_q'); go('players', 'rank'); setTimeout(() => { const i2 = $('#s_q'); if (i2) i2.focus(); }, 60); e.preventDefault(); return; }
-  if (gPend && Date.now() - gPend < 1200) { const m = {h: 'home', g: 'games', p: 'proj', l: 'lab', i: 'inj', t: 'lineup', w: 'waivers', s: 'settings'}[e.key]; gPend = 0; if (m) { const n = NAVI.find(x => x.id === m); go(n.page, n.sub); e.preventDefault(); } return; }
+  if (gPend && Date.now() - gPend < 1200) { const m = {h: 'home', g: 'games', p: 'proj', l: 'lab', i: 'inj', t: st.mode === 'easy' ? 'mylineup' : 'lineup', w: st.mode === 'easy' ? 'moves' : 'waivers', s: 'settings'}[e.key]; gPend = 0; if (m) { const n = NAVI.find(x => x.id === m); go(n.page, n.sub); e.preventDefault(); } return; }
   if (e.key === 'g') { gPend = Date.now(); return; }
   if (e.key === 'r') { $('#g_refresh').click(); return; } if (e.key === 't') toggleTheme();
 });
@@ -2208,7 +2325,7 @@ async function loadLive(manual) {
     const r = await fetch('/api/espn_live?' + q); if (!r.ok) { let m = r.statusText; try { m = (await r.json()).detail || m; } catch (e) {} throw new Error(m); }
     const d = await r.json(); Object.assign(st.live, {players: d.players, games: d.games || [], week: d.week, at: new Date(), err: null}); applyLive();
     if (manual) toast(st.live.n ? `Live scores loaded for ${st.live.n} players.` : 'No games have started yet for this week, so there are no actual points.');
-    if (st.page === 'players') renderSlate(); else if (st.page === 'team') renderLeague(); else if (st.page === 'home') renderHome();
+    if (st.page === 'players') renderSlate(); else if (st.page === 'team') renderLeague(); else renderEasy();
   } catch (e) {
     const first = !st.live.err; st.live.err = e.message; st.live.n = 0; if (manual || first) toast('Live scores unavailable: ' + e.message, {err: true, action: {label: 'Retry', fn: () => loadLive(true)}, ms: 8000});
   }
@@ -2217,19 +2334,217 @@ async function loadLive(manual) {
 $('#g_scores').onclick = () => loadLive(true);
 setInterval(() => { if (document.visibilityState === 'visible' && st.live.n && (st.page === 'players' || st.page === 'team' || st.page === 'home')) loadLive(false); }, 90000);
 
+/* ================= v2: the simple (Easy) experience ================= */
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+const dn = r => r.fn || r.name;
+const EZ_PAGES = ['home', 'mylineup', 'moves'], ADV_PAGES = ['team', 'inj', 'lab'];
+st.mv = {tab: 'add', pos: 'ALL', more: 6, tMore: 4};
+/* team logos and headshots load from ESPN's and the NFL's image servers in the browser; letters show underneath if an image is missing or blocked */
+const SLUG = {LA: 'lar', WAS: 'wsh'};
+const logoUrl = a => `https://a.espncdn.com/i/teamlogos/nfl/500/${SLUG[a] || String(a).toLowerCase()}.png`;
+function tlogo(a, s = 24) {
+  const t = st.TEAMS[a];
+  return `<span class="tlg" style="--s:${s}px;--tc:${color(a)}" title="${esc(t ? t.name : a)}"><b>${esc(a)}</b><img src="${logoUrl(a)}" alt="" loading="lazy" decoding="async" onerror="this.remove()"></span>`;
+}
+function imgFail(i) { const a = i.dataset.alt; if (a) { delete i.dataset.alt; i.src = a; } else i.remove(); }
+const initials = n => { const p = String(n).replace(/[^A-Za-z .'-]/g, '').split(/[ .]+/).filter(Boolean); return ((p[0] || '')[0] || '') + ((p.length > 1 ? p[p.length - 1] : '')[0] || ''); };
+function hshot(r, s = 40) {
+  if (r.pos === 'DST') return tlogo(r.team, s);
+  const alt = r.eid ? `https://a.espncdn.com/i/headshots/nfl/players/full/${r.eid}.png` : '';
+  const img = r.hs ? `<img src="${esc(r.hs)}" ${alt ? `data-alt="${alt}"` : ''} alt="" loading="lazy" decoding="async" onerror="imgFail(this)">` : alt ? `<img src="${alt}" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : '';
+  return `<span class="hs" style="--s:${s}px;--pc:${POSCOL[r.pos] || 'var(--line-strong)'}"><b>${esc(initials(dn(r)))}</b>${img}</span>`;
+}
+function healthChip(r) {
+  if (r.idle === 'BYE') return '<span class="chip ink">Bye week</span>';
+  if (r.idle === 'INACTIVE') return '<span class="chip ink">Not expected to play</span>';
+  const s = r.status; if (!s || s === 'Active') return '';
+  return `<span class="chip ${/out|doubt|ir|susp/i.test(s) ? 'bad' : 'warn'}" title="${esc(r.inj_note || '')}">${esc(s)}</span>`;
+}
+function pcell(r, size = 40, showOpp = true) {
+  const m = showOpp && r.opp ? ` · ${r.home ? 'vs' : '@'} ${esc(r.opp)}` : '';
+  return `<div class="pcell">${hshot(r, size)}<div class="pn"><b>${esc(dn(r))} ${healthChip(r)}</b><span class="psub">${r.pos === 'DST' ? '' : tlogo(r.team, 16)}${esc(r.pos)} · ${esc(r.team)}${m}</span></div></div>`;
+}
+const winWord = p => p >= .85 ? 'Very likely win' : p >= .65 ? 'Favored' : p >= .45 ? 'Toss-up' : p >= .25 ? 'Underdog' : 'Long shot';
+const winCls = p => p >= .55 ? 'ok' : p >= .4 ? 'warn' : 'bad';
+
+/* experience level */
+st.mode = (() => { try { return localStorage.getItem('gs_mode') === 'adv' ? 'adv' : 'easy'; } catch (e) { return 'easy'; } })();
+document.documentElement.dataset.mode = st.mode;
+function setMode(m, quiet) {
+  if (m === st.mode) return; st.mode = m; try { localStorage.setItem('gs_mode', m); } catch (e) {}
+  document.documentElement.dataset.mode = m; buildShell(); markNav();
+  if (quiet) return;
+  if (m === 'easy' && (ADV_PAGES.includes(st.page) || (st.page === 'players' && st.sub.players !== 'rank'))) { go('home'); return; }
+  if (st.slate) { renderNflWeek(); renderSlate(); } renderEasy(); if (st.page === 'settings') renderSettings();
+}
+function renderEasy() { const f = {home: renderHome, mylineup: renderMyLineup, moves: renderMoves}[st.page]; if (f) f(); }
+function ezGo(k) { const [id, sub] = k.split(':'); if (id === 'moves' && sub) st.mv.tab = sub; const n = NAVI.find(x => x.id === id); if (n) go(n.page, n.sub); }
+const ezBind = host => {
+  host.querySelectorAll('[data-go]').forEach(b => b.onclick = () => ezGo(b.dataset.go));
+  host.querySelectorAll('[data-pid]').forEach(b => b.onclick = () => { const r = labPool()[b.dataset.pid]; if (r) showPlayer(r); });
+};
+
+/* league, loaded once and reused by every page */
+function leagueCtx() {
+  const L = st.lg, D = L && L.data; if (!L || !st.slate) return null;
+  const idx = slotIndex(), tms = Object.fromEntries(D.teams.map(t => [t.id, teamModel(t, idx)])), me = tms[L.my], opp = tms[L.opp], pool = labPool();
+  const cur = Object.values(me.starters).filter(Boolean), oppIds = Object.values(opp.starters).filter(Boolean);
+  const optSet = autoSet(me.ids, undefined, undefined, lockOf(me)), optIds = Object.values(optSet);
+  return {L, D, tms, me, opp, pool, cur, oppIds, optSet, optIds, curT: sumP(cur), optT: sumP(optIds), oppT: sumP(oppIds), wp: winProb(cur, oppIds)};
+}
+function swapList(c) {
+  const ins = c.optIds.filter(i => !c.cur.includes(i)).map(i => c.pool[i]).filter(Boolean).sort((a, b) => P(b, 'proj') - P(a, 'proj'));
+  const free = c.cur.filter(i => !c.optIds.includes(i)).map(i => c.pool[i]).filter(Boolean).sort((a, b) => P(a, 'proj') - P(b, 'proj')), out = [];
+  const flex = ELIG.FLEX || ['RB', 'WR', 'TE'];
+  ins.forEach(inn => {
+    let k = free.findIndex(o => o.pos === inn.pos); if (k < 0) k = free.findIndex(o => flex.includes(o.pos) && flex.includes(inn.pos));
+    const o = k >= 0 ? free.splice(k, 1)[0] : null; out.push({inn, out: o, gain: P(inn, 'proj') - (o ? P(o, 'proj') : 0)});
+  });
+  return out.sort((a, b) => b.gain - a.gain);
+}
+function pickups(c) {
+  const rostered = new Set(); Object.values(c.tms).forEach(t => t.ids.forEach(i => rostered.add(i)));
+  const want = new Set(['QB', 'RB', 'WR', 'TE', ...(st.lab.counts.K ? ['K'] : []), ...(st.lab.counts.DST ? ['DST'] : [])]), lock = lockOf(c.me), byPos = {};
+  st.slate.rows.filter(r => want.has(r.pos) && !rostered.has(r.id) && r.status !== 'Out').forEach(r => (byPos[r.pos] = byPos[r.pos] || []).push(r));
+  return Object.values(byPos).flatMap(a => a.sort((x, y) => P(y, 'proj') - P(x, 'proj')).slice(0, 12)).map(r => {
+    const ids = [...c.me.ids, r.id], oi = Object.values(autoSet(ids, undefined, undefined, lock)), gain = sumP(oi) - c.optT;
+    const bench = ids.filter(i => !oi.includes(i)).map(i => c.pool[i]).filter(Boolean).sort((a, b) => P(a, 'proj') - P(b, 'proj'));
+    return {r, gain, starts: oi.includes(r.id), drop: gain > .05 ? bench[0] : null};
+  }).sort((a, b) => b.gain - a.gain || P(b.r, 'proj') - P(a.r, 'proj'));
+}
+const addWord = g => g >= 2 ? 'Great add' : g >= .5 ? 'Good add' : g > .05 ? 'Small upgrade' : 'Bench depth';
+
+/* connecting: one card, used wherever a league is needed */
+const savedLeague = () => { try { return localStorage.getItem('gs_league') || ''; } catch (e) { return ''; } };
+function connectCard() {
+  return `<div class="card welcome"><div><h2>Welcome to GridSim</h2><p>Connect your ESPN fantasy league and GridSim tells you who to start, who to add and which trades make sense, in plain English.</p></div>
+    <div class="steps"><div class="step"><span class="n">1</span><div><b>Enter your league ID</b><div class="sub2">It is the number after leagueId= in your ESPN league web address.</div></div></div>
+      <div class="step"><span class="n">2</span><div><b>See your lineup advice</b><div class="sub2">Every player is projected for this week.</div></div></div>
+      <div class="step"><span class="n">3</span><div><b>Add players or trade</b><div class="sub2">One page, with a clear verdict on each idea.</div></div></div></div>
+    <div class="ctl"><div class="grow" style="max-width:280px"><label class="f" for="ezId">League ID</label><input class="inp" id="ezId" inputmode="numeric" autocomplete="off" placeholder="for example 1781890288" value="${esc(savedLeague())}"></div><button class="btn primary lg auto" id="ezBtn">Connect my league</button></div>
+    <details class="adv"><summary>My league is private</summary><div class="ctl" style="margin-top:var(--s3)"><div class="grow"><label class="f" for="ezS2">espn_s2 cookie</label><input class="inp" id="ezS2" autocomplete="off"></div><div class="grow"><label class="f" for="ezSW">SWID cookie</label><input class="inp" id="ezSW" autocomplete="off" placeholder="{XXXXXXXX-XXXX-...}"></div></div><div class="note">Copy both cookies from espn.com (browser DevTools, Application, Cookies). They go straight from your computer to ESPN and are not saved.</div></details>
+    ${st.lgErr ? `<div class="err" role="alert" style="display:block">${esc(st.lgErr)}</div>` : ''}</div>`;
+}
+function bindConnect(host) { const b = host.querySelector('#ezBtn'); if (!b) return; b.onclick = ezConnect; host.querySelector('#ezId').onkeydown = e => { if (e.key === 'Enter') ezConnect(); }; }
+async function ezConnect() {
+  const id = (($('#ezId') || {}).value || '').trim(); if (!id) { toast('Enter your league ID first.', {err: true}); return; }
+  const s2 = ($('#ezS2') || {}).value || '', sw = ($('#ezSW') || {}).value || '', b = $('#ezBtn'); busy(b, true, 'Connecting'); st.lgErr = '';
+  try { await connectLeague(id, s2, sw); renderEasy(); if (st.mode === 'adv') renderLeague(); if (!st.slate) await loadSlate('home'); }
+  catch (e) { st.lgErr = e.message; toast('Could not connect: ' + e.message, {err: true, ms: 9000}); renderEasy(); }
+}
+async function autoConnect() {
+  const id = savedLeague(); if (!id || st.lg) return;
+  try { await connectLeague(id); if (st.mode === 'adv') renderLeague(); renderEasy(); if (!st.slate) await loadSlate('home'); } catch (e) { st.lgErr = e.message; renderEasy(); }
+}
+function ezLoading(msg) { return `<div class="card empty" style="padding:var(--s5)"><b>${msg}</b><span>Simulating this week's games. This takes a few seconds.</span><div class="pbar"><i id="loadBar"></i></div></div>`; }
+function ezGate(host) {
+  if (!st.lg) { host.innerHTML = connectCard(); bindConnect(host); if (!st.slate && !st.loading) ensureSlate('home'); return false; }
+  if (!st.slate) { host.innerHTML = ezLoading('Getting your week ready'); if (!st.loading) ensureSlate('home'); return false; }
+  return true;
+}
+
 /* Home */
 function renderHome() {
-  const host = $('#tab-home'); const S = st.slate;
-  if (!S) {
-    const ng = st.sched ? st.sched.games.filter(g => g.week === st.week).length : '';
-    host.innerHTML = `<div class="tiles"><div class="tile"><span class="tl">Week ${st.week} games</span><span class="tv">${ng}</span><span class="ts">Simulating ${DEPTH[st.depth].slate.toLocaleString()} times each…</span></div>${'<div class="tile"><div class="skel" style="height:14px;width:60%"></div><div class="skel" style="height:30px;width:40%;margin-top:6px"></div></div>'.repeat(3)}</div><div class="card"><div class="skel" style="height:160px"></div></div>`; return; }
+  const host = $('#tab-home'); if (!host) return; const S = st.slate, c = st.lg && S ? leagueCtx() : null; let h = '';
+  const top = S ? S.rows.filter(r => ['QB', 'RB', 'WR', 'TE'].includes(r.pos)).sort((a, b) => P(b, 'proj') - P(a, 'proj')).slice(0, 5) : [];
+  const topCard = S ? `<div class="card"><h3>Top players this week</h3>${top.map((r, i) => `<button class="rowc" data-pid="${r.id}"><span class="slotl">${i + 1}</span><div class="grow">${pcell(r)}</div><div class="pts">${fmt(P(r, 'proj'))}<small>${r._left === 0 ? 'final' : r._left != null ? 'live' : 'projected'}</small></div></button>`).join('')}<div style="margin-top:12px"><button class="btn ghost sm auto" data-go="proj">See all players</button></div></div>` : '';
+  if (!st.lg) { h = connectCard() + (S ? topCard : ezLoading('Getting this week ready')); if (!S && !st.loading) ensureSlate('home'); }
+  else if (!c) { h = ezLoading('Getting your week ready'); if (!st.loading) ensureSlate('home'); }
+  else {
+    const gain = c.optT - c.curT, sw = swapList(c).filter(s => s.gain > .05), pk = pickups(c), best = pk[0];
+    const warn = c.me.matched.filter(m => m.row && m.e.slot !== 'BN' && m.e.slot !== 'IR' && ['Out', 'Doubtful', 'Questionable'].includes(m.row.status));
+    h = `<div class="hello"><div><h1>Week ${S.week}</h1><p>${esc(c.D.name || 'Your league')}</p></div></div>
+    <div class="card hero"><div class="hsd"><span class="htn">${esc(c.me.t.name)} (you)</span><span class="htp">${fmt(c.curT)}</span><span class="sub2">projected points</span></div><div class="vs"><b>VS</b></div>
+      <div class="hsd r"><span class="htn">${esc(c.opp.t.name)}</span><span class="htp">${fmt(c.oppT)}</span><span class="sub2">projected points</span></div>
+      <div class="wline"><div class="wt"><b>${pct(c.wp)} chance to win</b><span class="chip ${winCls(c.wp)}">${winWord(c.wp)}</span></div><div class="wbar2" role="img" aria-label="${pct(c.wp)} chance to win"><i style="width:${c.wp * 100}%"></i></div></div></div>
+    <div class="acts">
+      <div class="card act"><h3>Your lineup</h3>${gain > .3 && sw.length ? `<div class="big">${sw.length} change${sw.length > 1 ? 's' : ''} could add ${fmt(gain)} points</div><p>${esc(dn(sw[0].inn))}${sw[0].out ? ` instead of ${esc(dn(sw[0].out))}` : ' in an open slot'}${sw.length > 1 ? ` and ${sw.length - 1} more` : ''}.</p>` : `<div class="big">Your lineup looks good</div><p>No swap would add meaningful points this week.</p>`}<button class="btn primary auto" data-go="mylineup">${gain > .3 && sw.length ? 'Review the changes' : 'View my lineup'}</button></div>
+      <div class="card act"><h3>Free agents</h3>${best && best.gain > .3 ? `<div class="pcell">${hshot(best.r, 44)}<div class="pn"><b class="big" style="font-size:19px">${esc(dn(best.r))}</b><span class="psub">${esc(best.r.pos)} · ${esc(best.r.team)}</span></div></div><p>${addWord(best.gain)}: about ${fmt(best.gain)} more points this week.</p>` : `<div class="big">Nothing beats your roster</div><p>No free agent would improve your lineup this week.</p>`}<button class="btn primary auto" data-go="moves:add">See free agents</button></div>
+      <div class="card act"><h3>Trades</h3><div class="big">Find a trade</div><p>We look through every team for trades that help you and have a fair chance of being accepted.</p><button class="btn primary auto" data-go="moves:trade">Find trade ideas</button></div></div>
+    ${warn.length ? `<div class="card"><h3>Heads up on your starters</h3>${warn.map(m => `<button class="rowc" data-pid="${m.row.id}"><div class="grow">${pcell(m.row)}</div></button>`).join('')}<div class="note">These players are listed as hurt. Check the latest news before kickoff.</div></div>` : ''}
+    ${topCard}`;
+  }
+  host.innerHTML = h + (st.mode === 'adv' && S ? `<div id="homeSim"></div>` : '');
+  bindConnect(host); ezBind(host); if (st.mode === 'adv' && S) renderHomeSim($('#homeSim'));
+}
+
+/* My lineup */
+function renderMyLineup() {
+  const host = $('#tab-mylineup'); if (!host || !ezGate(host)) return;
+  const c = leagueCtx(), sw = swapList(c).filter(s => s.gain > .05), gain = c.optT - c.curT;
+  const slots = c.me.matched.filter(m => m.e.slot !== 'BN' && m.e.slot !== 'IR'), bench = c.me.matched.filter(m => m.e.slot === 'BN' || m.e.slot === 'IR');
+  const line = m => {
+    const r = m.row, e = m.e; if (!r) return `<div class="rowc"><span class="slotl">${esc(e.slot)}</span><div class="grow"><b>${esc(e.name)}</b><div class="sub2">${esc(e.pos)} · ${esc(e.team)} · no projection this week</div></div></div>`;
+    const out = sw.some(s => s.out && s.out.id === r.id), inn = sw.some(s => s.inn.id === r.id);
+    return `<button class="rowc" data-pid="${r.id}"><span class="slotl">${esc(e.slot)}</span><div class="grow">${pcell(r)}</div>${out ? '<span class="chip warn">Bench candidate</span>' : ''}${inn ? '<span class="chip ok">Start him</span>' : ''}<div class="pts">${fmt(P(r, 'proj'))}<small>${r._left === 0 ? 'final' : r._left != null ? 'live' : 'projected'}</small></div></button>`;
+  };
+  host.innerHTML = `<div class="hello"><div><h1>My lineup</h1><p>${esc(c.me.t.name)} · Week ${st.slate.week}</p></div><div class="chip ${winCls(c.wp)}" style="font-size:14px;padding:6px 14px">${pct(c.wp)} to win · ${winWord(c.wp)}</div></div>
+    ${sw.length ? `<div class="card"><h3>Suggested changes <span class="sub2">· about ${fmt(gain)} more points</span></h3><div style="display:flex;flex-direction:column;gap:10px">${sw.map(s => `<div class="swp">${s.out ? `<div><div class="sideh sub2">Bench</div>${pcell(s.out, 40)}</div><span class="tarr">⇄</span>` : ''}<div><div class="sideh sub2">Start</div>${pcell(s.inn, 40)}</div><span class="chip ok">+${fmt(s.gain)} pts</span></div>`).join('')}</div><div class="note">GridSim cannot change your ESPN lineup. Make these swaps in the ESPN app or website. Players whose games have started are locked, as on ESPN.</div></div>`
+      : `<div class="card act"><h3>Your lineup looks good</h3><p>No swap would add meaningful points this week.</p></div>`}
+    <div class="card"><h3>Starting lineup <span class="sub2">· ${fmt(c.curT)} projected points</span></h3>${slots.map(line).join('')}</div>
+    <div class="card"><h3>Bench</h3>${bench.length ? bench.map(line).join('') : '<div class="sub2">Nobody on your bench.</div>'}</div>`;
+  ezBind(host);
+}
+
+/* Add a free agent, or trade */
+function renderMoves() {
+  const host = $('#tab-moves'); if (!host || !ezGate(host)) return; const c = leagueCtx(), tab = st.mv.tab;
+  const choice = (k, ic, t, d) => `<button class="choice ${tab === k ? 'on' : ''}" data-mv="${k}" aria-pressed="${tab === k}"><span class="ci">${icon(ic)}</span><div><b>${t}</b><span>${d}</span></div></button>`;
+  host.innerHTML = `<div class="hello"><div><h1>Add a player or make a trade</h1><p>Choose one. Both only suggest moves you could actually make in your league.</p></div></div>
+    <div class="choices">${choice('add', 'waiver', 'Add a free agent', 'Players nobody owns who would improve your lineup this week.')}${choice('trade', 'trade', 'Trade with another team', 'Trades that help you and that the other team might accept.')}</div><div id="mvBody"></div>`;
+  host.querySelectorAll('[data-mv]').forEach(b => b.onclick = () => { st.mv.tab = b.dataset.mv; renderMoves(); });
+  (tab === 'add' ? mvAdd : mvTrade)(c, $('#mvBody'));
+  ezBind(host);
+}
+function mvAdd(c, body) {
+  const all = pickups(c), list = all.filter(x => st.mv.pos === 'ALL' || x.r.pos === st.mv.pos), shown = list.slice(0, st.mv.more), poss = ['ALL', ...new Set(all.map(x => x.r.pos))];
+  const none = all.length && !(all[0].gain > .05);
+  body.innerHTML = (none ? `<div class="note" style="margin:0 0 var(--s3)">No free agent would improve your lineup this week. These are the best players available, in case you need depth.</div>` : '') + `<div class="chips" id="mvPos" role="group" aria-label="Position">${poss.map(p => `<button data-p="${p}" class="${st.mv.pos === p ? 'on' : ''}">${p === 'ALL' ? 'All positions' : p}</button>`).join('')}</div>
+    <div class="pick">${shown.map(x => `<div class="card"><div class="gline">${pcell(x.r, 48)}<span class="chip ${x.gain > .5 ? 'ok' : 'ink'}">${addWord(x.gain)}${x.gain > .05 ? ' · +' + fmt(x.gain) : ''}</span></div>
+      <div class="sub2">${x.starts ? 'Would start for you this week.' : 'Would not start this week.'} Projected ${fmt(P(x.r, 'proj'))} points${x.drop ? `. To make room, drop ${esc(dn(x.drop))}.` : '.'}</div>
+      <div><button class="btn ghost sm auto" data-pid="${x.r.id}">See details</button></div></div>`).join('') || '<div class="card empty"><b>No free agents here</b><span>Try another position.</span></div>'}</div>
+    ${list.length > shown.length ? `<div class="more"><span class="sub2">Showing ${shown.length} of ${list.length}</span><button class="btn ghost sm" id="mvMore">Show more</button></div>` : ''}
+    <div class="note">Points are extra points for this week's lineup. Check the player you would drop (news, bye weeks, long-term value) before you make a move in ESPN.</div>`;
+  $('#mvPos').onclick = e => { const b = e.target.closest('button'); if (b) { st.mv.pos = b.dataset.p; st.mv.more = 6; renderMoves(); } };
+  const m = $('#mvMore'); if (m) m.onclick = () => { st.mv.more += 6; renderMoves(); };
+}
+async function mvFind(c) {
+  const T = st.tr; T.give = []; T.get = []; T.partner = null; T.mode = 'ros'; st.mv.tMore = 4;
+  const t = setInterval(() => { const b = $('#mvBusy'); if (b) b.textContent = T.sBusy || T.pxBusy || 'Working'; }, 300);
+  try { await trSuggest({D: c.D, L: c.L, tms: c.tms}, 'find'); } catch (e) { toast('Trade search failed: ' + e.message, {err: true}); T.sBusy = null; } finally { clearInterval(t); }
+  renderMoves();
+}
+function mvTrade(c, body) {
+  const T = st.tr, x = T.px && !T.px.err ? T.px : null, row = id => (x && x.row(id)) || c.pool[id], busy = !!(T.sBusy || T.pxBusy), sug = T.sugg;
+  const side = ids => ids.map(id => { const r = row(id); return r ? pcell(r, 40) : ''; }).join('<div style="height:8px"></div>');
+  const cls = {good: 'ok', ok: 'ok', bad: 'warn'};
+  let h = `<div class="card act"><h3>Find a trade</h3><p>GridSim checks every other team for trades that make your team better over the rest of the season and that the other manager has a real reason to accept. Searching takes about a minute.</p>
+    <button class="btn primary lg auto" id="mvFind" ${busy ? 'disabled' : ''}>${busy ? '<span class="spin"></span>Searching' : sug ? 'Search again' : 'Find trade ideas'}</button><div class="sub2" id="mvBusy" aria-live="polite">${busy ? esc(T.sBusy || T.pxBusy) : ''}</div>${T.px && T.px.err ? `<div class="err" style="display:block">${esc(T.px.err)}</div>` : ''}</div>`;
+  if (sug && !busy) {
+    const shown = sug.slice(0, st.mv.tMore);
+    h += (T.suggNone ? `<div class="note">No trade clearly improves your team right now. These are the closest options.</div>` : '') + `<div class="pick">${shown.map((s, i) => { const v = trVerdict(s.e);
+      return `<div class="card"><div class="gline"><b>${esc(s.t.name)}</b><span class="chip ${cls[v[1]] || 'ink'}">${v[0]}</span></div>
+        <div class="tcard"><div><div class="sideh">You give</div>${side(s.give)}</div><span class="tarr">⇄</span><div><div class="sideh">You get</div>${side(s.get)}</div></div>
+        <div class="sub2">For you: ${sgn(s.e.myGain, 0)} points over the rest of the season. For them: ${sgn(s.e.theirGain, 0)}.</div>
+        <div><button class="btn ghost sm auto" data-sug="${i}">Open in the trade builder</button></div></div>`; }).join('')}</div>
+      ${sug.length > shown.length ? `<div class="more"><span class="sub2">Showing ${shown.length} of ${sug.length}</span><button class="btn ghost sm" id="mvTMore">Show more</button></div>` : ''}`;
+  }
+  body.innerHTML = h;
+  const f = $('#mvFind'); if (f) f.onclick = () => { mvFind(c); renderMoves(); };
+  const m = $('#mvTMore'); if (m) m.onclick = () => { st.mv.tMore += 4; renderMoves(); };
+  body.querySelectorAll('[data-sug]').forEach(b => b.onclick = () => { const s = T.sugg[+b.dataset.sug]; T.partner = s.t.id; T.give = s.give.slice(); T.get = s.get.slice(); go('team', 'trades'); });
+}
+
+/* Simulator highlights (Advanced only, below the Home page) */
+function renderHomeSim(host) {
+  const S = st.slate; if (!S || !host) return;
   const gs = S.games, close = [...gs].sort((a, b) => Math.abs(a.sim_home_win - .5) - Math.abs(b.sim_home_win - .5))[0];
   const edge = g => g.spread == null ? 0 : Math.abs(rawM(g) - g.spread);
   const lean = [...gs].sort((a, b) => edge(b) - edge(a))[0];
   const top = S.rows.filter(r => ['QB', 'RB', 'WR', 'TE'].includes(r.pos)).sort((a, b) => P(b, 'proj') - P(a, 'proj')).slice(0, 6);
   const D = st.lg && st.lg.data;
   const wp = g => `${st.TEAMS[g.away].name.split(' ').pop()} @ ${st.TEAMS[g.home].name.split(' ').pop()}`;
-  host.innerHTML = `<div class="tiles">
+  host.innerHTML = `<div class="hello" style="margin-top:var(--s5)"><div><h1 style="font-size:20px">Simulator highlights</h1></div></div><div class="tiles">
     <div class="tile"><span class="tl">Week ${S.week} games</span><span class="tv">${gs.length}</span><span class="ts">${S.n.toLocaleString()} sims each · ${S.secs}s</span></div>
     <button class="tile" data-go="games"><span class="tl">Closest game</span><span class="tv">${close ? wp(close) : '–'}</span><span class="ts">${close ? `${pct(close.sim_home_win)} ${close.home} win` : ''}</span></button>
     <button class="tile" data-go="games"><span class="tl">Biggest sim-vs-market gap</span><span class="tv">${lean && lean.spread != null ? wp(lean) : '–'}</span><span class="ts">${lean && lean.spread != null ? `${fmt(edge(lean))} pts off the line` : 'no lines yet'}</span></button>
@@ -2244,18 +2559,19 @@ function renderSettings() {
   const host = $('#tab-settings'); const th = getTheme(), D = st.lg && st.lg.data, saved = localStorage.getItem('gs_league') || '1781890288';
   const segH = (id, opts, cur) => `<div class="seg" id="${id}">${opts.map(([k, l]) => `<button data-v="${k}" class="${cur === k ? 'on' : ''}">${l}</button>`).join('')}</div>`;
   host.innerHTML = `<div class="setgrid">
+  <div class="card"><h3>Experience</h3><div class="setrow"><div><b>${st.mode === 'easy' ? 'Simple view' : 'Advanced view'}</b><div class="sd">Simple shows plain advice for your lineup, free agents and trades. Advanced adds every simulator tool, stat and chart.</div></div>${segH('setMode', [['easy', 'Simple'], ['adv', 'Advanced']], st.mode)}</div></div>
   <div class="card"><h3>League</h3><div class="setrow"><div><b>${D ? D.name || 'Connected' : 'Not connected'}</b><div class="sd">${D ? `ID ${saved} · league week ${D.week} · scoring and roster slots read from ESPN` : `Saved ID ${saved}. ESPN must be reachable from where GridSim runs.`}</div></div></div>
-    <div class="setrow"><label for="setLg">League ID</label><input class="inp" id="setLg" value="${saved}" style="max-width:180px"></div><div class="setrow"><span class="sd">Private league? Add cookies in My league, then Lineup.</span><button class="btn primary sm" id="setLoad">${D ? 'Reload league' : 'Connect league'}</button></div></div>
-  <div class="card"><h3>Simulation</h3><div class="setrow"><div>Scoring<div class="sd">Applies to every projection</div></div>${segH('setFmt', Object.entries(FMTN).filter(([k]) => k !== 'custom'), st.fmt)}</div>
-    <div class="setrow"><div>Sims per game<div class="sd">More sims = smoother ranges, slower runs. Standard error of a win probability near 50% is about ±1.6 pts at 1,000 sims and ±0.5 at 10,000.</div></div>${segH('setDepth', [['fast', '500'], ['std', '1,000'], ['deep', '10,000']], st.depth)}</div>
-    <div class="setrow"><div>Weather and roof<div class="sd">Wind and dome adjust the game total</div></div><label class="chk"><input type="checkbox" id="setWx" ${st.useWx ? 'checked' : ''}> On</label></div></div>
+    <div class="setrow"><label for="setLg">League ID</label><input class="inp" id="setLg" value="${saved}" style="max-width:180px"></div><div class="setrow"><span class="sd">Private league? Open Advanced tools, then My league, to add your ESPN cookies.</span><button class="btn primary sm" id="setLoad">${D ? 'Reload league' : 'Connect league'}</button></div></div>
+  <div class="card"><h3>Scoring</h3><div class="setrow"><div>Scoring<div class="sd">Applies to every projection</div></div>${segH('setFmt', Object.entries(FMTN).filter(([k]) => k !== 'custom'), st.fmt)}</div>
+    <div class="setrow adv-only"><div>Sims per game<div class="sd">More sims = smoother ranges, slower runs. Standard error of a win probability near 50% is about ±1.6 pts at 1,000 sims and ±0.5 at 10,000.</div></div>${segH('setDepth', [['fast', '500'], ['std', '1,000'], ['deep', '10,000']], st.depth)}</div>
+    <div class="setrow adv-only"><div>Weather and roof<div class="sd">Wind and dome adjust the game total</div></div><label class="chk"><input type="checkbox" id="setWx" ${st.useWx ? 'checked' : ''}> On</label></div></div>
   <div class="card"><h3>Appearance</h3><div class="setrow"><div>Theme</div>${segH('setTheme', [['system', 'System'], ['light', 'Light'], ['dark', 'Dark']], th)}</div>
     <div class="setrow"><div>Density<div class="sd">Compact fits more rows on screen</div></div>${segH('setDense', [['0', 'Comfortable'], ['1', 'Compact']], document.documentElement.classList.contains('dense') ? '1' : '0')}</div></div>
   <div class="card"><h3>Data</h3><div class="setrow"><div>Last updated<div class="sd">${$('#g_stamp').textContent || 'unknown'} · ${$('#dataChip').textContent}</div></div><button class="btn ghost sm" id="setUpd">Update data</button></div>
-    <div class="setrow"><div>Keyboard shortcuts<div class="sd">Press ? anywhere</div></div><button class="btn ghost sm" id="setKeys">Show</button></div></div></div>`;
+    <div class="setrow adv-only"><div>Keyboard shortcuts<div class="sd">Press ? anywhere</div></div><button class="btn ghost sm" id="setKeys">Show</button></div></div></div>`;
   const seg = (id, fn) => $('#' + id).onclick = e => { const b = e.target.closest('button'); if (b) { fn(b.dataset.v); renderSettings(); } };
   seg('setFmt', v => { setFmt(v); syncURL(); }); seg('setDepth', v => { $('#g_depth').value = v; $('#g_depth').dispatchEvent(new Event('change')); });
-  seg('setTheme', v => setTheme(v)); seg('setDense', v => { document.documentElement.classList.toggle('dense', v === '1'); try { localStorage.setItem('gs_dense', v); } catch (e) {} });
+  seg('setTheme', v => setTheme(v)); seg('setMode', v => setMode(v)); seg('setDense', v => { document.documentElement.classList.toggle('dense', v === '1'); try { localStorage.setItem('gs_dense', v); } catch (e) {} });
   $('#setWx').onchange = e => { st.useWx = e.target.checked; reloadSlate(); };
   $('#setUpd').onclick = () => $('#g_update').click(); $('#setKeys').onclick = showHelp;
   $('#setLoad').onclick = () => { localStorage.setItem('gs_league', $('#setLg').value.trim()); go('team', 'lineup'); setTimeout(() => { const i = $('#lgId'); if (i) i.value = localStorage.getItem('gs_league'); const b = $('#lgBtn'); if (b) b.click(); }, 80); };

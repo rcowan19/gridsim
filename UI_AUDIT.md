@@ -129,5 +129,8 @@ Home mobile LCP is 7.6 s because the Home numbers wait for the week's simulation
 - 100k-sim runs are not offered by the UI (Deep = 10,000 per game); not tested.
 - Not done from the brief: the Game-sim "sample game scrubber with win-probability chart" (existing Play-by-play kept as is), saved views, fan charts, per-game streaming, trade fairness meter. They are in the backlog rather than half-built.
 - Two small non-UI behaviours changed: the saved ESPN league now auto-loads when you open a My league page, and a league-load failure now shows an error plus toast (it was silently swallowed).
-- I did not change any simulation or model code. `server.py` is untouched.
+- I did not change any simulation or model code. `server.py` only gained display metadata (player first name, NFL headshot URL, ESPN id) on slate rows for the Simple view.
 - Branch is based on `audit/model-v2` (not `main`), because that has the injury tab and the model audit. Merge order: audit first, then this branch.
+
+## Round 2: Simple view
+Feedback: too many stats, too many places to look at trades and moves, buttons hard to see, no logos or photos. Changes: a Simple view is now the default (5 pages), Waivers, Trades, What-if and the trade analyzer are one Add / trade page, team logos and player headshots throughout, bolder buttons and chips, smoother transitions. The Advanced view keeps everything. axe: 0 violations in both views, both themes, desktop and phone.

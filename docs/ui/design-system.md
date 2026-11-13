@@ -39,3 +39,13 @@ Visible `:focus-visible` ring; `scroll-padding-top` for the sticky bar; targets 
 
 ## How to add a component
 Style with tokens only (no hex literals); give it a hover, focus-visible and disabled state; check it in dark; keep touch height >= 44 px under 760 px.
+
+
+## v2 additions: Simple view, logos and headshots
+- **Mode**: `<html data-mode="easy|adv">` (saved as `gs_mode`, default `easy`). Utility classes `.adv-only` (hidden in Simple) and `.easy-only` (hidden in Advanced). Never hide information that is needed to act in Simple view; hide only extra statistics.
+- **Logos**: `tlogo(abbr, size)` renders `.tlg` (abbreviation under an `<img>` from ESPN's CDN; the image removes itself on error).
+- **Headshots**: `hshot(row, size)` renders `.hs` (initials under an `<img>`, ring in the position colour); DST uses the team logo. `pcell(row, size, showOpp)` is the standard player cell: avatar, name, injury chip, team logo, position, opponent.
+- **Verdict chips**: `.chip` with `ok`, `warn`, `bad`, `ink`. Always use words ("Favored", "Good add"), not only colour.
+- **Cards**: `.hero` (matchup), `.act` (one action per card), `.rowc` (clickable row), `.choice` (big either/or selector), `.pick` (card grid), `.tcard` (trade sides), `.swp` (lineup swap).
+- **Buttons**: every `.btn` has a visible border or fill (`.primary`, `.ghost`, or the neutral default). Min height 40px (34px `.sm`, 48px `.lg`), focus ring 2px accent.
+- **Motion**: 120 to 220ms ease on colour, shadow and transform; pages fade in; skeleton shimmer. All of it is off under `prefers-reduced-motion`.
