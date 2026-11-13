@@ -18,9 +18,11 @@ def page(br, hash_="", w=1440, h=900, mode=None, league=False, block_images=Fals
     pg.wait_for_function("!document.body.innerText.includes('Simulating')", timeout=90000)
     return pg
 
+NAV = [("home", "#/home"), ("mylineup", "#/mylineup"), ("moves", "#/moves"), ("proj", "#/players/rank"), ("games", "#/games"), ("league", "#/league"), ("inj", "#/inj"), ("whatif", "#/whatif"), ("lab", "#/lab/ov"), ("settings", "#/settings")]
+
 def test_nav_every_page(br):
-    pg = page(br); pg.click("#toolsBtn")
-    for nid, hs in [("games", "#/games"), ("proj", "#/players/rank"), ("lineup", "#/team/lineup"), ("waivers", "#/team/waivers"), ("trades", "#/team/trades"), ("league", "#/team/league"), ("inj", "#/inj"), ("lab", "#/lab/ov"), ("settings", "#/settings"), ("home", "#/home")]:
+    pg = page(br)
+    for nid, hs in NAV:
         pg.click(f"#side [data-nav={nid}]"); pg.wait_for_timeout(250)
         assert pg.evaluate("location.hash").startswith(hs), nid
         assert pg.locator(f"#side [data-nav={nid}][aria-current=page]").count() == 1, nid
@@ -55,8 +57,11 @@ def test_table_sort_filter_columns_csv(br):
     assert d.value.suggested_filename.endswith(".csv"); assert not pg.errs
 
 def test_run_lab_sim(br):
-    pg = page(br, "#/lab/ov"); pg.click("#runBtn"); pg.wait_for_function("document.querySelector('#gl-ov').innerText.includes('win probability')", timeout=90000)
-    assert "standard error" in pg.inner_text("#gl-ov"); assert "P50" in pg.inner_html("#gl-ov"); assert not pg.errs
+    pg = page(br, "#/lab/ov"); pg.click("#runBtn"); pg.wait_for_selector("#gl-ov .simhero", timeout=90000)
+    t = pg.inner_text("#gl-ov").lower(); assert "chance to win" in t and "players to watch" in t and "simulated games" in t
+    assert "P50" in pg.inner_html("#gl-ov")
+    assert pg.locator("#gl-ov .simhero .tlg").count() == 2 and pg.locator("#gl-ov .rowc .hs").count() >= 4
+    pg.click("#gl-ov details.ezmore summary >> nth=0"); assert pg.locator("#gl-ov table.st:visible").count() >= 1; assert not pg.errs
 
 def test_theme_and_settings_persist(br):
     pg = page(br, "#/settings"); pg.click("#setTheme [data-v=dark]"); assert pg.evaluate("document.documentElement.dataset.theme") == "dark"
@@ -71,20 +76,17 @@ def test_phone_no_hscroll_and_tabbar(br):
     pg.click("#tabbar [data-nav=games]"); assert pg.evaluate("st.page") == "games"
 
 def test_error_state_retry(br):
-    pg = page(br, "#/games"); pg.route("**/api/slate", lambda r: r.abort()); pg.keyboard.press("r"); pg.wait_for_selector("#retrySl", timeout=15000)
+    pg = page(br, "#/games"); pg.wait_for_selector(".gcard", timeout=90000); pg.route("**/api/slate", lambda r: r.abort()); pg.keyboard.press("r"); pg.wait_for_selector("#retrySl", timeout=15000)
     assert "Could not reach" in pg.inner_text("#nflBody"); pg.unroute("**/api/slate"); pg.click("#retrySl"); pg.wait_for_selector(".gcard", timeout=90000)
 
 
 # ---------- one experience: Easy pages, detail on demand, tools under "More tools" ----------
 def visible_nav(pg): return pg.eval_on_selector_all("#side [data-nav]", "b=>b.filter(x=>x.offsetParent).map(x=>x.dataset.nav)")
 
-def test_nav_is_short_and_tools_are_tucked_away(br):
+def test_nav_is_one_flat_list(br):
     pg = page(br, "#/home")
-    assert visible_nav(pg) == ["home", "mylineup", "moves", "proj", "games", "settings"]
-    for nid in visible_nav(pg):
-        pg.click(f"#side [data-nav={nid}]"); pg.wait_for_timeout(300); assert pg.locator(f"#side [data-nav={nid}][aria-current=page]").count() == 1, nid
-    assert pg.locator(".adv-only:visible").count() == 0 and pg.locator("#modeBtn").count() == 0
-    pg.click("#toolsBtn"); assert "lab" in visible_nav(pg) and "trades" in visible_nav(pg)
+    assert visible_nav(pg) == [n for n, _ in NAV]
+    assert pg.locator(".adv-only:visible").count() == 0 and pg.locator("#modeBtn").count() == 0 and pg.locator("#toolsBtn").count() == 0
     assert not pg.errs
 
 def test_connect_card_then_lineup_and_images(br):
@@ -118,16 +120,76 @@ def test_trade_suggestion_opens_builder_in_place(br):
 def test_players_and_games_details_on_demand(br):
     pg = page(br, "#/players/rank", league=True)
     heads = lambda: pg.eval_on_selector_all("#rkTable thead th", "t=>t.map(x=>x.innerText.trim().toLowerCase())")
-    assert not any(h in heads() for h in ("boom%", "bust%", "sd", "median")) and pg.locator("#pg-players .subtabs button:visible").count() == 1
+    assert not any(h in heads() for h in ("boom%", "bust%", "sd", "median")) and pg.locator("#pg-players .plseg button:visible").count() == 3
     pg.check("#rkMore"); pg.wait_for_timeout(400); assert "boom%" in heads() and pg.locator(".colmenu:visible").count() == 1
     pg.uncheck("#rkMore"); pg.wait_for_timeout(400); assert "boom%" not in heads()
     pg.click("#side [data-nav=games]"); pg.wait_for_selector(".gcard.ez"); assert pg.locator(".gcard.ez table.gl:visible").count() == 0
     pg.click(".gcard.ez .ezmore summary >> nth=0"); assert pg.locator(".gcard.ez table.gl:visible").count() == 1
     assert pg.evaluate("document.documentElement.scrollWidth") <= 1440 and not pg.errs
 
-def test_tool_pages_open_and_come_back(br):
+def test_every_page_uses_the_easy_layout(br):
     pg = page(br, "#/lab/ov")
-    assert pg.evaluate("[st.page, st.mode]") == ["lab", "adv"] and pg.locator("#toolsSub:visible").count() == 1
-    pg.click("#side [data-nav=proj]"); pg.wait_for_selector("#rkTable"); assert pg.evaluate("st.mode") == "easy"
-    pg.evaluate("location.hash='#/players/stack'"); pg.wait_for_timeout(600); assert pg.evaluate("st.mode") == "adv"
-    pg.click("#side [data-nav=games]"); pg.wait_for_selector(".gcard.ez"); assert pg.evaluate("st.mode") == "easy" and not pg.errs
+    for hs in ["#/lab/ov", "#/players/stack", "#/players/trend", "#/games", "#/settings"]:
+        pg.evaluate(f"location.hash='{hs}'"); pg.wait_for_timeout(500)
+        assert pg.evaluate("st.mode") == "easy" and pg.locator(".adv-only:visible").count() == 0, hs
+    assert not pg.errs
+
+# ---------- the pages rebuilt in the Easy style ----------
+def test_league_page(br):
+    pg = page(br, "#/league", league=True); pg.wait_for_selector("#tab-league .mu", timeout=30000)
+    assert pg.locator("#tab-league .mu.mine").count() == 1 and pg.locator("#tab-league .tav").count() >= 4 and "Power rankings" in pg.inner_text("#tab-league")
+    before = pg.inner_text("#tab-league .mu.mine"); ids = pg.eval_on_selector_all("#lgMy option", "o=>o.map(x=>x.value)")
+    pg.select_option("#lgMy", [i for i in ids if i != pg.input_value("#lgMy")][0]); pg.wait_for_timeout(500)
+    assert pg.inner_text("#tab-league .mu.mine") != before and pg.evaluate("document.documentElement.scrollWidth") <= 1440 and not pg.errs
+
+def test_injuries_page_apply_and_clear(br):
+    pg = page(br, "#/inj", league=True); pg.wait_for_selector("#injQ", timeout=30000)
+    assert pg.locator("#injApply[disabled]").count() == 1
+    pg.fill("#injQ", "KC"); pg.wait_for_selector("#tab-inj .card [data-inj]"); pg.fill("#injQ", "")
+    pg.click("#tab-inj [data-inj][data-v=out] >> nth=0"); assert pg.locator("#injApply:not([disabled])").count() == 1
+    pg.click("#injApply"); pg.wait_for_function("Object.keys(st.inj).length === 1", timeout=60000); pg.wait_for_function("st.slate && st.slate.edited && st.slate.edited.length", timeout=180000)
+    pg.wait_for_selector("#injImpact .card", timeout=180000)
+    pg.click("#injClear"); pg.click("#injApply"); pg.wait_for_function("Object.keys(st.inj).length === 0", timeout=60000); assert not pg.errs
+
+def test_what_if_add_and_drop(br):
+    pg = page(br, "#/whatif", league=True); pg.wait_for_selector("#wiQ", timeout=30000)
+    assert "Pick a player to add or drop" in pg.inner_text("#tab-whatif") and pg.locator("#wiClear[disabled]").count() == 1
+    name = pg.evaluate("(() => { const mine = leagueCtx().me.ids; return Object.values(labPool()).filter(p => !mine.includes(p.id)).sort((a, b) => b.proj - a.proj)[0].name; })()")
+    pg.fill("#wiQ", name.split(" ")[-1]); pg.wait_for_selector("#wiRes [data-add]"); pg.click("#wiRes [data-add] >> nth=0")
+    pg.wait_for_selector("#tab-whatif [data-rmadd]"); assert pg.locator("#wiClear:not([disabled])").count() == 1 and pg.locator("#tab-whatif .wts .wt").count() >= 3
+    pg.click("#tab-whatif [data-drop] >> nth=0"); assert pg.locator("#tab-whatif [data-drop].on").count() == 1
+    pg.click("#wiClear"); assert "Pick a player to add or drop" in pg.inner_text("#tab-whatif") and not pg.errs
+
+def test_players_views(br):
+    pg = page(br, "#/players/rank", league=True)
+    pg.click(".plseg[data-sg=players] [data-k=trend]"); pg.wait_for_selector("#pl-trend [data-pid]")
+    assert pg.evaluate("document.querySelector('#tab-slate').dataset.view") == "trend" and pg.locator(".adv-only:visible").count() == 0
+    pg.click("#pl-trend [data-pid] >> nth=0"); pg.wait_for_selector("#dpanel .ezd-hero"); pg.keyboard.press("Escape")
+    pg.click(".plseg[data-sg=players] [data-k=stack]"); pg.wait_for_selector("#pl-stack .stkc"); assert pg.locator("#pl-stack .stkc .hs").count() >= 2
+    assert pg.evaluate("document.documentElement.scrollWidth") <= 1440 and not pg.errs
+
+def test_my_lineup_start_sit_and_full_stats(br):
+    pg = page(br, "#/mylineup", league=True); pg.wait_for_selector("#ssA", timeout=30000)
+    ids = pg.eval_on_selector_all("#ssA option", "o=>o.map(x=>x.value).filter(Boolean)"); assert len(ids) >= 4
+    pg.select_option("#ssA", ids[0]); pg.select_option("#ssB", ids[3]); pg.wait_for_selector("#ssOut .wvd")
+    assert pg.inner_text("#ssOut .wvd").startswith("Start ") and pg.locator("#ssOut .ssp .hs").count() == 2
+    pg.click("#mlWp"); pg.wait_for_selector("#mlWpOut .wvd", timeout=30000)
+    pg.click("#mlFull"); pg.wait_for_selector("#sheet:not(.hide) #lgRoster table"); assert pg.locator("#lgRoster tbody tr").count() >= 8
+    pg.keyboard.press("Escape"); assert pg.locator("#sheet.hide").count() == 1 and not pg.errs
+
+def test_settings_connect_and_choose_team(br):
+    pg = page(br, "#/settings"); assert pg.locator("#setLoad").inner_text() == "Connect league"
+    pg.fill("#setLg", "1781890288"); pg.click("#setLoad"); pg.wait_for_function("st.lg && st.lg.data", timeout=120000); pg.wait_for_selector("#setMy", timeout=20000)
+    assert pg.locator("#setMy option").count() >= 10 and pg.locator("#setLoad").inner_text() == "Reload league"
+    pg.select_option("#setMy", index=2); pg.wait_for_timeout(300); assert pg.evaluate("st.lg.my") == int(pg.input_value("#setMy")) and not pg.errs
+
+def test_game_simulator_views_and_watch(br):
+    pg = page(br, "#/lab/ov", block_images=True)
+    assert pg.locator("#lpA .tlg").count() == 1 and pg.locator("#lpH .tlg").count() == 1
+    a, h = pg.input_value("#away"), pg.input_value("#home"); pg.click("#swap"); assert (pg.input_value("#away"), pg.input_value("#home")) == (h, a)
+    pg.click("#runBtn"); pg.wait_for_selector("#gl-ov .simhero", timeout=90000)
+    pg.click("#gl-ov [data-pid] >> nth=0"); pg.wait_for_selector("#dpanel .ezd-hero"); pg.keyboard.press("Escape")
+    pg.click("#labAllPl"); pg.wait_for_selector("#ptab tbody tr"); assert pg.evaluate("st.sub.lab") == "fan" and pg.locator("#ptab .hs").count() >= 6
+    pg.click(".plseg[data-sg=lab] [data-k=mu]"); assert pg.locator("#gl-mu table.mb:visible").count() >= 1 and pg.locator("#gl-mu .rowc.cp").count() >= 4
+    pg.click("#gameBtn"); pg.wait_for_selector("#gameBody:not(.hide) .sb", timeout=60000); assert pg.evaluate("st.sub.lab") == "pbp" and pg.locator("#gameBody .sb .tlg").count() == 2
+    pg.click("#bNext"); assert pg.evaluate("st.i") == 1 and pg.evaluate("document.documentElement.scrollWidth") <= 1440 and not pg.errs
