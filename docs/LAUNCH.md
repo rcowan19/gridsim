@@ -36,6 +36,8 @@ First boot downloads the data and builds the model (several minutes); the health
 
 ## 4. End-to-end test (test mode) before real money
 
+Shortcut for a local run: `bash scripts/paid_local.sh` creates the virtual environment, installs packages, installs the Stripe CLI, asks for your email, the Supabase database password and the Stripe test secret key (hidden), writes a git-ignored `.env`, forwards webhooks and starts the app. The list below is what to try once it is running.
+
 1. Create an account, confirm the email, sign in. You should land on the plan screen.
 2. Buy the season pass with card `4242 4242 4242 4242`, any future date, any CVC. You return to the app and it unlocks within a few seconds (webhook).
 3. In Stripe, refund it. Access should end.

@@ -4,3 +4,6 @@ __pycache__/
 .venv/
 backtest_*.csv
 validate/out/
+.env
+.env.*
+!.env.example
