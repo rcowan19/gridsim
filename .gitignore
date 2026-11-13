@@ -7,3 +7,4 @@ validate/out/
 .env
 .env.*
 !.env.example
+.tools/
