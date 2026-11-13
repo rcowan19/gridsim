@@ -167,7 +167,7 @@ def normalize(raw, pdb=None):
             roster.append({"id": pid, "name": p["name"], "pos": p["pos"], "team": p["team"], "slot": slot_of.get(pid, "BN"),
                            "injury": (p.get("injury") or "ACTIVE").upper()})
         s = r.get("settings") or {}
-        teams.append({"id": r.get("roster_id"), "name": name, "abbrev": "".join(c for c in name if c.isalnum())[:4].upper(), "roster": roster,
+        teams.append({"id": r.get("roster_id"), "name": name, "abbrev": "".join(c for c in name if c.isalnum())[:4].upper(), "roster": roster, "owners": [r["owner_id"]] if r.get("owner_id") else [],
                       "record": {"wins": s.get("wins", 0), "losses": s.get("losses", 0), "ties": s.get("ties", 0),
                                  "pointsFor": round((s.get("fpts") or 0) + (s.get("fpts_decimal") or 0) / 100, 2)}})
     sched = []

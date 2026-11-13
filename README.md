@@ -39,6 +39,14 @@ probabilities, best-lineup and rest-of-season numbers all read that one updated 
 their slots (as on ESPN). The pre-game projection stays visible in its own column. No model or simulation logic changes.
 Dev/testing: `GRIDSIM_ESPN_LIVE_MOCK` and `GRIDSIM_NFL_STATUS_MOCK` serve saved payloads.
 
+## Leagues, accounts and billing (branch `product/accounts-billing`)
+- **Platforms:** ESPN and Sleeper (`espn.py`, `sleeper.py`). Both normalize to one league shape, so every page works on either. Sleeper needs no keys: enter a username to list leagues, or a league ID. Dev: `GRIDSIM_SLEEPER_MOCK=path.json`.
+- **Accounts:** Supabase Auth (email + Google). The server verifies the JWT (`auth.py`) and keeps users, saved leagues and subscriptions in SQLAlchemy (`db.py`): SQLite locally, Postgres in production. ESPN cookies are stored encrypted (`crypto.py`).
+- **Billing:** Stripe Checkout for a monthly plan or a season pass, Customer Portal for management, and a signed webhook (`billing.py`) as the only thing that grants or removes access.
+- **Local dev:** with no env vars auth is off and everything is open as a local admin user. `GRIDSIM_ENV=production` forces auth on and refuses to start if config is missing.
+- **Deploy and setup:** `Dockerfile`, `fly.toml`, `.env.example` and the step-by-step checklist in `docs/LAUNCH.md`. `static/legal/` holds draft Terms and Privacy pages that need a lawyer's review.
+- **Tests:** `python -m pytest -q tests --ignore=tests/ui` (backend, mocked Stripe and Supabase); the Playwright suites are `tests/ui/test_smoke.py` (server on :8000 with mocks) and `tests/ui/test_account.py` (starts its own auth-on server).
+
 ## Game conditions
 Wind and roof adjust the simulation (`engine.env_factors`; fitted to 2025-26 play-by-play and shrunk: about -0.4 points of total per mph of
 wind above 5, indoors about +0.5). Temperature, weekday and kickoff slot showed no usable signal. Forecasts come from Open-Meteo

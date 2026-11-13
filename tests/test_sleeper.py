@@ -75,3 +75,15 @@ def test_find_leagues(monkeypatch):
     monkeypatch.setattr(sleeper, "_get", lambda p, timeout=20: None)
     try: sleeper.find_leagues("nobody"); assert False
     except sleeper.SleeperError as e: assert "No Sleeper user" in str(e)
+
+
+def test_my_team_guess_from_owner(monkeypatch, tmp_path):
+    import json
+    from fastapi.testclient import TestClient
+    p = tmp_path / "m.json"; p.write_text(json.dumps({"raw": {**fx.raw(), "matchups": {}}, "players": fx.PLAYERS}))
+    monkeypatch.setenv("GRIDSIM_SLEEPER_MOCK", str(p)); monkeypatch.setenv("GRIDSIM_AUTH", "off")
+    import server
+    c = TestClient(server.app)
+    assert c.get("/api/league", params={"platform": "sleeper", "league": "L1", "me": "u2"}).json()["my_team_guess"] == 2
+    assert c.get("/api/league", params={"platform": "sleeper", "league": "L1"}).json()["my_team_guess"] is None
+    assert c.get("/api/league", params={"platform": "sleeper", "league": "L1", "me": "nobody"}).json()["my_team_guess"] is None

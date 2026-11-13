@@ -56,7 +56,7 @@ def normalize(raw):
                 continue
             roster.append({"id": p.get("id"), "name": p.get("fullName", "?"), "pos": pos, "team": PRO.get(p.get("proTeamId"), "FA"),
                            "slot": SLOT.get(e.get("lineupSlotId"), str(e.get("lineupSlotId"))), "injury": p.get("injuryStatus")})
-        teams.append({"id": t.get("id"), "name": name, "abbrev": t.get("abbrev"), "roster": roster,
+        teams.append({"id": t.get("id"), "name": name, "abbrev": t.get("abbrev"), "roster": roster, "owners": t.get("owners") or [],
                       "record": (t.get("record") or {}).get("overall", {})})
     st = raw.get("settings", {})
     counts = {SLOT.get(int(k), k): v for k, v in (st.get("rosterSettings", {}).get("lineupSlotCounts") or {}).items() if v}

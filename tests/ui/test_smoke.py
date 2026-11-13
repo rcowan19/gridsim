@@ -178,10 +178,23 @@ def test_my_lineup_start_sit_and_full_stats(br):
     pg.keyboard.press("Escape"); assert pg.locator("#sheet.hide").count() == 1 and not pg.errs
 
 def test_settings_connect_and_choose_team(br):
-    pg = page(br, "#/settings"); assert pg.locator("#setLoad").inner_text() == "Connect league"
-    pg.fill("#setLg", "1781890288"); pg.click("#setLoad"); pg.wait_for_function("st.lg && st.lg.data", timeout=120000); pg.wait_for_selector("#setMy", timeout=20000)
-    assert pg.locator("#setMy option").count() >= 10 and pg.locator("#setLoad").inner_text() == "Reload league"
+    pg = page(br, "#/settings"); assert pg.locator("#setAdd").inner_text() == "Connect a league"
+    pg.click("#setAdd"); pg.wait_for_selector("#ezId"); pg.fill("#ezId", "1781890288"); pg.click("#ezBtn"); pg.wait_for_function("st.lg && st.lg.data", timeout=120000)
+    pg.click("#side [data-nav=settings]"); pg.wait_for_selector("#setMy", timeout=20000)
+    assert pg.locator("#setMy option").count() >= 10 and pg.locator("#setAdd").inner_text() == "Add a league"
     pg.select_option("#setMy", index=2); pg.wait_for_timeout(300); assert pg.evaluate("st.lg.my") == int(pg.input_value("#setMy")) and not pg.errs
+
+def test_sleeper_connect_by_username_guesses_my_team(br):
+    pg = page(br, "#/home"); pg.click("#ezPlat [data-p=sleeper]"); pg.wait_for_selector("#ezUser")
+    pg.fill("#ezUser", "roan"); pg.click("#ezFind"); pg.wait_for_selector("[data-sl=L1]")
+    pg.click("[data-sl=L1]"); pg.wait_for_function("st.lg && st.lg.platform === 'sleeper'", timeout=120000)
+    assert pg.evaluate("[st.lg.my, st.needTeam, st.lg.data.teams.length]") == [1, False, 4]        # roster 1 is owned by the username we searched
+    pg.wait_for_function("st.slate", timeout=120000); pg.click("#side [data-nav=settings]"); assert "Sleeper" in pg.inner_text("#tab-settings") and not pg.errs
+
+def test_sleeper_by_id_asks_which_team_is_mine(br):
+    pg = page(br, "#/home"); pg.click("#ezPlat [data-p=sleeper]"); pg.click("#tab-home details.adv summary"); pg.fill("#ezId", "L1"); pg.click("#ezBtn")
+    pg.wait_for_selector("[data-myteam]", timeout=120000); assert pg.evaluate("st.needTeam") is True and pg.locator("[data-myteam]").count() == 4
+    pg.click("[data-myteam='3']"); pg.wait_for_function("st.needTeam === false && st.lg.my === 3"); assert not pg.errs
 
 def test_game_simulator_views_and_watch(br):
     pg = page(br, "#/lab/ov", block_images=True)

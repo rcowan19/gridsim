@@ -643,10 +643,37 @@ html[data-theme=dark] .tav{background:hsl(var(--h) 22% 24%);color:hsl(var(--h) 5
 .gv>div{min-width:0}
 @media(max-width:700px){#tab-game .ctrl{flex-wrap:wrap}#tab-game .ctrl input[type=range]{order:9;flex:1 1 100%;min-width:0}}
 @media(max-width:700px){#tab-game .sb{gap:12px}#tab-game .sb .t{gap:6px}#tab-game .sb .t span{font-size:30px}#tab-game .sb .tlg{--s:26px!important}}
+
+/* sign-in, plans and league list */
+.gate{position:fixed;inset:0;z-index:300;background:var(--bg);display:grid;place-items:start center;padding:var(--s5) var(--s4);overflow:auto}
+.gate.hide{display:none}
+.gbox{width:min(460px,100%);display:flex;flex-direction:column;gap:var(--s4);margin:auto 0}
+.gbox.wide{width:min(720px,100%)}
+.gbox .brand{justify-content:center;font-size:26px}.gbox .brand:before{content:none}
+.gbox .card{display:flex;flex-direction:column;gap:var(--s3);padding:var(--s5)}
+.gbox h1{font:700 27px/1.2 var(--serif);margin:0;letter-spacing:-.2px}
+.gbox .lead{color:var(--muted);margin:0}
+.gform{display:flex;flex-direction:column;gap:var(--s3)}
+.gor{display:flex;align-items:center;gap:var(--s3);color:var(--muted);font-size:13px}.gor:before,.gor:after{content:"";flex:1;height:1px;background:var(--line)}
+.gline{font-size:13.5px;color:var(--muted)}
+.gfoot{text-align:center;font-size:12.5px;color:var(--muted)}.gfoot a,.gline a{color:var(--text)}
+.lnk{background:none;border:0;padding:0;font:inherit;color:var(--text);text-decoration:underline;cursor:pointer}
+.lnk:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+.plans{display:grid;grid-template-columns:1fr 1fr;gap:var(--s3)}
+.plan{border:1px solid var(--line);border-radius:12px;padding:var(--s4);display:flex;flex-direction:column;gap:var(--s2);background:var(--surface)}
+.plan.best{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.plan .pr{font:700 30px/1.1 var(--serif)}.plan .pr small{font:500 14px var(--sans, inherit);color:var(--muted);margin-left:4px}
+.plan ul{margin:0 0 var(--s2);padding-left:18px;color:var(--muted);font-size:13.5px;flex:1}
+.btn.lg{min-height:46px}
+.lglist{display:flex;flex-direction:column;gap:6px}
+.lglist .rowc{width:100%;text-align:left}
+.plt{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:var(--pill);padding:2px 8px}
+@media(max-width:560px){.plans{grid-template-columns:1fr}.gate{padding:var(--s4) var(--s3)}}
 </style>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
+<div class="gate hide" id="gate" role="dialog" aria-modal="true" aria-labelledby="gTitle"></div>
 <div class="app">
 <aside class="side" id="side" aria-label="Primary"></aside>
 <div class="col">
@@ -1429,16 +1456,24 @@ function teamModel(t, idx) {
 const sumP = ids => ids.reduce((a, i) => a + (labPool()[i] ? P(labPool()[i], 'proj') : 0), 0);
 const names = ids => ids.map(i => labPool()[i]).filter(Boolean);
 
-async function connectLeague(id, s2 = '', sw = '') {
-  localStorage.setItem('gs_league', id);
-  const q = new URLSearchParams({league: id, season: 2026, s2, swid: sw});
-  const data = await fetch('/api/espn?' + q).then(async r => { if (!r.ok) throw new Error((await r.json()).detail || r.statusText); return r.json(); });
+async function connectLeague(id, s2 = '', sw = '', platform = st.plat, o = {}) {
+  try { localStorage.setItem('gs_league', id); localStorage.setItem('gs_platform', platform); } catch (e) {}
+  const q = new URLSearchParams(o.saved ? {saved: o.saved} : {platform, league: id, season: 2026, s2, swid: sw, me: o.me || ''});
+  const data = await fetch('/api/league?' + q).then(async r => { if (!r.ok) throw new Error((await r.json()).detail || r.statusText); return r.json(); });
   setCustomFmt(!!data.scoring.custom); st.fmt = data.scoring.custom ? 'custom' : data.scoring.format;
   const c = {QB: 0, RB: 0, WR: 0, TE: 0, FLEX: 0, OP: 0, K: 0, DST: 0}; Object.entries(data.slots).forEach(([k, v]) => { if (k in c) c[k] = v; });
   st.lab.counts = c; localStorage.setItem('gs_counts', JSON.stringify(c));
-  const rowdy = data.teams.find(t => /rowdy/i.test(t.name)); const saved = localStorage.getItem('gs_myteam');
-  const my = (data.teams.find(t => String(t.id) === saved) || rowdy || data.teams[0]).id;
-  st.lg = {data, my, opp: null}; autoOpp(); st.lgErr = ''; document.documentElement.classList.add('has-league'); syncFmtUI();
+  // which team is mine: the server's saved choice, then this browser's, then the platform's own hint (owner match); otherwise ask
+  const key = 'gs_myteam_' + data.platform + '_' + (o.saved ? 's' + o.saved : id);
+  let mem = null; try { mem = localStorage.getItem(key) || (data.platform === 'espn' ? localStorage.getItem('gs_myteam') : null); } catch (e) {}
+  const has = x => x != null && x !== '' && data.teams.some(t => String(t.id) === String(x));
+  const pick = [o.my_team, mem, data.my_team_guess].find(has);
+  const dev = !st.cfg.auth && data.platform === 'espn' ? data.teams.find(t => /rowdy/i.test(t.name)) : null;   // owner's local ESPN shortcut only
+  const mine = data.teams.find(t => String(t.id) === String(pick)) || dev;
+  st.needTeam = !mine; st.addingLeague = false;
+  const my = (mine || data.teams[0]).id;
+  st.lg = {data, my, opp: null, platform: data.platform, ref: id, saved: o.saved || null, key, creds: {s2, sw}}; autoOpp(); st.lgErr = ''; document.documentElement.classList.add('has-league'); syncFmtUI();
+  st.live = Object.assign(st.live || {}, {players: [], n: 0});
   if (st.sched.weeks.includes(data.week) && (!st.slate || st.slate.week !== data.week)) { st.week = data.week; st.slate = null; $('#g_week').value = st.week; }
   if (st.week == null) throw new Error('No schedule available. Run `python fetch_data.py` (or `git pull`), then restart the server.');
 }
@@ -2188,11 +2223,11 @@ function liveChip() {
 let LIVE_BUSY = false;
 async function loadLive(manual) {
   if (LIVE_BUSY || !st.slate) return; LIVE_BUSY = true;
-  const id = (localStorage.getItem('gs_league') || '1781890288'), s2 = ($('#lgS2') || {}).value || '', sw = ($('#lgSW') || {}).value || '';
+  if (!st.lg) { LIVE_BUSY = false; if (manual) toast('Connect a league first to load live scores.', {err: true}); return; }
   const b = $('#g_scores'); if (b && manual) busy(b, true, 'Fetching');
   try {
-    const q = new URLSearchParams({league: id, week: st.slate.week, season: 2026, s2, swid: sw});
-    const r = await fetch('/api/espn_live?' + q); if (!r.ok) { let m = r.statusText; try { m = (await r.json()).detail || m; } catch (e) {} throw new Error(m); }
+    const L = st.lg, q = new URLSearchParams(L.saved ? {saved: L.saved, week: st.slate.week} : {platform: L.platform, league: L.ref, week: st.slate.week, season: 2026, s2: L.creds.s2, swid: L.creds.sw});
+    const r = await fetch('/api/league_live?' + q); if (!r.ok) { let m = r.statusText; try { m = (await r.json()).detail || m; } catch (e) {} throw new Error(m); }
     const d = await r.json(); Object.assign(st.live, {players: d.players, games: d.games || [], week: d.week, at: new Date(), err: null}); applyLive();
     if (manual) toast(st.live.n ? `Live scores loaded for ${st.live.n} players.` : 'No games have started yet for this week, so there are no actual points.');
     if (st.page === 'players') renderSlate(); else renderEasy();
@@ -2247,7 +2282,18 @@ const winCls = p => p >= .55 ? 'ok' : p >= .4 ? 'warn' : 'bad';
 st.mode = 'easy'; document.documentElement.dataset.mode = 'easy';
 try { st.moreStats = localStorage.getItem('gs_morestats') === '1'; } catch (e) { st.moreStats = false; }
 document.documentElement.classList.toggle('more-stats', st.moreStats);
-function renderEasy() { const f = {home: renderHome, mylineup: renderMyLineup, moves: renderMoves, league: renderLeagueEz, inj: renderInjuries, whatif: renderWhatIfEz}[st.page]; if (f) f(); }
+/* Re-renders (a slate finishing, a toast, a platform switch) must not wipe what someone is typing into the connect card. */
+const KEEP_IDS = ['ezId', 'ezS2', 'ezSW', 'ezUser'];
+function renderEasy() {
+  const f = {home: renderHome, mylineup: renderMyLineup, moves: renderMoves, league: renderLeagueEz, inj: renderInjuries, whatif: renderWhatIfEz}[st.page]; if (!f) return;
+  const keep = {}; KEEP_IDS.forEach(i => { const e = document.getElementById(i); if (e && e.value) keep[i] = e.value; });
+  const a = document.activeElement, fid = a && KEEP_IDS.includes(a.id) ? a.id : null, sel = fid ? [a.selectionStart, a.selectionEnd] : null;
+  const advOpen = !!(document.getElementById('ezId') && (document.getElementById('ezId').closest('details') || {}).open);
+  f();
+  KEEP_IDS.forEach(i => { const e = document.getElementById(i); if (e && !e.value && keep[i]) e.value = keep[i]; });
+  if (advOpen) { const d = document.getElementById('ezId') && document.getElementById('ezId').closest('details'); if (d) d.open = true; }
+  if (fid) { const e = document.getElementById(fid); if (e && document.activeElement !== e) { e.focus(); try { e.setSelectionRange(sel[0], sel[1]); } catch (x) {} } }
+}
 function ezGo(k) { const [id, sub] = k.split(':'); if (id === 'moves' && sub) st.mv.tab = sub; const n = NAVI.find(x => x.id === id); if (n) go(n.page, n.sub); }
 const ezBind = host => {
   host.querySelectorAll('[data-go]').forEach(b => b.onclick = () => ezGo(b.dataset.go));
@@ -2285,40 +2331,100 @@ function pickups(c) {
 const addWord = g => g >= 2 ? 'Great add' : g >= .5 ? 'Good add' : g > .05 ? 'Small upgrade' : 'Bench depth';
 
 /* connecting: one card, used wherever a league is needed */
+const savedPlat = () => { try { return localStorage.getItem('gs_platform') || 'espn'; } catch (e) { return 'espn'; } };
 const savedLeague = () => { try { return localStorage.getItem('gs_league') || ''; } catch (e) { return ''; } };
+st.plat = (() => { try { return localStorage.getItem('gs_platform') || 'espn'; } catch (e) { return 'espn'; } })();
 function connectCard() {
-  return `<div class="card welcome"><div><h2>Welcome to GridSim</h2><p>Connect your ESPN fantasy league and GridSim tells you who to start, who to add and which trades make sense, in plain English.</p></div>
-    <div class="steps"><div class="step"><span class="n">1</span><div><b>Enter your league ID</b><div class="sub2">It is the number after leagueId= in your ESPN league web address.</div></div></div>
+  const P = st.plat, sl = st.sl || {}, srv = st.cfg && st.cfg.auth;
+  const idBox = (ph, primary) => `<div class="ctl"><div class="grow" style="max-width:280px"><label class="f" for="ezId">League ID</label><input class="inp" id="ezId" inputmode="numeric" autocomplete="off" placeholder="${ph}" value="${esc(savedPlat() === P ? savedLeague() : '')}"></div><button class="btn ${primary ? 'primary' : ''} lg auto" id="ezBtn">Connect my league</button></div>`;
+  const espn = `${idBox('for example 123456789', true)}
+    <details class="adv"><summary>My league is private</summary><div class="ctl" style="margin-top:var(--s3)"><div class="grow"><label class="f" for="ezS2">espn_s2 cookie</label><input class="inp" id="ezS2" autocomplete="off"></div><div class="grow"><label class="f" for="ezSW">SWID cookie</label><input class="inp" id="ezSW" autocomplete="off" placeholder="{XXXXXXXX-XXXX-...}"></div></div><div class="note">Copy both cookies from espn.com (browser DevTools, Application, Cookies). ${srv ? 'They are stored encrypted so GridSim can read your league next time. Removing the league deletes them.' : 'They go straight from your computer to ESPN and are not saved.'}</div></details>`;
+  const sleeper = `<div class="ctl"><div class="grow" style="max-width:280px"><label class="f" for="ezUser">Sleeper username</label><input class="inp" id="ezUser" autocomplete="off" autocapitalize="none" spellcheck="false" value="${esc(sl.name || '')}"></div><button class="btn primary lg auto" id="ezFind">Find my leagues</button></div>
+    ${sl.leagues ? (sl.leagues.length ? `<div class="lglist">${sl.leagues.map(l => `<button class="rowc" data-sl="${esc(l.league_id)}"><div class="grow"><b>${esc(l.name || 'League')}</b><div class="sub2">${l.teams || '?'} teams · ${esc(l.season || '')}</div></div><span class="chip">Connect</span></button>`).join('')}</div>` : `<div class="note">No 2026 leagues found for that username.</div>`) : ''}
+    <details class="adv"><summary>I have a league ID instead</summary><div style="margin-top:var(--s3)">${idBox('for example 1129349823', false)}</div></details>`;
+  const steps = P === 'sleeper' ? ['Enter your Sleeper username', 'We list your leagues. Pick one.'] : ['Enter your league ID', 'It is the number after leagueId= in your ESPN league web address.'];
+  return `<div class="card welcome"><div><h2>Welcome to GridSim</h2><p>Connect your fantasy league and GridSim tells you who to start, who to add and which trades make sense, in plain English.</p></div>
+    <div class="seg" id="ezPlat" role="group" aria-label="Fantasy platform"><button data-p="espn" class="${P === 'espn' ? 'on' : ''}" aria-pressed="${P === 'espn'}">ESPN</button><button data-p="sleeper" class="${P === 'sleeper' ? 'on' : ''}" aria-pressed="${P === 'sleeper'}">Sleeper</button></div>
+    <div class="steps"><div class="step"><span class="n">1</span><div><b>${steps[0]}</b><div class="sub2">${steps[1]}</div></div></div>
       <div class="step"><span class="n">2</span><div><b>See your lineup advice</b><div class="sub2">Every player is projected for this week.</div></div></div>
       <div class="step"><span class="n">3</span><div><b>Add players or trade</b><div class="sub2">One page, with a clear verdict on each idea.</div></div></div></div>
-    <div class="ctl"><div class="grow" style="max-width:280px"><label class="f" for="ezId">League ID</label><input class="inp" id="ezId" inputmode="numeric" autocomplete="off" placeholder="for example 1781890288" value="${esc(savedLeague())}"></div><button class="btn primary lg auto" id="ezBtn">Connect my league</button></div>
-    <details class="adv"><summary>My league is private</summary><div class="ctl" style="margin-top:var(--s3)"><div class="grow"><label class="f" for="ezS2">espn_s2 cookie</label><input class="inp" id="ezS2" autocomplete="off"></div><div class="grow"><label class="f" for="ezSW">SWID cookie</label><input class="inp" id="ezSW" autocomplete="off" placeholder="{XXXXXXXX-XXXX-...}"></div></div><div class="note">Copy both cookies from espn.com (browser DevTools, Application, Cookies). They go straight from your computer to ESPN and are not saved.</div></details>
-    ${st.lgErr ? `<div class="err" role="alert" style="display:block">${esc(st.lgErr)}</div>` : ''}</div>`;
+    ${P === 'sleeper' ? sleeper : espn}
+    ${st.lgErr ? `<div class="err" role="alert" style="display:block">${esc(st.lgErr)}</div>` : ''}${st.lg ? `<div><button class="btn ghost sm auto" id="ezCancel">Cancel</button></div>` : ''}</div>`;
 }
-function bindConnect(host) { const b = host.querySelector('#ezBtn'); if (!b) return; b.onclick = ezConnect; host.querySelector('#ezId').onkeydown = e => { if (e.key === 'Enter') ezConnect(); }; }
-async function ezConnect() {
-  const id = (($('#ezId') || {}).value || '').trim(); if (!id) { toast('Enter your league ID first.', {err: true}); return; }
-  const s2 = ($('#ezS2') || {}).value || '', sw = ($('#ezSW') || {}).value || '', b = $('#ezBtn'); busy(b, true, 'Connecting'); st.lgErr = '';
-  try { await connectLeague(id, s2, sw); renderEasy(); if (!st.slate) await loadSlate('home'); }
+function teamPickCard() {
+  const D = st.lg.data;
+  return `<div class="card"><h3>Which team is yours?</h3><p class="sub2" style="margin:0 0 var(--s3)">Pick your team in ${esc(D.name || 'your league')}.</p><div class="lglist">${D.teams.map(t => `<button class="rowc" data-myteam="${t.id}"><div class="grow"><b>${esc(t.name)}</b></div>${recTxt(t) ? `<span class="sub2">${recTxt(t)}</span>` : ''}</button>`).join('')}</div></div>`;
+}
+function bindConnect(host) {
+  host.querySelectorAll('[data-myteam]').forEach(b => b.onclick = () => setMyTeam(b.dataset.myteam));
+  const plat = host.querySelector('#ezPlat'); if (plat) plat.onclick = e => { const b = e.target.closest('button'); if (b) { st.plat = b.dataset.p; st.lgErr = ''; try { localStorage.setItem('gs_platform', st.plat); } catch (x) {} ['ezId', 'ezS2', 'ezSW'].forEach(i => { const e = document.getElementById(i); if (e) e.value = ''; }); renderEasy(); } };
+  const cx = host.querySelector('#ezCancel'); if (cx) cx.onclick = () => { st.addingLeague = false; st.lgErr = ''; renderEasy(); };
+  const f = host.querySelector('#ezFind'); if (f) { f.onclick = ezFind; host.querySelector('#ezUser').onkeydown = e => { if (e.key === 'Enter') ezFind(); }; }
+  host.querySelectorAll('[data-sl]').forEach(b => b.onclick = () => ezConnect(b.dataset.sl));
+  const b = host.querySelector('#ezBtn'); if (b) { b.onclick = () => ezConnect(); host.querySelector('#ezId').onkeydown = e => { if (e.key === 'Enter') ezConnect(); }; }
+}
+async function ezFind() {
+  const name = (($('#ezUser') || {}).value || '').trim(); if (!name) { toast('Enter your Sleeper username first.', {err: true}); return; }
+  busy($('#ezFind'), true, 'Looking');
+  try { const d = await fetch('/api/sleeper/find?' + new URLSearchParams({user: name, season: 2026})).then(async r => { if (!r.ok) throw new Error((await r.json()).detail || r.statusText); return r.json(); });
+    st.sl = {name, user: d.user, leagues: d.leagues}; st.lgErr = ''; }
+  catch (e) { st.sl = {name}; st.lgErr = e.message; }
+  renderEasy();
+}
+async function saveLeague(id, s2, sw) {
+  if (!(st.cfg && st.cfg.auth) || !st.lg) return;
+  const r = await fetch('/api/me/leagues', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({platform: st.lg.platform, league: id, season: 2026, name: st.lg.data.name || null, my_team: st.needTeam ? null : String(st.lg.my), s2: s2 || null, swid: sw || null})});
+  if (!r.ok) return; const row = await r.json();
+  st.lg.saved = row.id; st.lg.key = 'gs_myteam_' + st.lg.platform + '_s' + row.id; st.me.leagues = st.me.leagues.filter(x => x.id !== row.id).concat(row);
+  try { localStorage.setItem('gs_saved', row.id); } catch (e) {}
+}
+async function ezConnect(idArg) {
+  const id = (typeof idArg === 'string' ? idArg : (($('#ezId') || {}).value || '')).trim(); if (!id) { toast('Enter your league ID first.', {err: true}); return; }
+  const s2 = ($('#ezS2') || {}).value || '', sw = ($('#ezSW') || {}).value || '', b = $('#ezBtn'); if (b) busy(b, true, 'Connecting'); st.lgErr = '';
+  try { await connectLeague(id, s2, sw, st.plat, {me: st.plat === 'sleeper' && st.sl && st.sl.user ? st.sl.user.id : ''}); await saveLeague(id, s2, sw); renderEasy(); if (!st.slate) await loadSlate('home'); }
   catch (e) { st.lgErr = e.message; toast('Could not connect: ' + e.message, {err: true, ms: 9000}); renderEasy(); }
 }
+async function connectSaved(l) {
+  st.plat = l.platform; await connectLeague(l.league, '', '', l.platform, {saved: l.id, my_team: l.my_team});
+  try { localStorage.setItem('gs_saved', l.id); } catch (e) {}
+}
+async function switchLeague(id) {
+  const l = st.me.leagues.find(x => x.id === +id); if (!l) return;
+  try { await connectSaved(l); toast('Switched to ' + (l.name || 'your league') + '.'); } catch (e) { st.lgErr = e.message; toast('Could not open that league: ' + e.message, {err: true, ms: 9000}); }
+  renderEasy(); if (st.page === 'settings') renderSettings(); if (!st.slate) loadSlate('home');
+}
+async function removeLeague(id) {
+  const r = await fetch('/api/me/leagues/' + id, {method: 'DELETE'}); if (!r.ok) { toast('Could not remove that league.', {err: true}); return; }
+  st.me.leagues = st.me.leagues.filter(x => x.id !== +id);
+  if (st.lg && st.lg.saved === +id) { st.lg = null; st.needTeam = false; document.documentElement.classList.remove('has-league'); const n = st.me.leagues[0]; if (n) await switchLeague(n.id); }
+  toast('League removed.'); renderEasy(); if (st.page === 'settings') renderSettings();
+}
 async function autoConnect() {
-  const id = savedLeague(); if (!id || st.lg) return;
-  try { await connectLeague(id); renderEasy(); if (!st.slate) await loadSlate('home'); } catch (e) { st.lgErr = e.message; renderEasy(); }
+  if (st.lg) return;
+  try {
+    if (st.cfg && st.cfg.auth) {
+      const L = st.me.leagues; if (!L.length) return;
+      let want = null; try { want = localStorage.getItem('gs_saved'); } catch (e) {}
+      await connectSaved(L.find(x => String(x.id) === want) || L[0]);
+    } else { const id = savedLeague(); if (!id) return; await connectLeague(id); }
+    renderEasy(); if (!st.slate) await loadSlate('home');
+  } catch (e) { st.lgErr = e.message; renderEasy(); }
 }
 function ezLoading(msg) { return `<div class="card empty" style="padding:var(--s5)"><b>${msg}</b><span>Simulating this week's games. This takes a few seconds.</span><div class="pbar"><i id="loadBar"></i></div></div>`; }
 function ezGate(host) {
-  if (!st.lg) { host.innerHTML = connectCard(); bindConnect(host); if (!st.slate && !st.loading) ensureSlate('home'); return false; }
+  if (!st.lg || st.addingLeague) { host.innerHTML = connectCard(); bindConnect(host); if (!st.slate && !st.loading) ensureSlate('home'); return false; }
+  if (st.needTeam) { host.innerHTML = teamPickCard(); bindConnect(host); return false; }
   if (!st.slate) { host.innerHTML = ezLoading('Getting your week ready'); if (!st.loading) ensureSlate('home'); return false; }
   return true;
 }
 
 /* Home */
 function renderHome() {
-  const host = $('#tab-home'); if (!host) return; const S = st.slate, c = st.lg && S ? leagueCtx() : null; let h = '';
+  const host = $('#tab-home'); if (!host) return; const S = st.slate, c = st.lg && S && !st.needTeam && !st.addingLeague ? leagueCtx() : null; let h = '';
   const top = S ? S.rows.filter(r => ['QB', 'RB', 'WR', 'TE'].includes(r.pos)).sort((a, b) => P(b, 'proj') - P(a, 'proj')).slice(0, 5) : [];
   const topCard = S ? `<div class="card"><h3>Top players this week</h3>${top.map((r, i) => `<button class="rowc" data-pid="${r.id}"><span class="slotl">${i + 1}</span><div class="grow">${pcell(r)}</div><div class="pts">${fmt(P(r, 'proj'))}<small>${r._left === 0 ? 'final' : r._left != null ? 'live' : 'projected'}</small></div></button>`).join('')}<div style="margin-top:12px"><button class="btn ghost sm auto" data-go="proj">See all players</button></div></div>` : '';
-  if (!st.lg) { h = connectCard() + (S ? topCard : ezLoading('Getting this week ready')); if (!S && !st.loading) ensureSlate('home'); }
+  if (!st.lg || st.addingLeague) { h = connectCard() + (S ? topCard : ezLoading('Getting this week ready')); if (!S && !st.loading) ensureSlate('home'); }
+  else if (st.needTeam) h = teamPickCard();
   else if (!c) { h = ezLoading('Getting your week ready'); if (!st.loading) ensureSlate('home'); }
   else {
     const gain = c.optT - c.curT, sw = swapList(c).filter(s => s.gain > .05), pk = pickups(c), best = pk[0];
@@ -2387,7 +2493,8 @@ function openRosterSheet(c) {
 const teamAv = (name, sz = 36) => { const h = [...String(name)].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) >>> 0, 7) % 360; return `<span class="tav" style="--s:${sz}px;--h:${h}" aria-hidden="true">${esc(initials(name))}</span>`; };
 const recTxt = t => t && t.record ? `${t.record.wins}-${t.record.losses}${t.record.ties ? '-' + t.record.ties : ''}` : '';
 const teamOpts = (D, sel) => D.teams.map(t => `<option value="${t.id}" ${t.id === sel ? 'selected' : ''}>${esc(t.name)}</option>`).join('');
-function setMyTeam(id) { const L = st.lg; L.my = +id; try { localStorage.setItem('gs_myteam', L.my); } catch (e) {} autoOpp(); st.tr.px = null; st.tr.sugg = null; if (st.tr.partner === L.my) st.tr.partner = null; st.ss.res = null; renderEasy(); }
+function setMyTeam(id) { const L = st.lg; L.my = +id; st.needTeam = false; try { localStorage.setItem(L.key, L.my); } catch (e) {}
+  if (L.saved) fetch('/api/me/leagues/' + L.saved, {method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({my_team: String(L.my)})}).catch(() => {}); autoOpp(); st.tr.px = null; st.tr.sugg = null; if (st.tr.partner === L.my) st.tr.partner = null; st.ss.res = null; renderEasy(); }
 function renderLeagueEz() {
   const host = $('#tab-league'); if (!host || !ezGate(host)) return;
   const c = leagueCtx(), D = c.D, L = c.L, nm = id => D.teams.find(t => t.id === id);
@@ -2476,36 +2583,152 @@ function mvTrade(c, body) {
 }
 
 /* Settings */
+const planText = pl => !pl || !pl.active ? 'No active plan' : pl.plan === 'dev' ? 'Local mode' : pl.status === 'trialing' ? 'Free trial' + (pl.until ? ' until ' + new Date(pl.until + 'Z').toLocaleDateString([], {month: 'short', day: 'numeric'}) : '')
+  : pl.plan === 'season' ? 'Season pass' + (pl.until ? ', through ' + new Date(pl.until + 'Z').toLocaleDateString([], {month: 'short', day: 'numeric', year: 'numeric'}) : '') : 'Monthly plan' + (pl.until ? ', renews ' + new Date(pl.until + 'Z').toLocaleDateString([], {month: 'short', day: 'numeric'}) : '');
+const PLAT = {espn: 'ESPN', sleeper: 'Sleeper'};
 function renderSettings() {
-  const host = $('#tab-settings'); const th = getTheme(), D = st.lg && st.lg.data, saved = localStorage.getItem('gs_league') || '1781890288';
+  const host = $('#tab-settings'); const th = getTheme(), D = st.lg && st.lg.data, auth = st.cfg && st.cfg.auth, me = st.me || {}, admin = !!(me.user && me.user.admin);
   const segH = (id, opts, cur) => `<div class="seg" id="${id}">${opts.map(([k, l]) => `<button data-v="${k}" class="${cur === k ? 'on' : ''}">${l}</button>`).join('')}</div>`;
+  const saved = auth ? (me.leagues || []) : [];
+  const lgRow = l => `<div class="setrow"><div><b>${esc(l.name || 'League ' + l.league)}</b> <span class="plt">${PLAT[l.platform] || l.platform}</span><div class="sd">${st.lg && st.lg.saved === l.id ? 'Open now' : 'Saved'}</div></div><div class="rowbtns">${st.lg && st.lg.saved === l.id ? '' : `<button class="btn ghost sm" data-use="${l.id}">Open</button>`}<button class="btn ghost sm" data-rm="${l.id}" aria-label="Remove ${esc(l.name || 'league')}">Remove</button></div></div>`;
   host.innerHTML = `<div class="setgrid">
-  <div class="card"><h3>League</h3><div class="setrow"><div><b>${D ? D.name || 'Connected' : 'Not connected'}</b><div class="sd">${D ? `ID ${saved} · league week ${D.week} · scoring and roster slots read from ESPN` : `Saved ID ${saved}. ESPN must be reachable from where GridSim runs.`}</div></div></div>
-    <div class="setrow"><label for="setLg">League ID</label><input class="inp" id="setLg" value="${saved}" style="max-width:180px"></div>${D ? `<div class="setrow"><label for="setMy">My team</label><select id="setMy">${teamOpts(D, st.lg.my)}</select></div>` : ''}
-    <details class="adv"><summary>My league is private</summary><div class="ctl" style="margin-top:var(--s3)"><div class="grow"><label class="f" for="setS2">espn_s2 cookie</label><input class="inp" id="setS2" autocomplete="off"></div><div class="grow"><label class="f" for="setSW">SWID cookie</label><input class="inp" id="setSW" autocomplete="off"></div></div></details>
-    <div class="setrow"><span class="sd">${D ? 'Saved league' : 'Connect once and GridSim remembers it.'}</span><button class="btn primary sm" id="setLoad">${D ? 'Reload league' : 'Connect league'}</button></div></div>
+  <div class="card"><h3>${saved.length > 1 ? 'Leagues' : 'League'}</h3>${D ? `<div class="setrow"><div><b>${esc(D.name || 'Connected')}</b> <span class="plt">${PLAT[st.lg.platform] || st.lg.platform}</span><div class="sd">League week ${D.week} · scoring and roster slots read from ${PLAT[st.lg.platform] || 'your platform'}</div></div></div>
+      <div class="setrow"><label for="setMy">My team</label><select id="setMy">${teamOpts(D, st.lg.my)}</select></div>` : `<div class="setrow"><span class="sd">No league connected yet.</span></div>`}
+    ${saved.length > 1 || (saved.length === 1 && !D) ? saved.map(lgRow).join('') : ''}
+    <div class="setrow"><span class="sd">${D ? 'Connect another league, or switch platforms.' : 'ESPN and Sleeper leagues work.'}</span><button class="btn primary sm" id="setAdd">${D ? 'Add a league' : 'Connect a league'}</button></div></div>
+  ${auth ? `<div class="card"><h3>Account</h3><div class="setrow"><div><b>${esc((me.user || {}).email || '')}</b><div class="sd">${planText(me.plan)}</div></div></div>
+    <div class="setrow"><span class="sd">${me.plan && me.plan.customer ? 'Invoices, card and cancellation are handled by Stripe.' : 'Pick a monthly plan or a season pass.'}</span><button class="btn ghost sm" id="setBill">${me.plan && me.plan.customer ? 'Manage billing' : 'See plans'}</button></div>
+    <div class="setrow"><span class="sd">Sign out on this device.</span><button class="btn ghost sm" id="setOut">Sign out</button></div>
+    <div class="setrow"><span class="sd"><a href="/static/legal/terms.html" target="_blank" rel="noopener">Terms</a> · <a href="/static/legal/privacy.html" target="_blank" rel="noopener">Privacy</a></span></div></div>` : ''}
   <div class="card"><h3>Simulation</h3><div class="setrow"><div>Scoring<div class="sd">Applies to every projection</div></div>${segH('setFmt', Object.entries(FMTN).filter(([k]) => k !== 'custom'), st.fmt)}</div>
     <div class="setrow"><div>Sims per game<div class="sd">More sims = smoother ranges, slower runs. Standard error of a win probability near 50% is about ±1.6 pts at 1,000 sims and ±0.5 at 10,000.</div></div>${segH('setDepth', [['fast', '500'], ['std', '1,000'], ['deep', '10,000']], st.depth)}</div>
     <div class="setrow"><div>Weather and roof<div class="sd">Wind and dome adjust the game total</div></div><label class="chk"><input type="checkbox" id="setWx" ${st.useWx ? 'checked' : ''}> On</label></div></div>
   <div class="card"><h3>Appearance</h3><div class="setrow"><div>Theme</div>${segH('setTheme', [['system', 'System'], ['light', 'Light'], ['dark', 'Dark']], th)}</div>
     <div class="setrow"><div>Density<div class="sd">Compact fits more rows on screen</div></div>${segH('setDense', [['0', 'Comfortable'], ['1', 'Compact']], document.documentElement.classList.contains('dense') ? '1' : '0')}</div></div>
-  <div class="card"><h3>Data</h3><div class="setrow"><div>Last updated<div class="sd">${$('#g_stamp').textContent || 'unknown'} · ${$('#dataChip').textContent}</div></div><button class="btn ghost sm" id="setUpd">Update data</button></div>
+  <div class="card"><h3>Data</h3><div class="setrow"><div>Last updated<div class="sd">${$('#g_stamp').textContent || 'unknown'} · ${$('#dataChip').textContent}</div></div>${admin ? '<button class="btn ghost sm" id="setUpd">Update data</button>' : ''}</div>
     <div class="setrow"><div>Simulations<div class="sd">Re-run this week's projections with the settings above</div></div><button class="btn ghost sm" id="setRun">Re-run now</button></div>
     <div class="setrow"><div>Keyboard shortcuts<div class="sd">Press ? anywhere</div></div><button class="btn ghost sm" id="setKeys">Show</button></div></div></div>`;
   const seg = (id, fn) => $('#' + id).onclick = e => { const b = e.target.closest('button'); if (b) { fn(b.dataset.v); renderSettings(); } };
   seg('setFmt', v => { setFmt(v); syncURL(); }); seg('setDepth', v => { $('#g_depth').value = v; $('#g_depth').dispatchEvent(new Event('change')); });
   seg('setTheme', v => setTheme(v)); seg('setDense', v => { document.documentElement.classList.toggle('dense', v === '1'); try { localStorage.setItem('gs_dense', v); } catch (e) {} });
   $('#setWx').onchange = e => { st.useWx = e.target.checked; reloadSlate(); };
-  $('#setUpd').onclick = () => $('#g_update').click(); $('#setRun').onclick = () => $('#g_refresh').click(); $('#setKeys').onclick = showHelp;
+  const upd = $('#setUpd'); if (upd) upd.onclick = () => $('#g_update').click();
+  $('#setRun').onclick = () => $('#g_refresh').click(); $('#setKeys').onclick = showHelp;
   const sm = $('#setMy'); if (sm) sm.onchange = e => setMyTeam(e.target.value);
-  $('#setLoad').onclick = async () => { const b = $('#setLoad'), id = $('#setLg').value.trim(); if (!id) { toast('Enter your league ID first.', {err: true}); return; }
-    busy(b, true, 'Connecting'); try { await connectLeague(id, ($('#setS2') || {}).value || '', ($('#setSW') || {}).value || ''); toast('League connected.'); if (!st.slate) loadSlate('home'); } catch (e) { toast('Could not connect: ' + e.message, {err: true, ms: 9000}); }
-    renderSettings(); };
+  $('#setAdd').onclick = () => { st.addingLeague = true; st.lgErr = ''; go('home'); };
+  host.querySelectorAll('[data-use]').forEach(b => b.onclick = () => switchLeague(b.dataset.use));
+  host.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => removeLeague(b.dataset.rm));
+  const bl = $('#setBill'); if (bl) bl.onclick = () => me.plan && me.plan.customer ? openPortal() : showPaywall();
+  const so = $('#setOut'); if (so) so.onclick = signOut;
+}
+
+/* ---- Accounts: sign-in (Supabase), plans (Stripe). With auth off (local use) none of this appears. ---- */
+let SB = null;
+const GBRAND = `<div class="brand"><i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4zM4 12h16M12 4v16"/></svg></i>GridSim</div>`;
+function gateShow(html) { const g = $('#gate'); g.innerHTML = html; g.classList.remove('hide'); document.querySelector('.app').inert = true; const f = g.querySelector('input,button'); if (f) f.focus(); }
+function gateHide() { const g = $('#gate'); g.classList.add('hide'); g.innerHTML = ''; document.querySelector('.app').inert = false; st.gating = false; }
+async function loadSB(cfg) {
+  if (!window.supabase) await new Promise((ok, no) => { const el = document.createElement('script'); el.src = '/static/vendor/supabase.js'; el.onload = ok; el.onerror = () => no(new Error('Could not load the sign-in library.')); document.head.appendChild(el); });
+  SB = window.supabase.createClient(cfg.supabase_url, cfg.supabase_anon_key, {auth: {persistSession: true, autoRefreshToken: true, detectSessionInUrl: true}});
+  SB.auth.onAuthStateChange((ev) => { if (ev === 'PASSWORD_RECOVERY') showNewPassword(); else if (ev === 'SIGNED_OUT' && !st.gating) showAuth(); });
+}
+async function accessToken() { const {data} = await SB.auth.getSession(); return data && data.session ? data.session.access_token : null; }
+function installAuthFetch() {
+  const f0 = window.fetch.bind(window);
+  window.fetch = async (u, o = {}) => {
+    const url = typeof u === 'string' ? u : u.url;
+    if (!url.startsWith('/api/') || url.startsWith('/api/config') || url.startsWith('/api/billing/prices')) return f0(u, o);
+    const t = await accessToken(), h = new Headers(o.headers || {}); if (t) h.set('Authorization', 'Bearer ' + t);
+    const r = await f0(u, {...o, headers: h});
+    if (!st.gating) { if (r.status === 401) showAuth('Your session ended. Sign in again.'); else if (r.status === 402) showPaywall(); }
+    return r;
+  };
+}
+function showAuth(msg, mode = 'in') {
+  st.gating = true; const up = mode === 'up';
+  gateShow(`<div class="gbox">${GBRAND}<div class="card"><h1 id="gTitle">${up ? 'Create your account' : 'Sign in'}</h1><p class="lead">${up ? 'One account for your leagues and your plan.' : 'Welcome back.'}</p>
+    <button class="btn lg" id="gGoogle" type="button">Continue with Google</button><div class="gor"><span>or</span></div>
+    <form id="gForm" class="gform" novalidate><div><label class="f" for="gEmail">Email</label><input class="inp" id="gEmail" type="email" autocomplete="email" required></div>
+      <div><label class="f" for="gPw">Password</label><input class="inp" id="gPw" type="password" autocomplete="${up ? 'new-password' : 'current-password'}" required><div class="sub2" style="margin-top:4px">${up ? 'At least 8 characters.' : ''}</div></div>
+      <button class="btn primary lg" id="gSubmit" type="submit">${up ? 'Create account' : 'Sign in'}</button></form>
+    <div class="err" id="gErr" role="alert" style="display:${msg ? 'block' : 'none'}">${esc(msg || '')}</div>
+    <div class="gline">${up ? 'Already have an account? <button class="lnk" id="gSwap" type="button">Sign in</button>' : 'New here? <button class="lnk" id="gSwap" type="button">Create an account</button> · <button class="lnk" id="gForgot" type="button">Forgot password</button>'}</div></div>
+    <div class="gfoot">By continuing you agree to the <a href="/static/legal/terms.html" target="_blank" rel="noopener">Terms</a> and <a href="/static/legal/privacy.html" target="_blank" rel="noopener">Privacy Policy</a>.</div></div>`);
+  const err = m => { const e = $('#gErr'); e.textContent = m; e.style.display = m ? 'block' : 'none'; };
+  $('#gSwap').onclick = () => showAuth('', up ? 'in' : 'up');
+  const fg = $('#gForgot'); if (fg) fg.onclick = async () => {
+    const email = $('#gEmail').value.trim(); if (!email) { err('Enter your email first, then press Forgot password.'); return; }
+    const {error} = await SB.auth.resetPasswordForEmail(email, {redirectTo: location.origin + '/'}); err(error ? error.message : ''); if (!error) toast('If that email has an account, a reset link is on its way.');
+  };
+  $('#gGoogle').onclick = async () => { const {error} = await SB.auth.signInWithOAuth({provider: 'google', options: {redirectTo: location.origin + '/'}}); if (error) err(error.message); };
+  $('#gForm').onsubmit = async e => {
+    e.preventDefault(); const email = $('#gEmail').value.trim(), password = $('#gPw').value; err('');
+    if (!email || !password) { err('Enter your email and password.'); return; }
+    if (up && password.length < 8) { err('Use at least 8 characters for your password.'); return; }
+    busy($('#gSubmit'), true, up ? 'Creating' : 'Signing in');
+    const r = up ? await SB.auth.signUp({email, password, options: {emailRedirectTo: location.origin + '/'}}) : await SB.auth.signInWithPassword({email, password});
+    busy($('#gSubmit'), false);
+    if (r.error) { err(r.error.message); return; }
+    if (up && !r.data.session) { err(''); toast('Check your email to confirm your account, then sign in.', {ms: 9000}); showAuth('Check your email to confirm your account, then sign in here.', 'in'); return; }
+    boot();
+  };
+}
+function showNewPassword() {
+  st.gating = true;
+  gateShow(`<div class="gbox">${GBRAND}<div class="card"><h1 id="gTitle">Set a new password</h1><form id="gForm" class="gform" novalidate><div><label class="f" for="gPw">New password</label><input class="inp" id="gPw" type="password" autocomplete="new-password"></div>
+    <button class="btn primary lg" id="gSubmit" type="submit">Save password</button></form><div class="err" id="gErr" role="alert" style="display:none"></div></div></div>`);
+  $('#gForm').onsubmit = async e => { e.preventDefault(); const pw = $('#gPw').value; if (pw.length < 8) { $('#gErr').textContent = 'Use at least 8 characters.'; $('#gErr').style.display = 'block'; return; }
+    const {error} = await SB.auth.updateUser({password: pw}); if (error) { $('#gErr').textContent = error.message; $('#gErr').style.display = 'block'; return; } toast('Password updated.'); boot(); };
+}
+async function showPaywall(note) {
+  st.gating = true;
+  const pr = await fetch('/api/billing/prices').then(r => r.json()).catch(() => ({})), lab = k => pr[k] ? pr[k].label : '', trial = (st.cfg && st.cfg.trial_days) || 0;
+  const me = st.me || {}, email = (me.user || {}).email || '';
+  gateShow(`<div class="gbox wide">${GBRAND}<div class="card"><h1 id="gTitle">Choose a plan</h1><p class="lead">${esc(note || 'Lineup advice, waiver and trade ideas, and game simulations for your fantasy leagues.')}</p>
+    <div class="plans"><div class="plan"><b>Monthly</b><div class="pr">${lab('monthly')}<small>${lab('monthly') ? 'per month' : ''}</small></div><ul><li>Everything in GridSim</li><li>Cancel any time</li>${trial ? `<li>${trial}-day free trial</li>` : ''}</ul><button class="btn lg" data-plan="monthly">${trial ? 'Start free trial' : 'Subscribe monthly'}</button></div>
+      <div class="plan best"><b>Season pass</b><div class="pr">${lab('season')}<small>${lab('season') ? 'one payment' : ''}</small></div><ul><li>Everything in GridSim</li><li>Covers the whole NFL season, playoffs included</li><li>No renewal</li></ul><button class="btn primary lg" data-plan="season">Get the season pass</button></div></div>
+    <div class="err" id="gErr" role="alert" style="display:none"></div>
+    <div class="gline">${email ? `Signed in as ${esc(email)} · ` : ''}<button class="lnk" id="gOut" type="button">Sign out</button>${me.plan && me.plan.customer ? ' · <button class="lnk" id="gPortal" type="button">Manage billing</button>' : ''}${me.leagues ? ' · <button class="lnk" id="gBack" type="button">Back</button>' : ''}</div></div>
+    <div class="gfoot">Payments are handled securely by Stripe. By subscribing you agree to the <a href="/static/legal/terms.html" target="_blank" rel="noopener">Terms</a>.</div></div>`);
+  const err = m => { const e = $('#gErr'); e.textContent = m; e.style.display = 'block'; };
+  $('#gate').querySelectorAll('[data-plan]').forEach(b => b.onclick = async () => {
+    busy(b, true, 'Opening checkout');
+    try { const r = await fetch('/api/billing/checkout', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({plan: b.dataset.plan})}); const d = await r.json(); if (!r.ok) throw new Error(d.detail || r.statusText); location.href = d.url; }
+    catch (e) { err(e.message); busy(b, false); }
+  });
+  $('#gOut').onclick = signOut; const gp = $('#gPortal'); if (gp) gp.onclick = openPortal;
+  const gb = $('#gBack'); if (gb) gb.onclick = () => { if (st.me && st.me.plan && st.me.plan.active) gateHide(); else gb.remove(); };
+}
+async function openPortal() {
+  try { const r = await fetch('/api/billing/portal', {method: 'POST'}); const d = await r.json(); if (!r.ok) throw new Error(d.detail || r.statusText); location.href = d.url; }
+  catch (e) { toast('Could not open billing: ' + e.message, {err: true}); }
+}
+async function signOut() { st.gating = true; try { await SB.auth.signOut(); } catch (e) {} location.href = '/'; }
+async function getMe() { const r = await fetch('/api/me'); if (!r.ok) return null; return r.json(); }
+async function boot() {
+  st.cfg = await fetch('/api/config').then(r => r.json()).catch(() => ({auth: false}));
+  if (st.cfg.auth) {
+    try { if (!SB) { await loadSB(st.cfg); installAuthFetch(); } } catch (e) { gateShow(`<div class="gbox"><div class="card"><h1 id="gTitle">Sign-in unavailable</h1><p class="lead">${esc(e.message)} Reload the page to try again.</p></div></div>`); return; }
+    if (!(await accessToken())) { showAuth(); return; }
+    st.gating = false;
+    const q = new URLSearchParams(location.search), paid = q.get('billing') === 'success';
+    let me = await getMe(); if (!me) { showAuth(); return; }
+    if (paid && !me.plan.active) {        // the webhook can land a moment after the redirect
+      gateShow(`<div class="gbox">${GBRAND}<div class="card"><h1 id="gTitle">Activating your plan</h1><p class="lead">Payment received. This takes a few seconds.</p><div class="pbar"><i id="loadBar"></i></div></div></div>`);
+      for (let i = 0; i < 20 && !me.plan.active; i++) { await new Promise(r => setTimeout(r, 1500)); me = (await getMe()) || me; }
+    }
+    if (q.has('billing')) history.replaceState(null, '', location.pathname);
+    st.me = me;
+    if (!me.plan.active) { showPaywall(q.get('billing') === 'cancel' ? 'No charge was made. Pick a plan whenever you are ready.' : null); return; }
+    gateHide();
+  } else { st.me = (await getMe()) || {user: {}, plan: {active: true}, leagues: []}; }
+  if (!st.booted) { st.booted = true; init(); }
+  else { st.slate = null; autoConnect(); go(st.page || 'home'); }
 }
 
 /* horizontally scrolling tables must be reachable by keyboard */
 new MutationObserver(() => document.querySelectorAll('.tscroll:not([tabindex])').forEach(e => e.setAttribute('tabindex', '0'))).observe(document.body, {childList: true, subtree: true});
-init();
+boot();
 </script>
 </body>
 </html>

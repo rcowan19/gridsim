@@ -5,6 +5,7 @@ used as a lower-weight prior. Everything is shrunk toward league average.
 """
 import json
 import math
+import os
 import numpy as np
 import pandas as pd
 
@@ -668,7 +669,7 @@ def main(cutoff=None, write=True, quiet=False, usage_decay=None, w_prev_use=None
         hist[pid] = rows
     M["hist"] = hist
     if write:
-        with open("model.json", "w") as f:
+        with open(os.environ.get("GRIDSIM_MODEL") or "model.json", "w") as f:
             json.dump(M, f, separators=(",", ":"))
     if quiet:
         return M

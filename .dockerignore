@@ -1,0 +1,11 @@
+.git
+__pycache__
+*.pyc
+data
+validate/out
+tests
+docs
+backtest_*.csv
+bt_*.csv
+*.log
+.venv

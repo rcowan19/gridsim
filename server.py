@@ -41,6 +41,10 @@ async def lifespan(app):
     auth.check_production_config()      # a paid app refuses to start half-configured
     db.engine()
     POOL = Pool(os.cpu_count() or 1, initializer=sim._init)
+    hrs = float(os.environ.get("GRIDSIM_REFRESH_HOURS", "0") or 0)
+    if hrs > 0:                                     # keep injuries, depth charts and results fresh without anyone pressing a button
+        import threading
+        threading.Thread(target=_refresh_loop, args=(hrs,), daemon=True).start()
     yield
     POOL.terminate()
 
@@ -61,21 +65,50 @@ def data_status():
     return {"updated": _stamp()}
 
 
+def do_refresh():
+    """Pull the latest nflverse data (injury reports, depth charts, results), rebuild the model, swap in fresh workers.
+    The old workers finish the sims already running instead of being killed."""
+    global MODEL, POOL
+    import subprocess, sys, threading
+    with REFRESH_LOCK:
+        for script in ("fetch_data.py", "build_model.py"):
+            p = subprocess.run([sys.executable, script], cwd=HERE, capture_output=True, text=True, timeout=1800)
+            if p.returncode:
+                raise RuntimeError(f"{script} failed: {(p.stderr or p.stdout)[-300:]}")
+        MODEL = sim.load_model()
+        import vegas; vegas.reset()
+        sim._E = None
+        old, POOL = POOL, Pool(os.cpu_count() or 1, initializer=sim._init)
+        old.close()
+        threading.Thread(target=old.join, daemon=True).start()
+    return {"updated": _stamp()}
+
+
+REFRESH_LOCK = __import__("threading").Lock()
+
+
 @app.post("/api/refresh", dependencies=[Depends(auth.admin)])
 def refresh():
-    """Pull the latest nflverse data (injury reports, depth charts, results), rebuild the model, restart the workers."""
-    global MODEL, POOL
-    import subprocess, sys
-    for script in ("fetch_data.py", "build_model.py"):
-        p = subprocess.run([sys.executable, script], cwd=HERE, capture_output=True, text=True, timeout=600)
-        if p.returncode:
-            raise HTTPException(500, f"{script} failed: {(p.stderr or p.stdout)[-300:]}")
-    MODEL = sim.load_model()
-    import vegas; vegas.reset()
-    sim._E = None
-    old, POOL = POOL, Pool(os.cpu_count() or 1, initializer=sim._init)
-    old.terminate()
-    return {"updated": _stamp()}
+    try:
+        return do_refresh()
+    except RuntimeError as e:
+        raise HTTPException(500, str(e))
+
+
+@app.get("/healthz")
+def healthz():
+    return {"ok": True, "model": bool(MODEL), "pool": POOL is not None}
+
+
+def _refresh_loop(hours):
+    import time
+    while True:
+        time.sleep(hours * 3600)
+        try:
+            do_refresh()
+            print("data refreshed", _stamp(), flush=True)
+        except Exception as e:                      # a failed refresh keeps serving the last good data
+            print("scheduled refresh failed:", e, flush=True)
 
 
 class Req(BaseModel):
@@ -168,7 +201,8 @@ def _sleeper_mock():
 
 
 @app.get("/api/league", dependencies=[Depends(auth.limited("league"))])
-def league(platform: str = "espn", league: str = "", season: int = 2026, s2: str = "", swid: str = "", saved: int | None = None, u=Depends(auth.user)):
+def league(platform: str = "espn", league: str = "", season: int = 2026, s2: str = "", swid: str = "", me: str = "", saved: int | None = None,
+           u=Depends(auth.user)):
     import espn, sleeper
     if saved is not None:           # a saved league: use the stored (encrypted) credentials, the browser never needs the cookies again
         platform, league, season, s2, swid = accounts.saved_creds(u, saved)
@@ -186,6 +220,9 @@ def league(platform: str = "espn", league: str = "", season: int = 2026, s2: str
     except (espn.EspnError, sleeper.SleeperError) as e:
         raise HTTPException(502, str(e))
     out["platform"] = platform
+    # which team is the user's, when the platform tells us (ESPN: their SWID owns it; Sleeper: their user id owns it)
+    who = (swid or "").strip().lower() if platform == "espn" else (me or "").strip().lower()
+    out["my_team_guess"] = next((t["id"] for t in out["teams"] if who and who in [str(o).lower() for o in t.get("owners", [])]), None)
     return out
 
 

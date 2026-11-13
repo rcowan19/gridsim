@@ -11,7 +11,7 @@ from engine import Engine, PSTATS, TSTATS, PIDX, TIDX, ppr_points, env_factors
 import calib
 
 _E = None
-_MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "model.json")
+_MODEL_PATH = os.environ.get("GRIDSIM_MODEL") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "model.json")   # a deployed server keeps it on its data disk
 
 
 def load_model(path=_MODEL_PATH):
