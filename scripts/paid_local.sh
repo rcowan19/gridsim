@@ -12,6 +12,18 @@ NO_RUN=0; [ "${1:-}" = "--no-run" ] && NO_RUN=1
 say() { printf '\n==> %s\n' "$*"; }
 die() { printf '\nERROR: %s\n' "$*" >&2; exit 1; }
 
+# Try a real login with the given postgresql:// URL, so a wrong password is caught right away.
+check_db() {
+  DBURL="$1" python - <<'PY'
+import os, sys, psycopg
+try:
+    psycopg.connect(os.environ["DBURL"], connect_timeout=10).close()
+except Exception as e:
+    print("   The database said:", str(e).strip().splitlines()[0][:200]); sys.exit(1)
+PY
+}
+DB_PAGE="https://supabase.com/dashboard/project/jcseqibdihlstabkgmew/database/settings"
+
 # Public project identifiers (safe to keep here; the secrets are asked for below).
 SUPABASE_URL="${SUPABASE_URL:-https://jcseqibdihlstabkgmew.supabase.co}"
 SUPABASE_ANON_KEY="${SUPABASE_ANON_KEY:-sb_publishable_9y7OeaaNcauerk4ysCzG6A_83dts2T3}"
@@ -58,16 +70,25 @@ echo "Using Stripe CLI at $STRIPE"
 if [ "${REDO:-0}" = 1 ]; then rm -f .env; fi
 if [ -s .env ] && grep -q '^STRIPE_WEBHOOK_SECRET=.\+' .env; then
   say "4/5  Settings: keeping your existing .env  (REDO=1 starts over)"
+  check_db "$(sed -n "s/^DATABASE_URL='\(.*\)'$/\1/p" .env)" \
+    || die "The saved database password was rejected. Reset it at $DB_PAGE (Database password), then run:  REDO=1 bash scripts/paid_local.sh"
 else
   say "4/5  Settings"
   read -rp "Your email (you become the admin who can press Update data): " ADMIN_EMAIL
-  read -rsp "Supabase database password (chosen when you created the project; hidden): " DBPW; echo
   read -rsp "Stripe TEST secret key, starts with sk_test_ (hidden): " SK; echo
   [ -n "$ADMIN_EMAIL" ] || die "Email is empty."
-  [ -n "$DBPW" ] || die "Database password is empty."
   case "$SK" in sk_test_*) ;; *) die "That is not a Stripe test-mode secret key (it must start with sk_test_). Live keys are never used here." ;; esac
 
-  ENC_PW=$(DBPW="$DBPW" python3 -c 'import os, urllib.parse as u; print(u.quote(os.environ["DBPW"], safe=""))')
+  DB_OK=0
+  for attempt in 1 2 3; do
+    read -rsp "Supabase database password (hidden; just press Enter if you need to reset it first): " DBPW; echo
+    if [ -z "$DBPW" ]; then echo "   Reset it at: $DB_PAGE  ->  Database password -> Reset -> Generate a password -> copy it, then paste it here."; continue; fi
+    ENC_PW=$(DBPW="$DBPW" python3 -c 'import os, urllib.parse as u; print(u.quote(os.environ["DBPW"], safe=""))')
+    DBURL="postgresql://$DB_USER:$ENC_PW@$DB_HOST:5432/postgres"
+    if check_db "$DBURL"; then DB_OK=1; break; fi
+    echo "   That password was rejected. Reset it at: $DB_PAGE"
+  done
+  [ "$DB_OK" = 1 ] || die "No working database password after 3 tries. Reset it at $DB_PAGE and run again."
   FERNET=$(python3 -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')
   WHSEC=$("$STRIPE" listen --api-key "$SK" --print-secret 2>/dev/null | tail -n1 | tr -d '[:space:]') || true
   case "$WHSEC" in whsec_*) ;; *) die "The Stripe CLI did not return a webhook secret. Check that the test secret key is right." ;; esac
@@ -78,7 +99,7 @@ GRIDSIM_ENV='production'
 APP_URL='http://localhost:8000'
 SUPABASE_URL='$SUPABASE_URL'
 SUPABASE_ANON_KEY='$SUPABASE_ANON_KEY'
-DATABASE_URL='postgresql://$DB_USER:$ENC_PW@$DB_HOST:5432/postgres'
+DATABASE_URL='$DBURL'
 GRIDSIM_SECRET_KEY='$FERNET'
 STRIPE_SECRET_KEY='$SK'
 STRIPE_WEBHOOK_SECRET='$WHSEC'
