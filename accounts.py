@@ -16,7 +16,8 @@ PLATFORMS = ("espn", "sleeper")
 def config():
     """Public: what the browser needs to show a sign-in screen."""
     return {"auth": auth.auth_on(), "supabase_url": os.environ.get("SUPABASE_URL") or None, "supabase_anon_key": os.environ.get("SUPABASE_ANON_KEY") or None,
-            "platforms": list(PLATFORMS), "trial_days": int(os.environ.get("STRIPE_TRIAL_DAYS", "0") or 0)}
+            "platforms": list(PLATFORMS), "trial_days": int(os.environ.get("STRIPE_TRIAL_DAYS", "0") or 0),
+            "google": os.environ.get("GRIDSIM_GOOGLE", "").lower() in ("1", "true", "on", "yes")}   # show "Continue with Google" only once the provider is enabled in Supabase
 
 
 @router.get("/api/me")

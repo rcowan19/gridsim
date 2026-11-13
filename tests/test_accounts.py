@@ -40,3 +40,10 @@ def test_upsert_validation_and_limit(env, monkeypatch):
     assert a["id"] == b["id"] and b["my_team"] == "3" and b["name"] == "x" and len(env.get("/api/me", headers=h).json()["leagues"]) == 1
     monkeypatch.setenv("GRIDSIM_MAX_LEAGUES", "1")
     assert env.post("/api/me/leagues", json={"platform": "espn", "league": "6"}, headers=h).status_code == 400
+
+
+def test_config_hides_google_until_enabled(env, monkeypatch):
+    monkeypatch.delenv("GRIDSIM_GOOGLE", raising=False)
+    assert env.get("/api/config").json()["google"] is False
+    monkeypatch.setenv("GRIDSIM_GOOGLE", "1")
+    assert env.get("/api/config").json()["google"] is True

@@ -72,6 +72,7 @@ if [ -s .env ] && grep -q '^STRIPE_WEBHOOK_SECRET=.\+' .env; then
   say "4/5  Settings: keeping your existing .env  (REDO=1 starts over)"
   check_db "$(sed -n "s/^DATABASE_URL='\(.*\)'$/\1/p" .env)" \
     || die "The saved database password was rejected. Reset it at $DB_PAGE (Database password), then run:  REDO=1 bash scripts/paid_local.sh"
+  grep -q '^GRIDSIM_GOOGLE=' .env || echo "GRIDSIM_GOOGLE='1'" >> .env     # Google sign-in is enabled in Supabase
 else
   say "4/5  Settings"
   read -rp "Your email (you become the admin who can press Update data): " ADMIN_EMAIL
@@ -108,6 +109,7 @@ STRIPE_PRICE_SEASON='$PRICE_SEASON'
 STRIPE_TRIAL_DAYS='0'
 GRIDSIM_ADMIN_EMAILS='$ADMIN_EMAIL'
 GRIDSIM_REFRESH_HOURS='0'
+GRIDSIM_GOOGLE='1'
 EOF
   echo "Wrote .env (only you can read it; git ignores it)."
 fi

@@ -12,7 +12,7 @@ browser ── Supabase (sign-in, Postgres) ──┐
 ## 1. Supabase (about 15 minutes)
 
 1. New project. Note the region; pick the one nearest your Fly region.
-2. Authentication → Providers: leave Email on. For Google: create an OAuth client in Google Cloud Console and paste its ID and secret.
+2. Authentication → Providers: leave Email on. For Google (optional): create an OAuth client in Google Cloud Console and paste its ID and secret into Providers → Google, then set `GRIDSIM_GOOGLE=1`. Until then the Continue with Google button is hidden.
 3. Authentication → URL configuration: Site URL = your app address; add it and `http://localhost:8000` to Redirect URLs.
 4. Settings → API: copy the project URL (`SUPABASE_URL`) and the anon public key (`SUPABASE_ANON_KEY`). If the page shows a "JWT secret" (legacy), copy it as `SUPABASE_JWT_SECRET`. Newer projects use signing keys; then `SUPABASE_URL` alone is enough.
 5. Settings → Database: copy the connection string as `DATABASE_URL`. Tables are created on first start.

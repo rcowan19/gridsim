@@ -2647,7 +2647,7 @@ function installAuthFetch() {
 function showAuth(msg, mode = 'in') {
   st.gating = true; const up = mode === 'up';
   gateShow(`<div class="gbox">${GBRAND}<div class="card"><h1 id="gTitle">${up ? 'Create your account' : 'Sign in'}</h1><p class="lead">${up ? 'One account for your leagues and your plan.' : 'Welcome back.'}</p>
-    <button class="btn lg" id="gGoogle" type="button">Continue with Google</button><div class="gor"><span>or</span></div>
+    ${st.cfg && st.cfg.google ? '<button class="btn lg" id="gGoogle" type="button">Continue with Google</button><div class="gor"><span>or</span></div>' : ''}
     <form id="gForm" class="gform" novalidate><div><label class="f" for="gEmail">Email</label><input class="inp" id="gEmail" type="email" autocomplete="email" required></div>
       <div><label class="f" for="gPw">Password</label><input class="inp" id="gPw" type="password" autocomplete="${up ? 'new-password' : 'current-password'}" required><div class="sub2" style="margin-top:4px">${up ? 'At least 8 characters.' : ''}</div></div>
       <button class="btn primary lg" id="gSubmit" type="submit">${up ? 'Create account' : 'Sign in'}</button></form>
@@ -2660,7 +2660,7 @@ function showAuth(msg, mode = 'in') {
     const email = $('#gEmail').value.trim(); if (!email) { err('Enter your email first, then press Forgot password.'); return; }
     const {error} = await SB.auth.resetPasswordForEmail(email, {redirectTo: location.origin + '/'}); err(error ? error.message : ''); if (!error) toast('If that email has an account, a reset link is on its way.');
   };
-  $('#gGoogle').onclick = async () => { const {error} = await SB.auth.signInWithOAuth({provider: 'google', options: {redirectTo: location.origin + '/'}}); if (error) err(error.message); };
+  const gg = $('#gGoogle'); if (gg) gg.onclick = async () => { const {error} = await SB.auth.signInWithOAuth({provider: 'google', options: {redirectTo: location.origin + '/'}}); if (error) err(error.message); };
   $('#gForm').onsubmit = async e => {
     e.preventDefault(); const email = $('#gEmail').value.trim(), password = $('#gPw').value; err('');
     if (!email || !password) { err('Enter your email and password.'); return; }
