@@ -13,6 +13,7 @@ browser ── Supabase (sign-in, Postgres) ──┐
 
 1. New project. Note the region; pick the one nearest your Fly region.
 2. Authentication → Providers: leave Email on. For Google (optional): create an OAuth client in Google Cloud Console and paste its ID and secret into Providers → Google, then set `GRIDSIM_GOOGLE=1`. Until then the Continue with Google button is hidden.
+   Leave **Confirm email** on (Providers → Email). Free access (below) trusts the email in the sign-in token, so it must be a verified address.
 3. Authentication → URL configuration: Site URL = your app address; add it and `http://localhost:8000` to Redirect URLs.
 4. Settings → API: copy the project URL (`SUPABASE_URL`) and the anon public key (`SUPABASE_ANON_KEY`). If the page shows a "JWT secret" (legacy), copy it as `SUPABASE_JWT_SECRET`. Newer projects use signing keys; then `SUPABASE_URL` alone is enough.
 5. Settings → Database: copy the connection string as `DATABASE_URL`. Tables are created on first start.
@@ -32,7 +33,7 @@ browser ── Supabase (sign-in, Postgres) ──┐
 See the comments at the top of `fly.toml`. Generate the key for `GRIDSIM_SECRET_KEY` with
 `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` and store a copy somewhere safe. If it is lost, users have to re-enter their ESPN cookies.
 First boot downloads the data and builds the model (several minutes); the health check waits for it. Data refreshes every `GRIDSIM_REFRESH_HOURS`.
-`GRIDSIM_ADMIN_EMAILS` lists who can press "Update data".
+`GRIDSIM_ADMIN_EMAILS` lists who can press "Update data". Those emails also get free access with no payment. `GRIDSIM_FREE_EMAILS` (comma-separated) gives free access to testers or friends without admin rights. A real Stripe plan always wins over the free label. Use the exact email the person signs in with; for Google that is the Google account's address.
 
 ## 4. End-to-end test (test mode) before real money
 

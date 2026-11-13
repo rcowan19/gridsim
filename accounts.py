@@ -22,7 +22,7 @@ def config():
 
 @router.get("/api/me")
 def me(u=Depends(auth.user)):
-    ent = db.entitlement(u["id"]) if auth.auth_on() else {"active": True, "plan": "dev", "status": "dev", "until": None}
+    ent = auth.access(u) if auth.auth_on() else {"active": True, "plan": "dev", "status": "dev", "until": None}
     return {"user": {"id": u["id"], "email": u["email"], "admin": bool(u.get("admin"))}, "plan": ent, "leagues": db.list_leagues(u["id"])}
 
 

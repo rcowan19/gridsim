@@ -78,6 +78,20 @@ def admin_emails():
     return {e.strip().lower() for e in os.environ.get("GRIDSIM_ADMIN_EMAILS", "").split(",") if e.strip()}
 
 
+def free_emails():
+    """Emails that get the app without paying: the admins plus GRIDSIM_FREE_EMAILS (testers, friends, press)."""
+    extra = {e.strip().lower() for e in os.environ.get("GRIDSIM_FREE_EMAILS", "").split(",") if e.strip()}
+    return admin_emails() | extra
+
+
+def access(u):
+    """The user's plan as the app sees it: a real Stripe plan if they have one, otherwise free access for listed emails."""
+    ent = db.entitlement(u["id"])
+    if not ent["active"] and (u.get("email") or "").lower() in free_emails():
+        ent = {**ent, "active": True, "plan": "free", "status": "free", "until": None}
+    return ent
+
+
 def user(request: Request):
     """The signed-in user ({id, email, admin}). With auth off: the built-in local user."""
     if not auth_on():
@@ -95,7 +109,7 @@ def plan(u=Depends(user)):
     """Signed in AND paid (monthly or season pass). With auth off: always allowed."""
     if not auth_on():
         return u
-    if not db.entitlement(u["id"])["active"]:
+    if not access(u)["active"]:
         raise HTTPException(402, "This needs an active plan.")
     return u
 

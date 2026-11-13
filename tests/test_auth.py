@@ -92,3 +92,23 @@ def test_production_config_must_be_complete(monkeypatch):
     with pytest.raises(RuntimeError):
         auth.check_production_config()
     assert auth.auth_on() is False and True        # explicit off is reported, never silent
+
+
+def test_free_access_for_admins_and_listed_emails(env, monkeypatch):
+    LGq = {"platform": "sleeper", "league": "L1", "season": 2026}
+    stranger = hdr(sub="s1", email="stranger@x.com")
+    assert env.get("/api/teams", headers=stranger).status_code == 402                       # nobody is free by default
+    monkeypatch.setenv("GRIDSIM_ADMIN_EMAILS", "Owner@Example.com"); monkeypatch.setenv("GRIDSIM_FREE_EMAILS", "friend@x.com, tester@x.com")
+    for sub, mail in (("o1", "owner@example.com"), ("f1", "friend@x.com"), ("f2", "tester@x.com")):
+        h = hdr(sub=sub, email=mail)
+        assert env.get("/api/teams", headers=h).status_code == 200, mail                    # case-insensitive, no Stripe plan needed
+        plan = env.get("/api/me", headers=h).json()["plan"]
+        assert plan["active"] is True and plan["plan"] == "free"                            # the app shows "Free access", not the paywall
+    assert env.get("/api/teams", headers=stranger).status_code == 402                       # still closed to everyone else
+    assert env.get("/api/teams", headers=hdr(sub="s2", email="friend@x.com.evil.com")).status_code == 402   # exact match only
+
+
+def test_paid_plan_wins_over_free_label(env, monkeypatch):
+    monkeypatch.setenv("GRIDSIM_ADMIN_EMAILS", "a@b.com"); pay()
+    plan = env.get("/api/me", headers=hdr()).json()["plan"]
+    assert plan["plan"] == "monthly" and plan["customer"] is True                           # real plan shown; the billing portal still works

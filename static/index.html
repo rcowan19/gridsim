@@ -2583,7 +2583,7 @@ function mvTrade(c, body) {
 }
 
 /* Settings */
-const planText = pl => !pl || !pl.active ? 'No active plan' : pl.plan === 'dev' ? 'Local mode' : pl.status === 'trialing' ? 'Free trial' + (pl.until ? ' until ' + new Date(pl.until + 'Z').toLocaleDateString([], {month: 'short', day: 'numeric'}) : '')
+const planText = pl => !pl || !pl.active ? 'No active plan' : pl.plan === 'dev' ? 'Local mode' : pl.plan === 'free' ? 'Free access' : pl.status === 'trialing' ? 'Free trial' + (pl.until ? ' until ' + new Date(pl.until + 'Z').toLocaleDateString([], {month: 'short', day: 'numeric'}) : '')
   : pl.plan === 'season' ? 'Season pass' + (pl.until ? ', through ' + new Date(pl.until + 'Z').toLocaleDateString([], {month: 'short', day: 'numeric', year: 'numeric'}) : '') : 'Monthly plan' + (pl.until ? ', renews ' + new Date(pl.until + 'Z').toLocaleDateString([], {month: 'short', day: 'numeric'}) : '');
 const PLAT = {espn: 'ESPN', sleeper: 'Sleeper'};
 function renderSettings() {
