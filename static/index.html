@@ -551,6 +551,34 @@ tbody tr.clk{transition:background-color .12s}tbody tr.clk:hover{background:var(
 .gcard.ez .gteams{align-items:flex-start}.gcard.ez .gt{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}.gcard.ez .gt.r{align-items:center}.gcard.ez .gnm{font:600 13px/1.25 var(--font);color:var(--muted)}.gcard.ez .gsc{font-size:30px}.gcard.ez .gplayers.ez{display:flex;flex-direction:column;gap:var(--s2);margin-top:var(--s3);border-top:1px solid var(--line-soft);padding-top:var(--s3)}.gcard.ez .gplayers.ez>div{min-width:0}.gcard.ez .gplayers.ez .sub2{display:flex;align-items:center;gap:6px;margin-bottom:2px}.rowc.cmp .pcell{min-width:0}.rowc.cmp .pn{min-width:0}.rowc.cmp .pn b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}.rowc.cmp{padding:6px 4px;gap:8px;min-height:0}.rowc.cmp .pts{font-size:15px}.rowc.cmp .pcell .pn b{font-size:13px}.rowc.cmp .psub{display:none}
 .dh .hs{flex:none}.dh .grow{min-width:0}
 :root[data-mode=adv] .sidenav .nlink{min-height:36px;padding-top:5px;padding-bottom:5px}:root[data-mode=adv] .side-foot .nlink{min-height:36px}
+.dpanel:has(.ezd){padding:28px 28px 32px}
+.ezd{display:flex;flex-direction:column;gap:22px}
+.ezd-x{position:absolute;right:18px;top:18px;width:40px;height:40px;border-radius:50%;border:1.5px solid var(--line-strong);background:var(--surface);color:var(--text);font-size:16px;cursor:pointer;display:grid;place-items:center;transition:background-color .16s var(--ease),border-color .16s var(--ease)}
+.ezd-x:hover{background:var(--surface-2);border-color:var(--text)}.ezd-x svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
+.ezd-top{display:flex;gap:18px;align-items:center;padding-right:52px}.ezd-top .hs{flex:none}.ezd-top .grow{min-width:0}
+.ezd-nm{font:700 28px/1.12 var(--serif);letter-spacing:-.01em}
+.ezd-sub{display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:var(--muted);font-size:14px;margin-top:8px}.ezd-sub .tlg{flex:none}.ezd-sub>span:not(.chip){min-width:0}
+.ezd-hero{display:grid;grid-template-columns:auto 1fr;gap:28px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:22px 24px}
+.ezd-num{font:800 60px/1 var(--font);letter-spacing:-.03em;font-variant-numeric:tabular-nums;color:var(--text)}
+.ezd-lab{font-size:13px;color:var(--muted);margin-top:6px;font-weight:600}
+.ezd-facts{display:flex;flex-direction:column;gap:2px;min-width:0}
+.ezd-fact{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:14px;padding:9px 0;border-bottom:1px solid var(--line-soft)}.ezd-fact:last-child{border-bottom:0}
+.ezd-fact>span:first-child{color:var(--muted)}.ezd-fact b{font-variant-numeric:tabular-nums;font-size:15px}
+.ezd-sec h4{margin:0 0 12px;font:700 16px/1.3 var(--serif)}
+.ezd-p{margin:12px 0 0;font-size:14px;color:var(--muted)}
+.ezd-rng{position:relative;height:12px;border-radius:99px;background:var(--line-soft);margin:6px 0 10px}
+.ezd-rng i{position:absolute;top:0;bottom:0;border-radius:99px;background:color-mix(in srgb,var(--accent) 38%,transparent)}
+.ezd-rng u{position:absolute;top:-5px;width:4px;height:22px;margin-left:-2px;border-radius:3px;background:var(--text);text-decoration:none}
+.ezd-rl{display:flex;justify-content:space-between;font:800 18px/1.1 var(--font);font-variant-numeric:tabular-nums}.ezd-rl span{display:flex;flex-direction:column;gap:3px}.ezd-rl span:last-child{align-items:flex-end}.ezd-rl small{font:600 12px/1 var(--font);color:var(--muted)}
+.ezd-bars{display:flex;gap:10px;align-items:flex-end;height:150px;padding-top:4px}
+.ezd-bars>div{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:6px;min-width:0}
+.ezd-bars b{font-size:13px;font-variant-numeric:tabular-nums}.ezd-bars i{display:block;width:100%;max-width:46px;border-radius:8px 8px 3px 3px;background:var(--accent);min-height:3px;transition:height .4s var(--ease)}.ezd-bars span{font-size:12px;color:var(--muted)}
+.ezd-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.ezd-stats div{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md,12px);padding:12px 14px}.ezd-stats span{display:block;font-size:12px;color:var(--muted);font-weight:600}.ezd-stats b{display:block;margin-top:4px;font:800 22px/1.1 var(--font);font-variant-numeric:tabular-nums}
+.ezd-alert{border:1px solid var(--line-strong);border-left:4px solid var(--warn,#b45309);border-radius:var(--r-md,12px);padding:12px 14px;font-size:14px;background:var(--surface)}
+.ezd-foot{display:flex;justify-content:center;padding-top:4px}
+@media(max-width:520px){.ezd-top .hs{--s:60px!important}.ezd-hero{grid-template-columns:1fr;gap:12px}.ezd-num{font-size:52px}.ezd-stats{grid-template-columns:repeat(2,1fr)}.ezd-nm{font-size:24px}.ezd-top{gap:14px}}
+#dpanel:focus,#dpanel:focus-visible{outline:none}
 </style>
 </head>
 <body>
@@ -1027,7 +1055,57 @@ const qnt = (a, p) => { const s = [...a].sort((x, y) => x - y); return s[Math.mi
 const odds = p => p <= 0 || p >= 1 ? '–' : (p >= .5 ? '−' + Math.round(p / (1 - p) * 100) : '+' + Math.round((1 - p) / p * 100));
 
 function closeDrawer() { $('#drawer').classList.add('hide'); }
+/* Player detail for the Simple view: who he is, what to expect, how he has been playing */
+function ownerOf(id) {
+  const L = st.lg; if (!L || !st.slate) return null;
+  if (!ownerOf.c || ownerOf.c.s !== st.slate || ownerOf.c.l !== L) {
+    const idx = slotIndex(), m = {}, start = new Set();
+    L.data.teams.forEach(t => { const mod = teamModel(t, idx); mod.ids.forEach(i => m[i] = t); if (t.id === L.my) Object.values(mod.starters).filter(Boolean).forEach(i => start.add(i)); });
+    ownerOf.c = {s: st.slate, l: L, m, start};
+  }
+  const t = ownerOf.c.m[id];
+  return t ? {mine: t.id === L.my, name: t.name, starting: ownerOf.c.start.has(id)} : {free: true};
+}
+const t12 = t => { const [h, m] = String(t).split(':'); return `${+h % 12 || 12}:${m} ${+h >= 12 ? 'PM' : 'AM'}`; };
+const EZSTAT = {
+  QB: [['Pass yards', 'pyd', 0], ['Pass TD', 'ptd', 2], ['Interceptions', 'int', 2], ['Rush yards', 'ryd', 0], ['Rush TD', 'rtd', 2]],
+  RB: [['Carries', 'ra', 0], ['Rush yards', 'ryd', 0], ['Catches', 'rec', 1], ['Rec yards', 'recyd', 0], ['Touchdowns', ['rtd', 'rectd'], 2]],
+  WR: [['Targets', 'tgt', 1], ['Catches', 'rec', 1], ['Rec yards', 'recyd', 0], ['Touchdowns', ['rectd', 'rtd'], 2]],
+  TE: [['Targets', 'tgt', 1], ['Catches', 'rec', 1], ['Rec yards', 'recyd', 0], ['Touchdowns', ['rectd', 'rtd'], 2]],
+  K: [['Field goals', 'fgm', 1], ['Extra points', 'xpm', 1]],
+  DST: [['Sacks', 'sacks', 1], ['Takeaways', 'tkw', 1], ['Points allowed', 'pa_', 1]]
+};
+function showPlayerEz(r) {
+  const S = st.slate, g = S && S.games.find(x => x.id === r.game), dp = $('#dpanel'), fin = r._left === 0, live = r._left != null && !fin, pre = P0(r, 'proj'), pj = P(r, 'proj');
+  const lo = P0(r, 'lo'), hi = P0(r, 'hi'), avg = avgF(r), own = ownerOf(r.id), tm = st.TEAMS[r.team], f = FMTF[st.fmt] || 0;
+  const when = g ? `${new Date(g.day + 'T12:00:00').toLocaleDateString(undefined, {weekday: 'short'})} ${t12(g.time)} ET` : '';
+  const stateChip = fin ? '<span class="chip ink">Game final</span>' : live ? '<span class="chip ok">Playing now</span>' : r.idle === 'BYE' ? '' : when ? `<span class="chip ink">${esc(when)}</span>` : '';
+  const ownChip = own ? (own.free ? '<span class="chip ink">Free agent</span>' : own.mine ? `<span class="chip ok">${own.starting ? 'In your lineup' : 'On your bench'}</span>` : `<span class="chip ink">Owned by ${esc(own.name)}</span>`) : '';
+  const opp = r.opp ? `${r.home ? 'vs' : '@'} ${esc(st.TEAMS[r.opp] ? st.TEAMS[r.opp].name : r.opp)}` : '';
+  let hero;
+  if (fin) {
+    const dl = r._act - pre;
+    hero = `<div><div class="ezd-num">${fmt(r._act)}</div><div class="ezd-lab">final points</div></div><div class="ezd-facts"><div class="ezd-fact"><span>Projected before the game</span><b>${fmt(pre)}</b></div><div class="ezd-fact"><span>Compared with projection</span><span class="chip ${dl >= 0 ? 'ok' : 'warn'}">${sgn(dl)} pts</span></div></div>`;
+  } else {
+    const dl = avg == null ? null : pj - avg;
+    hero = `<div><div class="ezd-num">${fmt(pj)}</div><div class="ezd-lab">${live ? 'projected final' : 'projected points'}</div></div><div class="ezd-facts">${live ? `<div class="ezd-fact"><span>Scored so far</span><b>${fmt(r._act)}</b></div><div class="ezd-fact"><span>Before the game</span><b>${fmt(pre)}</b></div>` : ''}${avg == null ? '' : `<div class="ezd-fact"><span>Season average</span><b>${fmt(avg)}</b></div>`}${dl == null || live ? '' : `<div class="ezd-fact"><span>This week vs average</span><span class="chip ${dl > 1 ? 'ok' : dl < -1 ? 'warn' : 'ink'}">${sgn(dl)} pts</span></div>`}</div>`;
+  }
+  const mx = Math.max(hi * 1.1, 24), rng = fin || live ? '' : `<div class="ezd-sec"><h4>What to expect</h4><div class="ezd-rng" role="img" aria-label="Likely range ${fmt(lo, 0)} to ${fmt(hi, 0)} points, projected ${fmt(pj)}"><i style="left:${Math.max(lo, 0) / mx * 100}%;width:${(hi - Math.max(lo, 0)) / mx * 100}%"></i><u style="left:${pj / mx * 100}%"></u></div><div class="ezd-rl"><span>${fmt(lo, 0)}<small>low end</small></span><span>${fmt(hi, 0)}<small>high end</small></span></div><p class="ezd-p">The marker is the projection (${fmt(pj)}). Most weeks he lands between ${fmt(lo, 0)} and ${fmt(hi, 0)} points.</p></div>`;
+  const tr = (r.trend || []).filter(w => Array.isArray(w)).slice(-6), vals = tr.map(w => w[1] - f * w[4]), tmx = Math.max(...vals, pj, 1);
+  const form = tr.length ? `<div class="ezd-sec"><h4>Recent games</h4><div class="ezd-bars" role="img" aria-label="Points in his last ${tr.length} games: ${vals.map(v => fmt(v)).join(', ')}">${tr.map((w, i) => `<div><b>${fmt(vals[i])}</b><i style="height:${Math.max(vals[i], 0) / tmx * 100}%"></i><span>Wk ${w[0]}</span></div>`).join('')}</div></div>` : '';
+  const spec = EZSTAT[r.pos], stt = r.st || {};
+  const tiles = (spec ? spec.map(([l, k, d]) => { const ks = [].concat(k), v = ks.every(x => stt[x] == null) ? null : ks.reduce((a, x) => a + (stt[x] || 0), 0); return v == null ? '' : `<div><span>${l}</span><b>${fmt(v, d)}</b></div>`; }) : Object.entries(stt).map(([k, v]) => `<div><span>${STATN[k] || k}</span><b>${fmt(v, v < 10 ? 1 : 0)}</b></div>`)).join('');
+  const stats = tiles ? `<div class="ezd-sec"><h4>${fin || live ? 'Pre-game projected stats' : 'Projected stats'}</h4><div class="ezd-stats">${tiles}</div></div>` : '';
+  const hurt = r.inj_note && r.status && r.status !== 'Active' ? `<div class="ezd-alert"><b>Injury report</b> · ${esc(r.inj_note)}<div class="sub2">Check the latest news before kickoff.</div></div>` : '';
+  dp.innerHTML = `<button class="ezd-x" id="dclose" aria-label="Close player details">${icon('x') || '✕'}</button>
+    <div class="ezd"><div class="ezd-top">${hshot(r, 76)}<div class="grow"><div class="ezd-nm">${esc(dn(r))}</div><div class="ezd-sub">${r.pos === 'DST' ? '' : tlogo(r.team, 20)}<span>${esc(r.pos)} · ${esc(tm ? tm.name : r.team)}</span></div><div class="ezd-sub">${opp ? `<span>${opp}</span>` : ''}${stateChip}${healthChip(r)}${ownChip}</div></div></div>
+    ${hurt}<div class="ezd-hero">${hero}</div>${rng}${form}${stats}
+    <div class="ezd-foot"><button class="btn ghost sm auto" id="ezAdv">Show advanced stats</button></div></div>`;
+  $('#drawer').classList.remove('hide'); $('#dclose').onclick = closeDrawer; dp.tabIndex = -1; dp.focus({preventScroll: true});
+  $('#ezAdv').onclick = () => { setMode('adv'); showPlayer(r); };
+}
 function showPlayer(r) {
+  if (st.mode === 'easy') return showPlayerEz(r);
   const d = rdelta(r), S = sampFor(r), lv = liveOn(r), fin = lv && r._left === 0;
   const lo = P(r, 'lo'), hi = P(r, 'hi'), med = P(r, 'med'), pj = P(r, 'proj'), lo0 = P0(r, 'lo'), hi0 = P0(r, 'hi'), med0 = P0(r, 'med');
   const dp = $('#dpanel'); const col = color(r.team);
@@ -1038,7 +1116,6 @@ function showPlayer(r) {
       <div class="dbig"><b>${fmt(pj)}</b><span>${lv ? (r._left === 0 ? 'final' : 'projected final') : FMTN[st.fmt] + ' proj'}</span>${r._act != null ? `<b style="margin-top:6px">${fmt(r._act)}</b><span>actual so far (ESPN)</span>` : ''}${lv ? `<b style="margin-top:6px;color:var(--muted)">${fmt(P0(r, 'proj'))}</b><span>pre-game proj</span>` : ''}</div></div>
     <div class="seg fseg adv-only" id="dfmt" style="margin:10px 0">${Object.keys(FMTN).map(k => `<button data-f="${k}" class="${st.fmt === k ? 'on' : ''}">${FMTN[k]}</button>`).join('')}</div>
     ${lv ? `<div class="note" style="margin:0 0 10px">${fin ? 'Game final: the projection is locked at the actual score.' : 'Game under way: projection = actual so far plus ' + Math.round(r._left * 100) + '% of the pre-game projection.'} The distribution chart and stat line below are the pre-game projection.</div>` : ''}
-    <div class="kpis easy-only"><div><span>Low end</span><b>${fmt(lo)}</b></div><div><span>Expected</span><b>${fmt(pj)}</b></div><div><span>High end</span><b>${fmt(hi)}</b></div></div>
     <div class="kpis adv-only">
       <div><span>Floor (10%)</span><b>${fmt(lo)}</b></div><div><span>Median</span><b>${fmt(med)}</b></div><div><span>Ceiling (90%)</span><b>${fmt(hi)}</b></div>
       <div><span>Boom</span><b>${fin ? '–' : pct(r.boom)}</b></div><div><span>Bust</span><b>${fin ? '–' : pct(r.bust)}</b></div><div><span>Std dev</span><b>${fin ? '–' : fmt(r.sd)}</b></div>
@@ -2144,6 +2221,7 @@ function boxScore() {
 
 /* ================= app shell: nav, routing, palette, toasts, theme, home, settings ================= */
 const IC = {
+  x: '<path d="M6 6l12 12M18 6L6 18"/>',
   home: '<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>', games: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M12 5v14M3 12h18"/>',
   lab: '<path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/>', proj: '<path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/>',
   stack: '<path d="M12 3l9 5-9 5-9-5 9-5zM3 13l9 5 9-5"/>', inj: '<path d="M3 12h4l2-6 4 12 2-6h6"/>', lineup: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',

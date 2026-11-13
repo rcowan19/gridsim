@@ -95,7 +95,7 @@ def test_easy_connect_card_then_lineup_and_images(br):
     # blocked image servers: letters stay visible, no broken <img> is left behind
     pg.wait_for_timeout(800); assert pg.locator("#tab-mylineup .hs img").count() == 0
     assert pg.locator("#tab-mylineup .hs b").first.is_visible()
-    pg.click("#tab-mylineup .rowc >> nth=0"); pg.wait_for_selector("#dpanel .dnm"); assert pg.locator("#dpanel .kpis.easy-only").is_visible() and not pg.locator("#dpanel .kpis.adv-only").is_visible()
+    pg.click("#tab-mylineup .rowc >> nth=0"); pg.wait_for_selector("#dpanel .ezd-nm"); assert pg.locator("#dpanel .ezd-hero").is_visible() and pg.locator("#dpanel .ezd-nm").inner_text().strip() != "" and pg.locator("#dpanel .kpis").count() == 0
     assert not pg.errs
 
 def test_easy_moves_one_page_two_choices(br):
