@@ -1744,10 +1744,12 @@ function wiRosDraw(ctx, base, after) {
 }
 
 /* a team's best lineup in one week: [expected points, spread]. Each player's own simulated spread (sd) adds up as if independent,
-   plus 15% for shared game script. (Season outlook used to read p10/p90, which player rows do not carry, so every player got a flat 5.) */
-function lineupStats(ids, pw, ig) {
-  const lu = Object.values(autoSet(ids, pw, ig)).filter(i => pw[i]).map(i => pw[i]);
-  return [lu.reduce((a, p) => a + P(p, 'proj'), 0), 1.15 * Math.sqrt(lu.reduce((a, p) => a + (p.sd != null ? p.sd : 5) ** 2, 0)) || 20];
+   plus 15% for shared game script. (Season outlook used to read p10/p90, which player rows do not carry, so every player got a flat 5.)
+   `lock` (this week only): the team's starters whose games have started stay in their slots, and started players on the bench cannot be moved in, as on ESPN.
+   A player mid-game only has his unplayed share left to vary (same scaling as arrFor); one in a finished game has none. */
+function lineupStats(ids, pw, ig, lock) {
+  const lu = Object.values(autoSet(ids, pw, ig, lock)).filter(i => pw[i]).map(i => pw[i]);
+  return [lu.reduce((a, p) => a + P(p, 'proj'), 0), lu.length ? 1.15 * Math.sqrt(lu.reduce((a, p) => a + ((p.sd != null ? p.sd : 5) * (liveOn(p) ? p._left : 1)) ** 2, 0)) : 20];
 }
 
 /* ================= trade machine ================= */
@@ -1768,7 +1770,11 @@ const trWeeks = (mode, R) => {
   if (mode === 'week') return [{w: w0, wt: 1, pool: labPool(), ig: false}];
   return R.weeks.map(w => ({w, wt: mode === 'playoff' && w >= po ? 2.5 : 1, pool: w === w0 ? labPool() : R.pools[w], ig: w !== w0}));
 };
-const trVal = (ids, W) => W.reduce((s, x) => s + x.wt * sumPIn(x.pool, Object.values(autoSet(ids, x.pool, x.ig))), 0);
+/* Mid-week: points a player has already scored do not move with a trade, and ESPN locks a player once his game starts. So for the current week a team
+   keeps the starters whose games have begun (`lock`, banked points and all, even if one is traded away) and fills the open slots only from players
+   whose games have not started. Before kickoff nothing is locked and this is the plain best lineup. */
+const trThisWk = x => x.w === st.slate.week;
+const trVal = (ids, W, lock) => W.reduce((s, x) => s + x.wt * sumPIn(x.pool, Object.values(autoSet(ids, x.pool, x.ig, trThisWk(x) ? lock : undefined))), 0);
 const combos = (a, k) => k === 1 ? a.map(x => [x]) : a.flatMap((x, i) => a.slice(i + 1).map(y => [x, y]));
 
 /* everything a trade evaluation needs, built once per (mode, slate) */
@@ -1778,7 +1784,8 @@ async function trPrep(c) {
   let R = null;
   if (T.mode !== 'week') { R = await ensureRos(r => { T.pxBusy = `Simulating week ${st.slate.week + r.done - 1} of ${r.weeks[r.weeks.length - 1]}…`; const el = $('#trEval .busy'); if (el) el.textContent = T.pxBusy; }); if (R.error) { T.pxBusy = null; T.px = {err: R.error}; renderTrades(c); return T.px; } }
   const W = trWeeks(T.mode, R), pool0 = labPool(), TP = new Set(['QB', 'RB', 'WR', 'TE']), rostered = new Set(); Object.values(c.tms).forEach(t => t.ids.forEach(i => rostered.add(i)));
-  const row = id => pool0[id] || (R && R.any[id]), score = id => W.reduce((s, x) => s + x.wt * (x.pool[id] ? P(x.pool[id], 'proj') : 0), 0);
+  const row = id => pool0[id] || (R && R.any[id]), score = id => W.reduce((s, x) => s + x.wt * (x.pool[id] && !(trThisWk(x) && started(x.pool[id])) ? P(x.pool[id], 'proj') : 0), 0);   // a player whose game has started adds nothing to this week for whoever gets him
+  const lock = {}; c.D.teams.forEach(t => { lock[t.id] = lockOf(c.tms[t.id]); });
   const fas = Object.values(R ? R.any : pool0).filter(r => TP.has(r.pos) && !rostered.has(r.id) && r.status !== 'Out').map(r => ({id: r.id, pos: r.pos, s: score(r.id)})).sort((a, b) => b.s - a.s);
   const repl = {}; TP.forEach(p => { const l = fas.filter(f => f.pos === p); repl[p] = l.length ? l[Math.min(2, l.length - 1)].s : 0; });
   const vor = id => Math.max(0, score(id) - (repl[(row(id) || {}).pos] || 0));
@@ -1786,13 +1793,13 @@ async function trPrep(c) {
     if (delta > 0) { const cand = r.filter(i => !protect.includes(i)).sort((a, b) => score(a) - score(b)); for (let k = 0; k < delta && cand.length; k++) r.splice(r.indexOf(cand[k]), 1); }
     else if (delta < 0) r.push(...fas.filter(f => !r.includes(f.id)).slice(0, -delta).map(f => f.id)); return r; };
   const faAdd = ['QB', 'RB', 'RB', 'WR', 'WR', 'TE'].reduce((a, p) => { const f = fas.find(f => f.pos === p && !a.includes(f.id)); return f ? [...a, f.id] : a; }, []);
-  const base = {}; c.D.teams.forEach(t => { base[t.id] = trVal([...c.tms[t.id].ids, ...faAdd], W); });
-  T.px = {mode: T.mode, week: st.slate.week, W, R, row, score, vor, faAdd, TP, base, repl}; T.pxBusy = null; renderTrades(c); return T.px;
+  const base = {}; c.D.teams.forEach(t => { base[t.id] = trVal([...c.tms[t.id].ids, ...faAdd], W, lock[t.id]); });
+  T.px = {mode: T.mode, week: st.slate.week, W, R, row, score, vor, faAdd, TP, base, repl, lock}; T.pxBusy = null; renderTrades(c); return T.px;
 }
 function trEval(c, give, get, tid) {
   const x = st.tr.px, me = c.tms[c.L.my], th = c.tms[tid], vg = give.reduce((s, i) => s + x.vor(i), 0), vq = get.reduce((s, i) => s + x.vor(i), 0);
   const m2 = [...me.ids.filter(i => !give.includes(i)), ...get], t2 = [...th.ids.filter(i => !get.includes(i)), ...give];
-  const mA = trVal([...m2, ...x.faAdd], x.W), tA = trVal([...t2, ...x.faAdd], x.W);
+  const mA = trVal([...m2, ...x.faAdd], x.W, x.lock[c.L.my]), tA = trVal([...t2, ...x.faAdd], x.W, x.lock[tid]);
   return {myGain: mA - x.base[c.L.my], theirGain: tA - x.base[tid], mB: x.base[c.L.my], mA, tB: x.base[tid], tA, vg, vq, bal: vq > 0 ? vg / vq : 9, m2, t2};
 }
 const trOk = e => e.theirGain > 0.3 && e.bal >= 0.8 && e.bal <= 1.6;
@@ -1800,6 +1807,8 @@ const trTier = e => trOk(e) ? 0 : (e.theirGain > -0.5 && e.bal >= 0.6 && e.bal <
 const trVerdict0 = e => e.bal < .8 ? ['They give up more', 'bad'] : e.bal > 1.6 ? ['You give up more', 'bad'] : e.theirGain <= .3 ? ['Hurts their lineup', 'bad'] : e.myGain <= .3 ? ['No help for you', 'bad'] : (e.bal >= .9 && e.bal <= 1.25 ? ['Fair, likely accepted', 'good'] : ['Both gain', 'ok']);
 // with season odds: more points that leave your playoff and title odds where they were is not a real gain
 const trVerdict = (e, o) => { const v = trVerdict0(e); return o && v[1] !== 'bad' && o.me.po[1] - o.me.po[0] < .002 && o.me.ti[1] - o.me.ti[0] < .001 ? ['Barely moves your odds', 'ok'] : v; };
+// mid-week: say how games that have started are handled, once at least one has
+const trLiveNote = () => st.live && st.live.n && Object.values(st.live.gs || {}).some(g => g.s !== 'pre') ? ' <span class="sub2">Games are under way: a player whose game has started only counts for the weeks still to play, because a trade does not move points he already scored.</span>' : '';
 const trGood = s => s.tier < 2 && trVerdict(s.e, s.o)[1] !== 'bad';          // a trade GridSim will recommend; the rest are long shots
 
 /* ---- season odds with and without a trade ----
@@ -1820,12 +1829,12 @@ function trOddsBase(c, x) {
   const periods = []; for (let w = w0; w <= last; w++) periods.push([w]);                             // one period per regular-season week...
   for (let r = 0; r < rounds; r++) periods.push(Array.from({length: len}, (_, k) => last + r * len + k + 1));   // ...then one per playoff round
   const nReg = last - w0 + 1, nP = periods.length;
-  const stats = roster => { const mu = new Float64Array(nP), sd = new Float64Array(nP);
-    periods.forEach((ws, p) => { let m = 0, v = 0; ws.forEach(w => { const [a, b] = lineupStats(roster, pools(w), w !== w0); m += a; v += b * b; }); mu[p] = m; sd[p] = Math.sqrt(v); });
+  const stats = (roster, lock) => { const mu = new Float64Array(nP), sd = new Float64Array(nP);
+    periods.forEach((ws, p) => { let m = 0, v = 0; ws.forEach(w => { const [a, b] = lineupStats(roster, pools(w), w !== w0, w === w0 ? lock : undefined); m += a; v += b * b; }); mu[p] = m; sd[p] = Math.sqrt(v); });
     return {mu, sd}; };
   const MU = new Float64Array(nP * n), SD = new Float64Array(nP * n);
   const put = (i, s, mu = MU, sd = SD) => { for (let p = 0; p < nP; p++) { mu[p * n + i] = s.mu[p]; sd[p * n + i] = s.sd[p]; } };
-  D.teams.forEach((t, i) => put(i, stats([...c.tms[t.id].ids, ...x.faAdd])));                         // every team may add the best free agents, as in trEval
+  D.teams.forEach((t, i) => put(i, stats([...c.tms[t.id].ids, ...x.faAdd], x.lock[t.id])));                         // every team may add the best free agents, as in trEval
   const G = sched.length, N = trSeasons(), stride = 2 * G + rounds * n, rng = mulberry(20260), Z = new Float32Array(N * stride);
   for (let i = 0; i < Z.length; i++) Z[i] = gauss(rng);
   const rec = D.teams.map(t => t.record || {});
@@ -1859,7 +1868,7 @@ function trOdds(c, x, e, tid) {
   const O = trOddsBase(c, x); if (!O) return null;
   const key = e.m2.slice().sort().join() + '>' + e.t2.slice().sort().join() + '@' + tid, hit = O.cache.get(key); if (hit) return hit;
   const mu = O.MU.slice(), sd = O.SD.slice(), mi = O.ix[c.L.my], ti = O.ix[tid];
-  O.put(mi, O.stats([...e.m2, ...x.faAdd]), mu, sd); O.put(ti, O.stats([...e.t2, ...x.faAdd]), mu, sd);
+  O.put(mi, O.stats([...e.m2, ...x.faAdd], x.lock[c.L.my]), mu, sd); O.put(ti, O.stats([...e.t2, ...x.faAdd], x.lock[tid]), mu, sd);
   const A = trSim(O, mu, sd), B = O.base, pick = i => ({po: [B.po[i], A.po[i]], by: [B.by[i], A.by[i]], ti: [B.ti[i], A.ti[i]], ew: [B.ew[i], A.ew[i]]});
   const r = {me: pick(mi), th: pick(ti), N: O.N, pt: O.pt, byes: O.byes}; O.cache.set(key, r); return r;
 }
@@ -1992,7 +2001,7 @@ async function runSeason(c) {
   const pt = Math.min(set.playoff_teams || Math.min(6, Math.floor(n / 2)), n), bye = pt >= 6 ? 2 : 0;
   const weeks = R.weeks.filter(w => w >= w0 && w <= last), mu = {}, sd = {};
   weeks.forEach(w => { const pw = R.pools[w], ig = w !== w0; mu[w] = []; sd[w] = [];
-    D.teams.forEach(t => { const [m, s] = lineupStats(c.tms[t.id].ids, pw, ig); mu[w].push(m); sd[w].push(s); }); });
+    D.teams.forEach(t => { const [m, s] = lineupStats(c.tms[t.id].ids, pw, ig, ig ? undefined : lockOf(c.tms[t.id])); mu[w].push(m); sd[w].push(s); }); });
   const games = D.schedule.filter(m => m.week >= w0 && m.week <= last && ix[m.home] != null && ix[m.away] != null);
   const rec = ids.map(id => { const r = D.teams.find(t => t.id === id).record || {}; return {w: (r.wins || 0) + (r.ties || 0) / 2, pf: r.pointsFor || 0}; });
   const N = 5000, rng = mulberry(12345), po = new Array(n).fill(0), by = new Array(n).fill(0), ew = new Array(n).fill(0), rk = ids.map(() => new Array(n).fill(0));
@@ -2317,13 +2326,16 @@ function applyLive() {
   if (!st.slate) return; const L = st.live, rows = [...(st.slate.rows_idle || []), ...st.slate.rows];
   rows.forEach(r => { delete r._act; delete r._left; delete r._gs; });
   L.gs = {}; if (st.tr) st.tr.px = null;
-  if (!L.players || L.week !== st.slate.week) { L.n = 0; return; }
+  const tradesStale = () => { if (st.tr && st.tr.liveSig !== tradeLiveSig()) { st.tr.liveSig = tradeLiveSig(); st.tr.sugg = null; } };
+  if (!L.players || L.week !== st.slate.week) { L.n = 0; tradesStale(); return; }
   st.slate.games.forEach(g => { L.gs[g.id] = gameState(g); });
   rows.forEach(r => { const g = L.gs[r.game]; if (g && g.s !== 'pre') r._gs = g.s; });
   const idx = liveIdx(); let n = 0;
   L.players.forEach(p => { const r = matchRow(p, idx), g = r && L.gs[r.game]; if (!g || g.s === 'pre') return; r._act = p.pts; r._left = g.left; n++; });
-  L.n = n;
+  L.n = n; tradesStale();
 }
+/* trade ideas are priced on which games have started, so a list found before kickoff (or before the next game ended) is stale */
+function tradeLiveSig() { const L = st.live; return !L || !L.gs ? '' : Object.entries(L.gs).map(([k, g]) => k + g.s).join(); }
 function liveCounts() { const v = Object.values(st.live.gs || {}); return {fin: v.filter(g => g.s === 'post').length, live: v.filter(g => g.s === 'in').length, est: v.some(g => g.est)}; }
 const liveNote = () => st.live && st.live.n ? `<div class="note">Live: players in finished games count their actual ESPN points, players in games under way count actual so far plus the unplayed share of their projection, and everyone else uses the pre-game projection. Win probabilities and best-lineup totals are recomputed on that basis, and players whose games have started are locked in their slots, as on ESPN.${liveCounts().est ? ' Game status is estimated from kickoff times because the ESPN scoreboard was not reachable.' : ''}</div>` : '';
 function liveChip() {
@@ -2676,7 +2688,7 @@ function mvTrade(c, body) {
   const T = st.tr, x = T.px && !T.px.err ? T.px : null, row = id => (x && x.row(id)) || c.pool[id], busy = !!(T.sBusy || T.pxBusy), all = T.sugg, sug = trShown(), nLong = all ? all.filter(s => !s.good).length : 0;
   const side = ids => ids.map(id => { const r = row(id); return r ? pcell(r, 40) : ''; }).join('<div style="height:8px"></div>');
   const cls = {good: 'ok', ok: 'ok', bad: 'warn'};
-  let h = `<div class="card act"><h3>Find a trade</h3><p>GridSim checks every other team for trades that make your team better over the rest of the season and that the other manager has a real reason to accept, then ranks them by what they do to your playoff and title odds over ${trSeasons().toLocaleString()} simulated seasons (Settings → Sims per game: Deep runs 10,000 and also tries 2-for-2 trades). Searching takes about a minute.</p>
+  let h = `<div class="card act"><h3>Find a trade</h3><p>GridSim checks every other team for trades that make your team better over the rest of the season and that the other manager has a real reason to accept, then ranks them by what they do to your playoff and title odds over ${trSeasons().toLocaleString()} simulated seasons (Settings → Sims per game: Deep runs 10,000 and also tries 2-for-2 trades). Searching takes about a minute.${trLiveNote()}</p>
     <div class="btnrow"><button class="btn primary lg auto" id="mvFind" ${busy ? 'disabled' : ''}>${busy ? '<span class="spin"></span>Searching' : sug ? 'Search again' : 'Find trade ideas'}</button><button class="btn ghost lg auto" id="mvOwn">Build my own trade</button></div><div class="sub2" id="mvBusy" aria-live="polite">${busy ? esc(T.sBusy || T.pxBusy) : ''}</div>${T.px && T.px.err ? `<div class="err" style="display:block">${esc(T.px.err)}</div>` : ''}</div>`;
   if (sug && !busy) {
     const shown = sug.slice(0, st.mv.tMore);

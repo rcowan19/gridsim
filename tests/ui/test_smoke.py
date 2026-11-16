@@ -18,6 +18,10 @@ def page(br, hash_="", w=1440, h=900, mode=None, league=False, block_images=Fals
     pg.wait_for_function("!document.body.innerText.includes('Simulating')", timeout=90000)
     return pg
 
+def settle_live(pg):
+    """Tests that mark games as played themselves: wait for the page's own live-score fetch to finish, then stop it, so it cannot overwrite them."""
+    pg.wait_for_load_state("networkidle"); pg.evaluate("loadLive = async () => {}")
+
 NAV = [("home", "#/home"), ("mylineup", "#/mylineup"), ("moves", "#/moves"), ("proj", "#/players/rank"), ("games", "#/games"), ("league", "#/league"), ("inj", "#/inj"), ("whatif", "#/whatif"), ("lab", "#/lab/ov"), ("settings", "#/settings")]
 
 def test_nav_every_page(br):
@@ -126,6 +130,26 @@ def test_trade_ideas_use_season_odds_and_deep_searches_wider(br):
     pg.evaluate("st.depth = 'std'; st.tr.px = null; st.tr.sugg = null")
     assert not pg.errs
 
+def test_trade_values_ignore_points_already_scored_this_week(br):
+    # Mid-week, a trade cannot move points a player has already scored, and a player whose game has started cannot be slotted in.
+    # So the points banked by started players must not change what any trade is worth (they used to: the finder counted them as a gain).
+    pg = page(br, "#/moves?week=9", league=True)
+    settle_live(pg)
+    r = pg.evaluate("""(async () => {
+      const k = leagueCtx(), c = {D: k.D, L: k.L, tms: k.tms}, rows = [...(st.slate.rows_idle || []), ...st.slate.rows];
+      const done = new Set([...new Set(st.slate.games.map(g => g.id))].sort().filter((_, i) => i % 2 === 0));       // half the games are final
+      const mark = bump => { rows.forEach(r => { delete r._act; delete r._left; delete r._gs; if (done.has(r.game)) { r._gs = 'post'; r._left = 0; r._act = P0(r, 'proj') * 1.6 + 3 + bump; } }); st.tr.px = null; };
+      const gains = async bump => { mark(bump); const x = await trPrep(c), me = c.tms[c.L.my], top = (ids, n) => ids.filter(i => x.row(i) && x.TP.has(x.row(i).pos)).sort((a, b) => x.vor(b) - x.vor(a)).slice(0, n), out = [];
+        c.D.teams.filter(t => t.id !== c.L.my).slice(0, 4).forEach(t => top(me.ids, 3).forEach(g => top(c.tms[t.id].ids, 3).forEach(q => { const e = trEval(c, [g], [q], t.id); out.push([g + '>' + q + '@' + t.id, e.myGain, e.theirGain, x.vor(g), x.vor(q)]); })));
+        return out; };
+      const a = await gains(0), b = await gains(50), started = rows.filter(r => r._gs).length;
+      return {started, n: a.length, drift: Math.max(...a.map((v, i) => Math.max(Math.abs(v[1] - b[i][1]), Math.abs(v[2] - b[i][2]), Math.abs(v[3] - b[i][3]), Math.abs(v[4] - b[i][4])))), moved: a.some(v => Math.abs(v[1]) > .5)};
+    })()""")
+    assert r["started"] > 50 and r["n"] >= 20 and r["moved"], r
+    assert r["drift"] < 1e-6, r                                   # +50 banked points on every started player changes nothing about any trade
+    assert "weeks still to play" in pg.evaluate("(st.live.n = 1, st.live.gs = {a: {s: 'post'}}, trLiveNote())")      # the Moves page says how started games are handled
+    assert not pg.errs
+
 def test_lopsided_trades_are_long_shots_and_hidden_by_default(br):
     pg = page(br, "#/moves", league=True)
     pg.click(".choice[data-mv=trade]"); pg.wait_for_selector("#mvFind"); pg.click("#mvFind")
@@ -148,8 +172,11 @@ def test_season_outlook_uses_each_players_own_spread(br):
     pg = page(br, "#/league", league=True)
     r = pg.evaluate("""(() => { const pw = labPool(), ids = st.slate.rows.slice(0, 80).map(r => r.id), [m, s] = lineupStats(ids, pw, false);
       const lu = Object.values(autoSet(ids, pw, false)).filter(i => pw[i]).map(i => pw[i]);
-      return {s, want: 1.15 * Math.sqrt(lu.reduce((a, p) => a + p.sd ** 2, 0)), noP10: Object.values(pw).every(p => p.p10 === undefined), n: lu.length}; })()""")
-    assert r["n"] >= 6 and r["noP10"] and abs(r["s"] - r["want"]) < 1e-9        # rows have sd, not p10/p90, so the old formula gave every player a flat 5
+      return {s, want: 1.15 * Math.sqrt(lu.reduce((a, p) => a + (p.sd * (liveOn(p) ? p._left : 1)) ** 2, 0)), noP10: Object.values(pw).every(p => p.p10 === undefined), n: lu.length}; })()""")
+    assert r["n"] >= 6 and r["noP10"] and abs(r["s"] - r["want"]) < 1e-9        # rows have sd, not p10/p90, so the old formula gave every player a flat 5 (a player already in a final game has no spread left)
+    f = pg.evaluate("""(() => { const pw = labPool(), ids = st.slate.rows.slice(0, 80).map(r => r.id), s0 = lineupStats(ids, pw, false)[1], p = pw[Object.values(autoSet(ids, pw, false)).find(i => pw[i])];
+      const sv = [p._act, p._left, p._gs]; p._act = 10; p._left = 0; p._gs = 'post'; const s1 = lineupStats(ids, pw, false)[1]; [p._act, p._left, p._gs] = sv; return {s0, s1}; })()""")
+    assert f["s1"] < f["s0"]                                                   # a finished game stops adding to the lineup's spread
     assert not pg.errs
 
 def test_trade_suggestion_opens_builder_in_place(br):
@@ -256,9 +283,9 @@ def test_game_simulator_views_and_watch(br):
     pg.click("#bNext"); assert pg.evaluate("st.i") == 1 and pg.evaluate("document.documentElement.scrollWidth") <= 1440 and not pg.errs
 
 def test_rankings_show_projection_not_actual(br):
-    pg = page(br, "#/players/rank", league=True)
-    r = pg.evaluate("(() => { const x = st.slate.rows.find(r => r._act != null && r._left === 0 && Math.abs(P0(r, 'proj') - r._act) > 1 && r.pos !== 'DST'); return x && {n: x.name, p: fmt(P0(x, 'proj')), a: fmt(x._act)}; })()")
-    assert r, "mock data needs a finished game"
+    pg = page(br, "#/players/rank?week=9", league=True)
+    settle_live(pg)                                                        # let the score fetch finish first, then play one game out ourselves
+    r = pg.evaluate("(() => { const x = st.slate.rows.find(r => r.pos === 'WR' && P0(r, 'proj') > 8); x._gs = 'post'; x._left = 0; x._act = P0(x, 'proj') + 7; st.live.n = 1; renderSlate(); return {n: x.name, p: fmt(P0(x, 'proj')), a: fmt(x._act)}; })()")
     pg.fill("#s_q", r["n"].lower()); pg.wait_for_timeout(400)
     assert pg.locator("#rkTable tbody tr td[data-k=proj]").first.inner_text().strip() == r["p"] != r["a"]
     assert r["a"] in pg.locator("#rkTable tbody tr td[data-k=act]").first.inner_text()      # what he scored sits in its own column
