@@ -104,6 +104,37 @@ def test_connect_card_then_lineup_and_images(br):
     assert pg.evaluate("[st.page, st.mode]") == ["mylineup", "easy"]
     pg.click("#ezBack"); pg.wait_for_selector("#dpanel .ezd-hero"); assert not pg.errs
 
+def test_trade_ideas_use_season_odds_and_deep_searches_wider(br):
+    pg = page(br, "#/moves", league=True)
+    pg.click(".choice[data-mv=trade]"); pg.wait_for_selector("#mvFind"); pg.click("#mvFind")
+    pg.wait_for_selector("#mvBody .tcard", timeout=180000)
+    assert re.search(r"Playoffs \d+(\.\d)?% → \d+(\.\d)?% · Title \d+(\.\d)?% → \d+(\.\d)?%", pg.inner_text("#mvBody"))
+    pg.click("[data-sug='0']"); pg.wait_for_selector("#sheet:not(.hide) #trEval table.st", timeout=60000)
+    assert "SEASON ODDS" in pg.inner_text("#sheet #trEval")
+    chk = pg.evaluate("""(() => { const c = st.trc, x = st.tr.px, O = x.odds, me = c.tms[c.L.my], tid = st.tr.partner, th = c.tms[tid], s = a => Array.from(a).reduce((p, q) => p + q, 0);
+      const z = trOdds(c, x, {m2: me.ids, t2: th.ids}, tid);                      // a trade that changes nothing
+      return {N: O.N, pt: O.pt, byes: O.byes, ti: s(O.base.ti), po: s(O.base.po), by: s(O.base.by), none: [z.me.ti[1] - z.me.ti[0], z.me.po[1] - z.me.po[0], z.th.ti[1] - z.th.ti[0], z.me.ew[1] - z.me.ew[0]]}; })()""")
+    assert chk["N"] == 2000 and abs(chk["ti"] - 1) < 1e-9 and abs(chk["po"] - chk["pt"]) < 1e-9 and abs(chk["by"] - chk["byes"]) < 1e-9   # one champion per season
+    assert chk["none"] == [0, 0, 0, 0]                                           # same random games before and after, so no change means no difference
+    pg.keyboard.press("Escape")
+    # Deep: 10,000 seasons, wider search (2-for-2 deals), still no padded asks or near-duplicate ideas
+    pg.evaluate("st.depth = 'deep'; st.tr.px = null; st.tr.sugg = null")
+    pg.click("#mvFind"); pg.wait_for_selector("#mvBody .tcard", timeout=180000)
+    d = pg.evaluate("""(() => { const sg = st.tr.sugg, seen = new Set(); let dup = 0;
+      sg.forEach(s => { const k = s.t.id + '|' + s.get.slice().sort().join() + '|' + Math.round(s.e.myGain * 10) + '|' + Math.round(trKey(s.o) * 100); if (seen.has(k)) dup++; seen.add(k); });
+      return {N: st.tr.px.odds.N, n: sg.length, allOdds: sg.every(s => s.o && s.o.N === 10000), dup}; })()""")
+    assert d["N"] == 10000 and d["n"] >= 4 and d["allOdds"] and d["dup"] == 0
+    pg.evaluate("st.depth = 'std'; st.tr.px = null; st.tr.sugg = null")
+    assert not pg.errs
+
+def test_season_outlook_uses_each_players_own_spread(br):
+    pg = page(br, "#/league", league=True)
+    r = pg.evaluate("""(() => { const pw = labPool(), ids = st.slate.rows.slice(0, 80).map(r => r.id), [m, s] = lineupStats(ids, pw, false);
+      const lu = Object.values(autoSet(ids, pw, false)).filter(i => pw[i]).map(i => pw[i]);
+      return {s, want: 1.15 * Math.sqrt(lu.reduce((a, p) => a + p.sd ** 2, 0)), noP10: Object.values(pw).every(p => p.p10 === undefined), n: lu.length}; })()""")
+    assert r["n"] >= 6 and r["noP10"] and abs(r["s"] - r["want"]) < 1e-9        # rows have sd, not p10/p90, so the old formula gave every player a flat 5
+    assert not pg.errs
+
 def test_trade_suggestion_opens_builder_in_place(br):
     pg = page(br, "#/moves", league=True)
     assert pg.locator(".choice").count() == 2 and pg.locator("#mvBody .pick .card, #mvBody .card.empty").count() >= 1

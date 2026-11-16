@@ -1742,6 +1742,13 @@ function wiRosDraw(ctx, base, after) {
     <div class="note">Each week uses that week's simulated projections with the current injury picture. Future injuries and trades are not known, and a player on bye counts as zero that week.</div></div>`;
 }
 
+/* a team's best lineup in one week: [expected points, spread]. Each player's own simulated spread (sd) adds up as if independent,
+   plus 15% for shared game script. (Season outlook used to read p10/p90, which player rows do not carry, so every player got a flat 5.) */
+function lineupStats(ids, pw, ig) {
+  const lu = Object.values(autoSet(ids, pw, ig)).filter(i => pw[i]).map(i => pw[i]);
+  return [lu.reduce((a, p) => a + P(p, 'proj'), 0), 1.15 * Math.sqrt(lu.reduce((a, p) => a + (p.sd != null ? p.sd : 5) ** 2, 0)) || 20];
+}
+
 /* ================= trade machine ================= */
 st.tr = {mode: 'ros', partner: null, give: [], get: [], px: null, pxBusy: null, sugg: null, sBusy: null};
 async function ensureRos(tick) {
@@ -1788,21 +1795,94 @@ function trEval(c, give, get, tid) {
   return {myGain: mA - x.base[c.L.my], theirGain: tA - x.base[tid], mB: x.base[c.L.my], mA, tB: x.base[tid], tA, vg, vq, bal: vq > 0 ? vg / vq : 9, m2, t2};
 }
 const trOk = e => e.theirGain > 0.3 && e.bal >= 0.8 && e.bal <= 1.6;
-const trVerdict = e => e.bal < .8 ? ['They give up more', 'bad'] : e.bal > 1.6 ? ['You give up more', 'bad'] : e.theirGain <= .3 ? ['Hurts their lineup', 'bad'] : e.myGain <= .3 ? ['No help for you', 'bad'] : (e.bal >= .9 && e.bal <= 1.25 ? ['Fair, likely accepted', 'good'] : ['Both gain', 'ok']);
+const trVerdict0 = e => e.bal < .8 ? ['They give up more', 'bad'] : e.bal > 1.6 ? ['You give up more', 'bad'] : e.theirGain <= .3 ? ['Hurts their lineup', 'bad'] : e.myGain <= .3 ? ['No help for you', 'bad'] : (e.bal >= .9 && e.bal <= 1.25 ? ['Fair, likely accepted', 'good'] : ['Both gain', 'ok']);
+// with season odds: more points that leave your playoff and title odds where they were is not a real gain
+const trVerdict = (e, o) => { const v = trVerdict0(e); return o && v[1] !== 'bad' && o.me.po[1] - o.me.po[0] < .002 && o.me.ti[1] - o.me.ti[0] < .001 ? ['Barely moves your odds', 'ok'] : v; };
+
+/* ---- season odds with and without a trade ----
+   Each team scores a normal draw around its best projected lineup every week (same model as Season outlook). "Before" and "after" reuse the
+   same random numbers, so a small lineup change moves the odds a small, stable amount instead of drowning in simulation noise.
+   Playoffs follow the league's own settings: number of teams, byes for the top seeds, one or two weeks per round, ties broken by points scored. */
+const trSeasons = () => DEPTH[st.depth].n;                       // 1,000 / 2,000 / 10,000 simulated seasons
+const trPct = p => p < .1 ? fmt(p * 100, 1) + '%' : pct(p);
+function trOddsBase(c, x) {
+  if (x.odds !== undefined) return x.odds;
+  x.odds = null; const R = x.R, D = c.D, set = D.settings || {}; if (!R) return null;                  // "This week" has no rest-of-season projections
+  const w0 = st.slate.week, last = set.regular_weeks || 14, n = D.teams.length, ids = D.teams.map(t => t.id), ix = Object.fromEntries(ids.map((id, i) => [id, i]));
+  if (w0 > last || n < 4) return null;                                                                // regular season over: standings are set
+  const pt = Math.max(2, Math.min(set.playoff_teams || Math.min(6, Math.floor(n / 2)), n)); let size = 2; while (size < pt) size *= 2;
+  const byes = size - pt, rounds = Math.round(Math.log2(size)), len = Math.max(1, set.playoff_len || 1);
+  const sched = D.schedule.filter(m => m.week >= w0 && m.week <= last && ix[m.home] != null && ix[m.away] != null); if (!sched.length) return null;
+  const latest = Math.max(...Object.keys(R.pools).map(Number)), pools = w => w === w0 ? labPool() : (R.pools[w] || R.pools[latest]);
+  const periods = []; for (let w = w0; w <= last; w++) periods.push([w]);                             // one period per regular-season week...
+  for (let r = 0; r < rounds; r++) periods.push(Array.from({length: len}, (_, k) => last + r * len + k + 1));   // ...then one per playoff round
+  const nReg = last - w0 + 1, nP = periods.length;
+  const stats = roster => { const mu = new Float64Array(nP), sd = new Float64Array(nP);
+    periods.forEach((ws, p) => { let m = 0, v = 0; ws.forEach(w => { const [a, b] = lineupStats(roster, pools(w), w !== w0); m += a; v += b * b; }); mu[p] = m; sd[p] = Math.sqrt(v); });
+    return {mu, sd}; };
+  const MU = new Float64Array(nP * n), SD = new Float64Array(nP * n);
+  const put = (i, s, mu = MU, sd = SD) => { for (let p = 0; p < nP; p++) { mu[p * n + i] = s.mu[p]; sd[p * n + i] = s.sd[p]; } };
+  D.teams.forEach((t, i) => put(i, stats([...c.tms[t.id].ids, ...x.faAdd])));                         // every team may add the best free agents, as in trEval
+  const G = sched.length, N = trSeasons(), stride = 2 * G + rounds * n, rng = mulberry(20260), Z = new Float32Array(N * stride);
+  for (let i = 0; i < Z.length; i++) Z[i] = gauss(rng);
+  const rec = D.teams.map(t => t.record || {});
+  const O = {n, ids, ix, pt, size, byes, rounds, N, G, nP, nReg, stride, Z, MU, SD, stats, put,
+    gh: Int32Array.from(sched, m => ix[m.home]), ga: Int32Array.from(sched, m => ix[m.away]), gp: Int32Array.from(sched, m => m.week - w0),
+    w0: Float64Array.from(rec, r => (r.wins || 0) + (r.ties || 0) / 2), pf0: Float64Array.from(rec, r => r.pointsFor || 0)};
+  O.base = trSim(O, MU, SD); O.cache = new Map(); return x.odds = O;
+}
+function trSim(O, mu, sd) {
+  const {n, N, G, gh, ga, gp, pt, byes, rounds, nReg, Z, stride} = O, po = new Float64Array(n), by = new Float64Array(n), ti = new Float64Array(n), ew = new Float64Array(n);
+  const w = new Float64Array(n), pf = new Float64Array(n), seed = new Int32Array(n), ord = new Int32Array(n);
+  for (let s = 0; s < N; s++) {
+    const b = s * stride; for (let i = 0; i < n; i++) { w[i] = O.w0[i]; pf[i] = O.pf0[i]; ord[i] = i; }
+    for (let g = 0; g < G; g++) { const h = gh[g], a = ga[g], k = gp[g] * n, sh = mu[k + h] + sd[k + h] * Z[b + 2 * g], sa = mu[k + a] + sd[k + a] * Z[b + 2 * g + 1];
+      pf[h] += sh; pf[a] += sa; if (sh > sa) w[h]++; else if (sa > sh) w[a]++; else { w[h] += .5; w[a] += .5; } }
+    for (let i = 1; i < n; i++) { const t = ord[i]; let j = i - 1; while (j >= 0 && (w[ord[j]] < w[t] || (w[ord[j]] === w[t] && pf[ord[j]] < pf[t]))) { ord[j + 1] = ord[j]; j--; } ord[j + 1] = t; }
+    for (let r = 0; r < n; r++) { const t = ord[r]; seed[t] = r; ew[t] += w[t]; if (r < pt) { po[t]++; if (r < byes) by[t]++; } }
+    let alive = Array.from(ord.subarray(0, pt));
+    for (let rd = 0; rd < rounds; rd++) {                                       // top seeds skip round 1; then the best seed plays the worst, and so on
+      const k = (nReg + rd) * n, zb = b + 2 * G + rd * n, sc = t => mu[k + t] + sd[k + t] * Z[zb + t], play = rd === 0 ? alive.slice(byes) : alive, nxt = rd === 0 ? alive.slice(0, byes) : [];
+      for (let i = 0, j = play.length - 1; i < j; i++, j--) nxt.push(sc(play[i]) >= sc(play[j]) ? play[i] : play[j]);
+      alive = nxt.sort((p, q) => seed[p] - seed[q]);
+    }
+    ti[alive[0]]++;
+  }
+  for (const a of [po, by, ti, ew]) for (let i = 0; i < n; i++) a[i] /= N;
+  return {po, by, ti, ew};
+}
+// e = trEval result for the trade; returns before/after odds for you and the other team, or null when odds do not apply
+function trOdds(c, x, e, tid) {
+  const O = trOddsBase(c, x); if (!O) return null;
+  const key = e.m2.slice().sort().join() + '>' + e.t2.slice().sort().join() + '@' + tid, hit = O.cache.get(key); if (hit) return hit;
+  const mu = O.MU.slice(), sd = O.SD.slice(), mi = O.ix[c.L.my], ti = O.ix[tid];
+  O.put(mi, O.stats([...e.m2, ...x.faAdd]), mu, sd); O.put(ti, O.stats([...e.t2, ...x.faAdd]), mu, sd);
+  const A = trSim(O, mu, sd), B = O.base, pick = i => ({po: [B.po[i], A.po[i]], by: [B.by[i], A.by[i]], ti: [B.ti[i], A.ti[i]], ew: [B.ew[i], A.ew[i]]});
+  const r = {me: pick(mi), th: pick(ti), N: O.N, pt: O.pt, byes: O.byes}; O.cache.set(key, r); return r;
+}
+// rank by what a trade does to your title odds; playoff odds break ties (percentage points), so a team with no title shot still sorts sensibly
+const trKey = o => o ? (o.me.ti[1] - o.me.ti[0]) * 100 + (o.me.po[1] - o.me.po[0]) * 25 : 0;
+const trOddsLine = o => o ? `Playoffs ${trPct(o.me.po[0])} → ${trPct(o.me.po[1])} · Title ${trPct(o.me.ti[0])} → ${trPct(o.me.ti[1])}` : '';
 
 async function trSuggest(c, kind) {
   const T = st.tr; T.sBusy = 'Searching…'; T.sugg = null; renderTrades(c); const x = await trPrep(c); if (x.err) { T.sBusy = null; return; }
   const me = c.tms[c.L.my], out = [], teams = c.D.teams.filter(t => t.id !== c.L.my && (!T.partner || t.id === T.partner));
+  const deep = st.depth === 'deep', nTop = deep ? 9 : 7;                  // Deep looks at more players per side and at 2-for-2 deals
+  const memo = new Map(), ev = (give, get, tid) => { const k = give.join() + '>' + get.join() + '@' + tid; let e = memo.get(k); if (!e) memo.set(k, e = trEval(c, give, get, tid)); return e; };
   const top = (ids, n) => ids.filter(i => x.row(i) && x.TP.has(x.row(i).pos)).sort((a, b) => x.vor(b) - x.vor(a)).slice(0, n);
   for (let ti = 0; ti < teams.length; ti++) {
     const t = teams[ti], th = c.tms[t.id]; T.sBusy = `Searching ${t.name} (${ti + 1} of ${teams.length})…`; const el = $('#trSugg .busy'); if (el) el.textContent = T.sBusy; await new Promise(r => setTimeout(r, 0));
-    const myPool = T.give.length && kind !== 'offer' ? [T.give] : combos(top(me.ids, 7), 1).concat(combos(top(me.ids, 7), 2)).map(a => a);
-    const getPool = T.get.length && kind !== 'returns' && T.partner === t.id ? [T.get] : combos(top(th.ids, 7), 1).concat(combos(top(th.ids, 7), 2));
+    const myPool = T.give.length && kind !== 'offer' ? [T.give] : combos(top(me.ids, nTop), 1).concat(combos(top(me.ids, nTop), 2)).map(a => a);
+    const getPool = T.get.length && kind !== 'returns' && T.partner === t.id ? [T.get] : combos(top(th.ids, nTop), 1).concat(combos(top(th.ids, nTop), 2));
     const givePool = kind === 'returns' ? [T.give] : kind === 'offer' ? myPool : T.give.length ? [T.give] : myPool;
     const gP = kind === 'returns' ? getPool.filter(g => !T.get.length || true) : kind === 'offer' ? [T.get] : T.get.length && T.partner === t.id ? [T.get] : getPool;
+    const gen = kind === 'returns' || (kind !== 'offer' && !(T.get.length && T.partner === t.id));      // false when you chose the players you want
     for (const give of givePool) for (const get of gP) {
-      if (give.length > 2 || get.length > 2 || (give.length === 2 && get.length === 2)) continue;
-      const e = trEval(c, give, get, t.id); if (e.vq <= 0 && e.vg <= 0) continue;
+      if (give.length > 2 || get.length > 2 || (give.length === 2 && get.length === 2 && !deep)) continue;
+      if (give.length === 2 && get.length === 2) { const g = give.reduce((s, i) => s + x.vor(i), 0), q = get.reduce((s, i) => s + x.vor(i), 0); if (q <= 0 || g / q < .7 || g / q > 1.6) continue; }   // keeps the wider search quick
+      const e = ev(give, get, t.id); if (e.vq <= 0 && e.vg <= 0) continue;
+      // asking for a second player who adds nothing to your lineup only makes the deal harder for them: the one-player ask is the same for you
+      if (gen && get.length === 2 && get.some((_, i) => ev(give, [get[1 - i]], t.id).myGain >= e.myGain - .3)) continue;
       out.push({t, give, get, e, tier: trOk(e) ? 0 : (e.theirGain > -0.5 && e.bal >= 0.6 && e.bal <= 2.2) ? 1 : 2});
     }
   }
@@ -1812,7 +1892,24 @@ async function trSuggest(c, kind) {
   pool.sort((a, b) => a.tier - b.tier || b.e.myGain - a.e.myGain);
   const per = {}, pick = [], rest = [];
   pool.forEach(s => { per[s.t.id] = (per[s.t.id] || 0) + 1; (per[s.t.id] <= 3 ? pick : rest).push(s); });
-  T.sugg = [...pick, ...rest].slice(0, 12); T.suggNone = !helps.length; T.sBusy = null; renderTrades(c);
+  let list = [...pick, ...rest].slice(0, 12);
+  // Second pass: the best candidates from that points screen are re-scored by what they do to your playoff and title odds, over the
+  // simulated seasons for this depth (10,000 in Deep), then ranked by that. Same tiers: realistic first, long shots last.
+  const O = trOddsBase(c, x);
+  if (O) {
+    const sl = [...pick, ...rest].slice(0, deep ? 30 : 16);
+    for (let i = 0; i < sl.length; i++) {
+      T.sBusy = `Checking idea ${i + 1} of ${sl.length} over ${O.N.toLocaleString()} simulated seasons…`; const el = $('#trSugg .busy'); if (el) el.textContent = T.sBusy; await new Promise(r => setTimeout(r, 0));
+      sl[i].o = trOdds(c, x, sl[i].e, sl[i].t.id);
+    }
+    sl.sort((a, b) => a.tier - b.tier || trKey(b.o) - trKey(a.o) || b.e.myGain - a.e.myGain || a.e.vg - b.e.vg);
+    // same partner, same players back and the same result for you: the ideas differ only in which bench player you add. Keep the cheaper one.
+    const seen = new Set(), per2 = {}, p2 = [], r2 = [];
+    sl.filter(s => { const k = s.t.id + '|' + s.get.slice().sort().join() + '|' + Math.round(s.e.myGain * 10) + '|' + Math.round(trKey(s.o) * 100); return seen.has(k) ? false : (seen.add(k), true); })
+      .forEach(s => { per2[s.t.id] = (per2[s.t.id] || 0) + 1; (per2[s.t.id] <= 3 ? p2 : r2).push(s); });
+    list = [...p2, ...r2].slice(0, 12);
+  }
+  T.sugg = list; T.suggNone = !helps.length; T.sBusy = null; renderTrades(c);
 }
 
 function renderTrades(c) {
@@ -1846,13 +1943,17 @@ function renderTrades(c) {
   if (!T.give.length || !T.get.length || !T.partner) {
     ev.innerHTML = `<h3>Evaluation</h3><div class="note" style="margin-top:0">${!T.partner ? 'Choose a team on the right.' : !T.give.length ? 'Select at least one player to give.' : 'Select at least one player to get.'} Or let the finder suggest trades.</div>${actions}`;
   } else {
-    const e = trEval(c, T.give, T.get, T.partner), [vt, vc] = trVerdict(e), tn = c.D.teams.find(t => t.id === T.partner).name, tot = Math.max(e.vg + e.vq, 1e-6), nm = ids => ids.map(i => { const r = rowOf(i); return r ? `<span class="tp">${hshot(r, 40)}<span class="tpn"><b>${esc(dn(r))}</b><span class="sub2">${r.pos === 'DST' ? '' : tlogo(r.team, 14)}${r.pos} · ${r.team}</span></span></span>` : ''; }).join('');
+    const e = trEval(c, T.give, T.get, T.partner), o = trOdds(c, x, e, T.partner), [vt, vc] = trVerdict(e, o), tn = c.D.teams.find(t => t.id === T.partner).name, tot = Math.max(e.vg + e.vq, 1e-6), nm = ids => ids.map(i => { const r = rowOf(i); return r ? `<span class="tp">${hshot(r, 40)}<span class="tpn"><b>${esc(dn(r))}</b><span class="sub2">${r.pos === 'DST' ? '' : tlogo(r.team, 14)}${r.pos} · ${r.team}</span></span></span>` : ''; }).join('');
     const lw = st.slate.week, dp = labPool(), setB = autoSet(me.ids), setA = autoSet(e.m2), slots = slotsAll().filter(([k]) => setB[k] !== setA[k]);
     const gcls = v => Math.abs(v) < .05 ? '' : v > 0 ? 'pos' : 'neg';
+    const oc = ([a, b]) => `${trPct(a)} → <b class="${gcls((b - a) * 100)}">${trPct(b)}</b> <span class="sub2">${sgn((b - a) * 100, 1)}</span>`;
+    const orow = (nm, s) => `<tr><td class="l">${esc(nm)}</td><td>${oc(s.po)}</td>${o.byes ? `<td>${oc(s.by)}</td>` : ''}<td>${oc(s.ti)}</td><td>${fmt(s.ew[0])} → ${fmt(s.ew[1])}</td></tr>`;
+    const oddsHtml = o ? `<div class="sub2" style="margin-top:var(--s3)">SEASON ODDS · ${o.N.toLocaleString()} SIMULATED SEASONS, WITH AND WITHOUT THE TRADE</div><table class="st"><tr><th class="l">Team</th><th>Make playoffs</th>${o.byes ? '<th>Get a bye</th>' : ''}<th>Win title</th><th>Wins</th></tr>${orow('You', o.me)}${orow(tn, o.th)}</table>` : '';
     ev.innerHTML = `<div class="thead"><h3>Evaluation</h3><span class="chipv ${vc}">${vt}</span></div>
       <div class="tdeal"><div><span class="sub2">YOU SEND</span><span class="tlist">${nm(T.give)}</span></div><span class="arr">⇄</span><div><span class="sub2">YOU RECEIVE · ${esc(tn)}</span><span class="tlist">${nm(T.get)}</span></div></div>
       <div class="tgains"><div class="gbox"><span class="sub2">YOUR TEAM</span><b class="${gcls(e.myGain)}">${sgn(e.myGain)}</b><span class="sub2">${fmt(e.mB, 0)} → ${fmt(e.mA, 0)} pts</span></div>
         <div class="gbox"><span class="sub2">${tn.toUpperCase()}</span><b class="${gcls(e.theirGain)}">${sgn(e.theirGain)}</b><span class="sub2">${fmt(e.tB, 0)} → ${fmt(e.tA, 0)} pts</span></div></div>
+      ${oddsHtml}
       <div class="balance"><div class="sub2">VALUE OVER FREE-AGENT REPLACEMENT</div><div class="bbar"><i style="width:${e.vg / tot * 100}%"></i></div><div class="blab"><span>You send ${fmt(e.vg, 0)}</span><span>You receive ${fmt(e.vq, 0)}</span></div></div>
       ${slots.length ? `<div class="sub2" style="margin-top:var(--s3)">YOUR LINEUP CHANGES THIS WEEK (week ${lw})</div><table class="st"><tr><th class="l">Slot</th><th class="l">Before</th><th class="l">After</th></tr>${slots.map(([k]) => `<tr><td class="slot">${k}</td><td class="l">${setB[k] && dp[setB[k]] ? pchip(dp[setB[k]]) : '<span class="sub2">empty</span>'}</td><td class="l strong">${setA[k] && dp[setA[k]] ? pchip(dp[setA[k]]) : '<span class="sub2">empty</span>'}</td></tr>`).join('')}</table>` : `<div class="note">Your starting lineup this week would not change.</div>`}
       <div class="note">Points are best-lineup totals ${x.mode === 'week' ? 'for this week' : x.mode === 'playoff' ? 'over the rest of the season, playoff weeks counted extra' : 'summed over the rest of the season'}. Every team is scored as if it can also pick up the best free agents, so a trade only counts for what it adds beyond them. A trade is “reasonable” when the other lineup improves and both sides trade similar value.</div>${actions}`;
@@ -1862,8 +1963,8 @@ function renderTrades(c) {
   const sg = $('#trSugg');
   if (T.sBusy) { sg.innerHTML = `<div class="card"><div class="empty" style="padding:var(--s4)"><span class="spin dark"></span><span class="busy">${T.sBusy}</span></div></div>`; return; }
   if (T.sugg) {
-    sg.innerHTML = `<div class="card"><h3>Suggested trades <span class="sub2">${T.sugg.length ? 'tap one to load it above · realistic trades first, long shots after' : ''}</span></h3>${T.suggNone && T.sugg.length ? '<div class="note" style="margin-top:0">No trade raises your lineup right now, so these are the closest options.</div>' : ''}${T.sugg.length ? `<div class="sgrid">${T.sugg.map((s, i) => { const [vt, vc] = trVerdict(s.e);
-      return `<button class="sug" data-sug="${i}"><span class="sub2">${s.t.name}</span><span class="line"><i>Give</i>${s.give.map(id => pchip(rowOf(id), 26)).join('')}</span><span class="line"><i>Get</i>${s.get.map(id => pchip(rowOf(id), 26)).join('')}</span><span class="sfoot"><b class="${s.e.myGain > 0.05 ? 'pos' : 'neg'}">${sgn(s.e.myGain)}</b><span class="sub2">them ${sgn(s.e.theirGain)}</span><span class="chipv ${s.tier === 2 ? 'ok' : vc}">${s.tier === 2 ? 'Long shot' : vt}</span></span></button>`; }).join('')}</div>` : '<div class="note">Nothing to suggest: the teams you searched have no tradeable players. Pick a different partner.</div>'}</div>`;
+    sg.innerHTML = `<div class="card"><h3>Suggested trades <span class="sub2">${T.sugg.length ? 'tap one to load it above · realistic trades first, long shots after' : ''}</span></h3>${T.suggNone && T.sugg.length ? '<div class="note" style="margin-top:0">No trade raises your lineup right now, so these are the closest options.</div>' : ''}${T.sugg.length ? `<div class="sgrid">${T.sugg.map((s, i) => { const [vt, vc] = trVerdict(s.e, s.o);
+      return `<button class="sug" data-sug="${i}"><span class="sub2">${s.t.name}</span><span class="line"><i>Give</i>${s.give.map(id => pchip(rowOf(id), 26)).join('')}</span><span class="line"><i>Get</i>${s.get.map(id => pchip(rowOf(id), 26)).join('')}</span>${s.o ? `<span class="sub2">${trOddsLine(s.o)}</span>` : ''}<span class="sfoot"><b class="${s.e.myGain > 0.05 ? 'pos' : 'neg'}">${sgn(s.e.myGain)}</b><span class="sub2">them ${sgn(s.e.theirGain)}</span><span class="chipv ${s.tier === 2 ? 'ok' : vc}">${s.tier === 2 ? 'Long shot' : vt}</span></span></button>`; }).join('')}</div>` : '<div class="note">Nothing to suggest: the teams you searched have no tradeable players. Pick a different partner.</div>'}</div>`;
     sg.querySelectorAll('[data-sug]').forEach(b => b.onclick = () => { const s = T.sugg[+b.dataset.sug]; T.partner = s.t.id; T.give = s.give.slice(); T.get = s.get.slice(); renderTrades(c); $('#trEval').scrollIntoView({behavior: 'smooth', block: 'start'}); });
   }
 }
@@ -1880,8 +1981,7 @@ async function runSeason(c) {
   const pt = Math.min(set.playoff_teams || Math.min(6, Math.floor(n / 2)), n), bye = pt >= 6 ? 2 : 0;
   const weeks = R.weeks.filter(w => w >= w0 && w <= last), mu = {}, sd = {};
   weeks.forEach(w => { const pw = R.pools[w], ig = w !== w0; mu[w] = []; sd[w] = [];
-    D.teams.forEach(t => { const lu = Object.values(autoSet(c.tms[t.id].ids, pw, ig)).filter(i => pw[i]).map(i => pw[i]);
-      mu[w].push(lu.reduce((a, p) => a + P(p, 'proj'), 0)); sd[w].push(1.15 * Math.sqrt(lu.reduce((a, p) => a + (((p.p90 - p.p10) / 2.56) || 5) ** 2, 0)) || 20); }); });
+    D.teams.forEach(t => { const [m, s] = lineupStats(c.tms[t.id].ids, pw, ig); mu[w].push(m); sd[w].push(s); }); });
   const games = D.schedule.filter(m => m.week >= w0 && m.week <= last && ix[m.home] != null && ix[m.away] != null);
   const rec = ids.map(id => { const r = D.teams.find(t => t.id === id).record || {}; return {w: (r.wins || 0) + (r.ties || 0) / 2, pf: r.pointsFor || 0}; });
   const N = 5000, rng = mulberry(12345), po = new Array(n).fill(0), by = new Array(n).fill(0), ew = new Array(n).fill(0), rk = ids.map(() => new Array(n).fill(0));
@@ -2565,13 +2665,14 @@ function mvTrade(c, body) {
   const T = st.tr, x = T.px && !T.px.err ? T.px : null, row = id => (x && x.row(id)) || c.pool[id], busy = !!(T.sBusy || T.pxBusy), sug = T.sugg;
   const side = ids => ids.map(id => { const r = row(id); return r ? pcell(r, 40) : ''; }).join('<div style="height:8px"></div>');
   const cls = {good: 'ok', ok: 'ok', bad: 'warn'};
-  let h = `<div class="card act"><h3>Find a trade</h3><p>GridSim checks every other team for trades that make your team better over the rest of the season and that the other manager has a real reason to accept. Searching takes about a minute.</p>
+  let h = `<div class="card act"><h3>Find a trade</h3><p>GridSim checks every other team for trades that make your team better over the rest of the season and that the other manager has a real reason to accept, then ranks them by what they do to your playoff and title odds over ${trSeasons().toLocaleString()} simulated seasons (Settings → Sims per game: Deep runs 10,000 and also tries 2-for-2 trades). Searching takes about a minute.</p>
     <div class="btnrow"><button class="btn primary lg auto" id="mvFind" ${busy ? 'disabled' : ''}>${busy ? '<span class="spin"></span>Searching' : sug ? 'Search again' : 'Find trade ideas'}</button><button class="btn ghost lg auto" id="mvOwn">Build my own trade</button></div><div class="sub2" id="mvBusy" aria-live="polite">${busy ? esc(T.sBusy || T.pxBusy) : ''}</div>${T.px && T.px.err ? `<div class="err" style="display:block">${esc(T.px.err)}</div>` : ''}</div>`;
   if (sug && !busy) {
     const shown = sug.slice(0, st.mv.tMore);
-    h += (T.suggNone ? `<div class="note">No trade clearly improves your team right now. These are the closest options.</div>` : '') + `<div class="pick">${shown.map((s, i) => { const v = trVerdict(s.e);
+    h += (T.suggNone ? `<div class="note">No trade clearly improves your team right now. These are the closest options.</div>` : '') + `<div class="pick">${shown.map((s, i) => { const v = trVerdict(s.e, s.o);
       return `<div class="card"><div class="gline"><b>${esc(s.t.name)}</b><span class="chip ${cls[v[1]] || 'ink'}">${v[0]}</span></div>
         <div class="tcard"><div><div class="sideh">You give</div>${side(s.give)}</div><span class="tarr">⇄</span><div><div class="sideh">You get</div>${side(s.get)}</div></div>
+        ${s.o ? `<div class="sub2"><b>${trOddsLine(s.o)}</b></div>` : ''}
         <div class="sub2">For you: ${sgn(s.e.myGain, 0)} points over the rest of the season. For them: ${sgn(s.e.theirGain, 0)}.</div>
         <div><button class="btn ghost sm auto" data-sug="${i}">See full analysis</button></div></div>`; }).join('')}</div>
       ${sug.length > shown.length ? `<div class="more"><span class="sub2">Showing ${shown.length} of ${sug.length}</span><button class="btn ghost sm" id="mvTMore">Show more</button></div>` : ''}`;
