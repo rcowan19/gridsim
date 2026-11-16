@@ -28,7 +28,9 @@ with sync_playwright() as p:
                     if mode == "sheet":
                         pg.evaluate("st.mv.tab='trade'; renderMoves()"); pg.click("#mvOwn"); pg.wait_for_selector("#tm-trades .ptile", timeout=60000)
                         pg.click("#tm-trades [data-partner]"); pg.click("#tm-trades [data-give]"); pg.click("#tm-trades [data-get]")
-                        pg.wait_for_selector("#trEval .tdeal", timeout=240000); pg.click("#trAny"); pg.wait_for_selector("#trSugg .sug", timeout=240000); pg.wait_for_timeout(400)
+                        pg.wait_for_selector("#trEval .tdeal", timeout=240000); pg.click("#trAny"); pg.wait_for_selector("#trSugg .card", timeout=240000)
+                        if pg.locator("#trLong").count(): pg.click("#trLong")        # long shots are hidden until asked for; audit them open too
+                        pg.wait_for_selector("#trSugg .sug", timeout=60000); pg.wait_for_timeout(400)
                     pg.evaluate(AX); r = pg.evaluate("axe.run(document,{runOnly:['wcag2a','wcag2aa','wcag21aa','wcag22aa']})")
                     for v in r["violations"]:
                         tot += len(v["nodes"]); print(mode, theme, w, h, v["id"], v["impact"], len(v["nodes"]), v["nodes"][0]["target"][:1], v["nodes"][0].get("html", "")[:90].replace("\n", " "))
