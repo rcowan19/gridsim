@@ -531,6 +531,7 @@ tbody tr.clk{transition:background-color .12s}tbody tr.clk:hover{background:var(
 .swp .arrow{font-weight:800;color:var(--accent)}
 .tcard{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center}.sideh{font:700 11px var(--font);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}.tcard .tarr{font-size:22px;color:var(--accent);font-weight:800}
 .pick{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:var(--s3)}.pick .card{display:flex;flex-direction:column;gap:12px}
+.pick .tcard{grid-template-columns:minmax(0,1fr)}.pick .tcard .tarr{transform:rotate(90deg);justify-self:center;line-height:1}      /* cards are 310-420px wide: give above get, so long names never run off the edge */
 .choice{display:flex;gap:14px;align-items:flex-start;text-align:left;width:100%;background:var(--surface);border:2px solid var(--line-strong);border-radius:14px;padding:16px 18px;cursor:pointer;transition:border-color .16s var(--ease),box-shadow .16s var(--ease),background-color .16s}
 .choice:hover{border-color:var(--text);box-shadow:var(--shadow-1)}.choice.on{border-color:var(--accent);background:var(--accent-soft)}
 .choice .ci{width:40px;height:40px;border-radius:12px;background:var(--accent);display:grid;place-items:center;flex:none}.choice .ci svg{width:22px;height:22px;stroke:var(--accent-ink);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
@@ -1795,9 +1796,11 @@ function trEval(c, give, get, tid) {
   return {myGain: mA - x.base[c.L.my], theirGain: tA - x.base[tid], mB: x.base[c.L.my], mA, tB: x.base[tid], tA, vg, vq, bal: vq > 0 ? vg / vq : 9, m2, t2};
 }
 const trOk = e => e.theirGain > 0.3 && e.bal >= 0.8 && e.bal <= 1.6;
+const trTier = e => trOk(e) ? 0 : (e.theirGain > -0.5 && e.bal >= 0.6 && e.bal <= 2.2) ? 1 : 2;      // 0 realistic, 1 plausible, 2 long shot
 const trVerdict0 = e => e.bal < .8 ? ['They give up more', 'bad'] : e.bal > 1.6 ? ['You give up more', 'bad'] : e.theirGain <= .3 ? ['Hurts their lineup', 'bad'] : e.myGain <= .3 ? ['No help for you', 'bad'] : (e.bal >= .9 && e.bal <= 1.25 ? ['Fair, likely accepted', 'good'] : ['Both gain', 'ok']);
 // with season odds: more points that leave your playoff and title odds where they were is not a real gain
 const trVerdict = (e, o) => { const v = trVerdict0(e); return o && v[1] !== 'bad' && o.me.po[1] - o.me.po[0] < .002 && o.me.ti[1] - o.me.ti[0] < .001 ? ['Barely moves your odds', 'ok'] : v; };
+const trGood = s => s.tier < 2 && trVerdict(s.e, s.o)[1] !== 'bad';          // a trade GridSim will recommend; the rest are long shots
 
 /* ---- season odds with and without a trade ----
    Each team scores a normal draw around its best projected lineup every week (same model as Season outlook). "Before" and "after" reuse the
@@ -1883,7 +1886,7 @@ async function trSuggest(c, kind) {
       const e = ev(give, get, t.id); if (e.vq <= 0 && e.vg <= 0) continue;
       // asking for a second player who adds nothing to your lineup only makes the deal harder for them: the one-player ask is the same for you
       if (gen && get.length === 2 && get.some((_, i) => ev(give, [get[1 - i]], t.id).myGain >= e.myGain - .3)) continue;
-      out.push({t, give, get, e, tier: trOk(e) ? 0 : (e.theirGain > -0.5 && e.bal >= 0.6 && e.bal <= 2.2) ? 1 : 2});
+      out.push({t, give, get, e, tier: trTier(e)});
     }
   }
   // Always return a list. Realistic trades first (tier 0), then plausible ones, then long shots; best for you first within a tier,
@@ -1909,8 +1912,13 @@ async function trSuggest(c, kind) {
       .forEach(s => { per2[s.t.id] = (per2[s.t.id] || 0) + 1; (per2[s.t.id] <= 3 ? p2 : r2).push(s); });
     list = [...p2, ...r2].slice(0, 12);
   }
-  T.sugg = list; T.suggNone = !helps.length; T.sBusy = null; renderTrades(c);
+  // "good" = a trade GridSim will recommend: realistic for the other manager and not labelled bad. Everything else is a long shot,
+  // kept (so you can look) but hidden until asked for. The list used to be padded with long shots whenever few realistic trades existed.
+  list.forEach(s => { s.good = trGood(s); });
+  list = [...list.filter(s => s.good), ...list.filter(s => !s.good)];
+  T.sugg = list; T.showLong = false; T.suggNone = !helps.length; T.sBusy = null; renderTrades(c);
 }
+const trShown = () => { const T = st.tr; return T.sugg ? (T.showLong ? T.sugg : T.sugg.filter(s => s.good)) : null; };
 
 function renderTrades(c) {
   const host = $('#tm-trades'); if (!host) return; c = c || st.trc; if (!c) return; st.trc = c; const T = st.tr, pool = labPool(), x = T.px && !T.px.err ? T.px : null;
@@ -1963,9 +1971,12 @@ function renderTrades(c) {
   const sg = $('#trSugg');
   if (T.sBusy) { sg.innerHTML = `<div class="card"><div class="empty" style="padding:var(--s4)"><span class="spin dark"></span><span class="busy">${T.sBusy}</span></div></div>`; return; }
   if (T.sugg) {
-    sg.innerHTML = `<div class="card"><h3>Suggested trades <span class="sub2">${T.sugg.length ? 'tap one to load it above · realistic trades first, long shots after' : ''}</span></h3>${T.suggNone && T.sugg.length ? '<div class="note" style="margin-top:0">No trade raises your lineup right now, so these are the closest options.</div>' : ''}${T.sugg.length ? `<div class="sgrid">${T.sugg.map((s, i) => { const [vt, vc] = trVerdict(s.e, s.o);
-      return `<button class="sug" data-sug="${i}"><span class="sub2">${s.t.name}</span><span class="line"><i>Give</i>${s.give.map(id => pchip(rowOf(id), 26)).join('')}</span><span class="line"><i>Get</i>${s.get.map(id => pchip(rowOf(id), 26)).join('')}</span>${s.o ? `<span class="sub2">${trOddsLine(s.o)}</span>` : ''}<span class="sfoot"><b class="${s.e.myGain > 0.05 ? 'pos' : 'neg'}">${sgn(s.e.myGain)}</b><span class="sub2">them ${sgn(s.e.theirGain)}</span><span class="chipv ${s.tier === 2 ? 'ok' : vc}">${s.tier === 2 ? 'Long shot' : vt}</span></span></button>`; }).join('')}</div>` : '<div class="note">Nothing to suggest: the teams you searched have no tradeable players. Pick a different partner.</div>'}</div>`;
-    sg.querySelectorAll('[data-sug]').forEach(b => b.onclick = () => { const s = T.sugg[+b.dataset.sug]; T.partner = s.t.id; T.give = s.give.slice(); T.get = s.get.slice(); renderTrades(c); $('#trEval').scrollIntoView({behavior: 'smooth', block: 'start'}); });
+    const vis = trShown(), nLong = T.sugg.filter(s => !s.good).length;
+    const toggle = nLong ? `<div class="lbtns" style="margin-top:var(--s3)"><span class="sub2">${T.showLong ? 'Showing' : 'Hiding'} ${nLong} long shot${nLong > 1 ? 's' : ''}: they help you, but the other manager would likely say no</span><button class="btn ghost sm" id="trLong">${T.showLong ? 'Hide them' : 'Show them'}</button></div>` : '';
+    sg.innerHTML = `<div class="card"><h3>Suggested trades <span class="sub2">${vis.length ? 'tap one to load it above' : ''}</span></h3>${T.sugg.length && !vis.length ? '<div class="note" style="margin-top:0">No realistic trade right now. Every idea that helps your team costs the other manager more than it gives them.</div>' : ''}${vis.length ? `<div class="sgrid">${vis.map((s, i) => { const [vt, vc] = trVerdict(s.e, s.o);
+      return `<button class="sug" data-sug="${i}"><span class="sub2">${s.t.name}</span><span class="line"><i>Give</i>${s.give.map(id => pchip(rowOf(id), 26)).join('')}</span><span class="line"><i>Get</i>${s.get.map(id => pchip(rowOf(id), 26)).join('')}</span>${s.o ? `<span class="sub2">${trOddsLine(s.o)}</span>` : ''}<span class="sfoot"><b class="${s.e.myGain > 0.05 ? 'pos' : 'neg'}">${sgn(s.e.myGain)}</b><span class="sub2">them ${sgn(s.e.theirGain)}</span><span class="chipv ${s.good ? vc : 'bad'}">${s.good ? vt : 'Long shot'}</span></span></button>`; }).join('')}</div>` : ''}${!T.sugg.length ? '<div class="note">Nothing to suggest: the teams you searched have no tradeable players. Pick a different partner.</div>' : ''}${toggle}</div>`;
+    const lgb = $('#trLong'); if (lgb) lgb.onclick = () => { T.showLong = !T.showLong; renderTrades(c); };
+    sg.querySelectorAll('[data-sug]').forEach(b => b.onclick = () => { const s = vis[+b.dataset.sug]; T.partner = s.t.id; T.give = s.give.slice(); T.get = s.get.slice(); renderTrades(c); $('#trEval').scrollIntoView({behavior: 'smooth', block: 'start'}); });
   }
 }
 
@@ -2662,25 +2673,26 @@ async function mvFind(c) {
   renderMoves();
 }
 function mvTrade(c, body) {
-  const T = st.tr, x = T.px && !T.px.err ? T.px : null, row = id => (x && x.row(id)) || c.pool[id], busy = !!(T.sBusy || T.pxBusy), sug = T.sugg;
+  const T = st.tr, x = T.px && !T.px.err ? T.px : null, row = id => (x && x.row(id)) || c.pool[id], busy = !!(T.sBusy || T.pxBusy), all = T.sugg, sug = trShown(), nLong = all ? all.filter(s => !s.good).length : 0;
   const side = ids => ids.map(id => { const r = row(id); return r ? pcell(r, 40) : ''; }).join('<div style="height:8px"></div>');
   const cls = {good: 'ok', ok: 'ok', bad: 'warn'};
   let h = `<div class="card act"><h3>Find a trade</h3><p>GridSim checks every other team for trades that make your team better over the rest of the season and that the other manager has a real reason to accept, then ranks them by what they do to your playoff and title odds over ${trSeasons().toLocaleString()} simulated seasons (Settings → Sims per game: Deep runs 10,000 and also tries 2-for-2 trades). Searching takes about a minute.</p>
     <div class="btnrow"><button class="btn primary lg auto" id="mvFind" ${busy ? 'disabled' : ''}>${busy ? '<span class="spin"></span>Searching' : sug ? 'Search again' : 'Find trade ideas'}</button><button class="btn ghost lg auto" id="mvOwn">Build my own trade</button></div><div class="sub2" id="mvBusy" aria-live="polite">${busy ? esc(T.sBusy || T.pxBusy) : ''}</div>${T.px && T.px.err ? `<div class="err" style="display:block">${esc(T.px.err)}</div>` : ''}</div>`;
   if (sug && !busy) {
     const shown = sug.slice(0, st.mv.tMore);
-    h += (T.suggNone ? `<div class="note">No trade clearly improves your team right now. These are the closest options.</div>` : '') + `<div class="pick">${shown.map((s, i) => { const v = trVerdict(s.e, s.o);
+    h += (!sug.length ? `<div class="note">No realistic trade right now. Every idea that helps your team costs the other manager more than it gives them.</div>` : '') + `<div class="pick">${shown.map((s, i) => { const v = s.good ? trVerdict(s.e, s.o) : ['Long shot: they would likely say no', 'bad'];
       return `<div class="card"><div class="gline"><b>${esc(s.t.name)}</b><span class="chip ${cls[v[1]] || 'ink'}">${v[0]}</span></div>
         <div class="tcard"><div><div class="sideh">You give</div>${side(s.give)}</div><span class="tarr">⇄</span><div><div class="sideh">You get</div>${side(s.get)}</div></div>
         ${s.o ? `<div class="sub2"><b>${trOddsLine(s.o)}</b></div>` : ''}
         <div class="sub2">For you: ${sgn(s.e.myGain, 0)} points over the rest of the season. For them: ${sgn(s.e.theirGain, 0)}.</div>
         <div><button class="btn ghost sm auto" data-sug="${i}">See full analysis</button></div></div>`; }).join('')}</div>
-      ${sug.length > shown.length ? `<div class="more"><span class="sub2">Showing ${shown.length} of ${sug.length}</span><button class="btn ghost sm" id="mvTMore">Show more</button></div>` : ''}`;
+      ${sug.length > shown.length ? `<div class="more"><span class="sub2">Showing ${shown.length} of ${sug.length}</span><button class="btn ghost sm" id="mvTMore">Show more</button></div>` : ''}
+      ${nLong ? `<div class="more"><span class="sub2">${T.showLong ? 'Showing' : 'Hiding'} ${nLong} long shot${nLong > 1 ? 's' : ''}: they help you, but the other manager would likely say no</span><button class="btn ghost sm" id="mvLong">${T.showLong ? 'Hide them' : 'Show them'}</button></div>` : ''}`;
   }
   body.innerHTML = h;
   const f = $('#mvFind'); if (f) f.onclick = () => { mvFind(c); renderMoves(); }; const ow = $('#mvOwn'); if (ow) ow.onclick = () => openTradeSheet(c, {fresh: true});
-  const m = $('#mvTMore'); if (m) m.onclick = () => { st.mv.tMore += 4; renderMoves(); };
-  body.querySelectorAll('[data-sug]').forEach(b => b.onclick = () => { const s = T.sugg[+b.dataset.sug]; T.partner = s.t.id; T.give = s.give.slice(); T.get = s.get.slice(); openTradeSheet(c); });
+  const m = $('#mvTMore'); if (m) m.onclick = () => { st.mv.tMore += 4; renderMoves(); }; const lg = $('#mvLong'); if (lg) lg.onclick = () => { T.showLong = !T.showLong; renderMoves(); };
+  body.querySelectorAll('[data-sug]').forEach(b => b.onclick = () => { const s = sug[+b.dataset.sug]; T.partner = s.t.id; T.give = s.give.slice(); T.get = s.get.slice(); openTradeSheet(c); });
 }
 
 /* Settings */

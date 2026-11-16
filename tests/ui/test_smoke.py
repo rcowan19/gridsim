@@ -32,7 +32,6 @@ def test_url_state_restores(br):
     pg = page(br, "#/players/rank?week=8&pos=QB&q=mah&fmt=half")
     assert pg.evaluate("[st.week, st.pos, st.q, st.fmt]") == [8, "QB", "mah", "half"]
     assert pg.locator("#s_body tbody tr").count() >= 1
-    pg.go_back() if False else None
 
 def test_back_forward(br):
     pg = page(br, "#/home"); pg.click("#side [data-nav=games]"); pg.click("#side [data-nav=settings]")
@@ -125,6 +124,24 @@ def test_trade_ideas_use_season_odds_and_deep_searches_wider(br):
       return {N: st.tr.px.odds.N, n: sg.length, allOdds: sg.every(s => s.o && s.o.N === 10000), dup}; })()""")
     assert d["N"] == 10000 and d["n"] >= 4 and d["allOdds"] and d["dup"] == 0
     pg.evaluate("st.depth = 'std'; st.tr.px = null; st.tr.sugg = null")
+    assert not pg.errs
+
+def test_lopsided_trades_are_long_shots_and_hidden_by_default(br):
+    pg = page(br, "#/moves", league=True)
+    pg.click(".choice[data-mv=trade]"); pg.wait_for_selector("#mvFind"); pg.click("#mvFind")
+    pg.wait_for_selector("#mvBody .tcard, #mvBody .note", timeout=180000)
+    # the case from the bug report: a low-value player for the other team's two best players
+    pg.click("[data-sug='0']"); pg.wait_for_selector("#sheet:not(.hide) #trEval table.st", timeout=60000)
+    res = pg.evaluate("""(() => { const c = st.trc, x = st.tr.px, me = c.tms[c.L.my], tid = st.tr.partner, th = c.tms[tid];
+      const tp = ids => ids.filter(i => x.row(i) && x.TP.has(x.row(i).pos)).sort((a, b) => x.vor(b) - x.vor(a));
+      const give = [tp(me.ids).slice(-1)[0]], get = tp(th.ids).slice(0, 2), e = trEval(c, give, get, tid), s = {e, tier: trTier(e), o: trOdds(c, x, e, tid)};
+      const real = st.tr.sugg.filter(q => q.good), fake = {...s, good: trGood(s)};
+      const keep = st.tr.sugg; st.tr.sugg = [...keep, fake]; st.tr.showLong = false; const hidden = trShown().length; st.tr.showLong = true; const shown = trShown().length; st.tr.sugg = keep; st.tr.showLong = false;
+      return {tier: s.tier, good: fake.good, theirGain: e.theirGain, bal: e.bal, verdict: trVerdict(e, s.o)[0], hidden, shown, nReal: real.length}; })()""")
+    assert res["tier"] == 2 and res["good"] is False and res["theirGain"] < -0.5      # the other manager would be worse off: not recommended
+    assert res["shown"] == res["hidden"] + 1                                          # kept, but only shown on request
+    pg.keyboard.press("Escape")
+    txt = pg.inner_text("#mvBody"); assert "They give up more" not in txt and "Long shot" not in txt   # nothing red in the default list
     assert not pg.errs
 
 def test_season_outlook_uses_each_players_own_spread(br):
