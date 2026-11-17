@@ -150,6 +150,38 @@ def test_trade_values_ignore_points_already_scored_this_week(br):
     assert "weeks still to play" in pg.evaluate("(st.live.n = 1, st.live.gs = {a: {s: 'post'}}, trLiveNote())")      # the Moves page says how started games are handled
     assert not pg.errs
 
+def test_what_if_keeps_the_lineup_you_played_once_games_start(br):
+    # Once games have started the lineup is what you set at kickoff. The page used to rebuild "best lineup" from what everyone scored,
+    # so a bench player who outscored a starter showed up in his slot (a starter ended up "on the bench"), and added or dropped players
+    # who had already played moved the totals.
+    pg = page(br, "#/whatif?week=9", league=True); settle_live(pg)
+    r = pg.evaluate("""(() => {
+      const k = leagueCtx(), me = k.me, rows = [...(st.slate.rows_idle || []), ...st.slate.rows], start = Object.values(me.starters).filter(Boolean), sset = new Set(start);
+      rows.forEach(r => { r._gs = 'post'; r._left = 0; r._act = sset.has(r.id) ? 5 : 30; });                 // every game is final and the bench scored far more than the lineup
+      st.live.n = 1; st.wi.add = []; st.wi.drop = []; renderWhatIfEz();
+      const B = wiEval(st.wi.ctx.base, st.wi.ctx), played = B.li.slice().sort().join() === start.slice().sort().join();
+      const fa = rows.find(r => r.pos === 'WR' && !me.ids.includes(r.id)).id;
+      st.wi.drop = [start[1]]; st.wi.add = [fa]; renderWhatIfEz();                                              // drop a starter, add a player who has already played
+      const A = wiEval([...st.wi.ctx.base.filter(i => i !== start[1]), fa], st.wi.ctx);
+      return {played, same: Object.values(A.set).join() === Object.values(B.set).join(), ev: [B.ev, A.ev], text: document.querySelector('#tab-whatif').innerText}; })()""")
+    assert r["played"], "best lineup must be the lineup that was played, not the best scorers"
+    assert r["same"] and abs(r["ev"][0] - r["ev"][1]) < 1e-9, r["ev"]
+    assert "starting lineup would not change" in r["text"] and "Games have started" in r["text"]
+    assert not pg.errs
+
+def test_finished_week_rolls_over_to_the_next_week(br):
+    # On a Tuesday ESPN says every game is final: lineups, trades and waivers are about the next week, not a hindsight lineup of what everyone scored.
+    pg = page(br, "#/home", league=True); settle_live(pg)
+    r = pg.evaluate("""(() => { const was = st.slate.week, nx = st.sched.weeks.find(w => w > was), fin = est => st.live.gs = Object.fromEntries(st.slate.games.map(g => [g.id, {s: 'post', left: 0, ...(est ? {est: 1} : {})}]));
+      const out = {was, nx}; fin(true); out.estimated = maybeAdvanceWeek();                                  // our own kickoff-time guess is not enough
+      fin(false); st.weekPinned = true; out.pinned = maybeAdvanceWeek(); st.weekPinned = false;               // nor is a week you picked yourself
+      const sv = st.sched.next_week, sw = st.lg.data.week; st.sched.next_week = -1; st.lg.data.week = -1; out.notCurrent = maybeAdvanceWeek(); st.sched.next_week = sv; st.lg.data.week = sw;   // nor an old week
+      out.advanced = maybeAdvanceWeek(); return out; })()""")
+    assert r["estimated"] is False and r["pinned"] is False and r["notCurrent"] is False and r["advanced"] is True, r
+    pg.wait_for_function("st.slate && st.slate.week === %d" % r["nx"], timeout=120000)
+    assert pg.input_value("#g_week") == str(r["nx"])
+    assert not pg.errs
+
 def test_lopsided_trades_are_long_shots_and_hidden_by_default(br):
     pg = page(br, "#/moves", league=True)
     pg.click(".choice[data-mv=trade]"); pg.wait_for_selector("#mvFind"); pg.click("#mvFind")

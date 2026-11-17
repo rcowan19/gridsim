@@ -788,7 +788,7 @@ async function init() {
   document.addEventListener('click', e => { const b = e.target.closest('.plseg button'); if (b) setSub(b.parentElement.dataset.sg, b.dataset.k); });
   $('#swap').onclick = () => { [st.home, st.away] = [st.away, st.home]; $('#home').value = st.home; $('#away').value = st.away; renderLineups(); };
   $('#g_week').innerHTML = sc.weeks.map(w => `<option value="${w}" ${w === st.week ? 'selected' : ''}>Week ${w}</option>`).join('');
-  $('#g_week').onchange = e => { st.week = +e.target.value; reloadSlate(); };
+  $('#g_week').onchange = e => { st.week = +e.target.value; st.weekPinned = true; reloadSlate(); };
   $('#g_fmt').onclick = e => { const b = e.target.closest('button'); if (b) setFmt(b.dataset.f); };
   $('#g_depth').onchange = e => { st.depth = e.target.value; st.n = DEPTH[st.depth].n; reloadSlate(); };
   $('#g_refresh').onclick = () => { if (st.page === 'lab') runSim(); else reloadSlate(); };
@@ -1642,7 +1642,7 @@ const sumPIn = (pool, ids) => ids.reduce((a, i) => a + (pool[i] ? P(pool[i], 'pr
 const pq = (arr, p) => qnt(Array.from(arr), p);
 
 function wiEval(ids, ctx) {
-  const set = autoSet(ids), li = Object.values(set), A = lineupSum(li), pool = labPool();
+  const set = autoSet(ids, undefined, undefined, ctx.lock), li = Object.values(set), A = lineupSum(li), pool = labPool();
   const mean = li.length ? A.reduce((a, b) => a + b, 0) / A.length : 0;
   return {set, li, ev: sumP(li), wp: ctx.opp && ctx.opp.length ? winProb(li, ctx.opp) : null, lo: pq(A, .1), hi: pq(A, .9),
     sd: Math.sqrt(A.reduce((a, b) => a + (b - mean) ** 2, 0) / A.length),
@@ -1654,7 +1654,7 @@ const wiName = (id, pool) => { const r = pool[id] || (st.wi.ros && st.wi.ros.any
 function renderWhatIfEz() {
   const host = $('#tab-whatif'); if (!host || !ezGate(host)) return;
   const c = leagueCtx(), owners = {}; c.D.teams.forEach(t => { if (t.id !== c.L.my) c.tms[t.id].ids.forEach(i => { owners[i] = t.name; }); });
-  renderWhatIf({base: c.me.ids, entries: c.me.matched, opp: Object.values(c.opp.starters).filter(Boolean), owners, label: `${c.me.t.name} vs ${c.opp.t.name}`});
+  renderWhatIf({lock: lockOf(c.me), base: c.me.ids, entries: c.me.matched, opp: Object.values(c.opp.starters).filter(Boolean), owners, label: `${c.me.t.name} vs ${c.opp.t.name}`});
 }
 function renderWhatIf(ctx) {
   const host = $('#tab-whatif'); if (!host) return;
@@ -1683,7 +1683,7 @@ function renderWhatIf(ctx) {
       <div class="wts">${tileS('Best lineup', B.ev, A.ev, x => fmt(x), dEv)}${A.wp != null ? tileS('Win chance', B.wp, A.wp, pctf, dWp) : ''}${tileS('Floor', B.lo, A.lo, x => fmt(x), A.lo - B.lo)}${tileS('Ceiling', B.hi, A.hi, x => fmt(x), A.hi - B.hi)}</div>
       ${changed ? `<div class="sideh" style="margin-top:var(--s4)">Lineup changes</div>${chg || '<div class="sub2">Your starting lineup would not change this week.</div>'}` : ''}
       <details class="ezmore" style="margin-top:var(--s3)"><summary>Bench after the changes</summary><div class="chips2">${A.bench.length ? A.bench.map(p => pchip(p, 24)).join('') : '<span class="sub2">Nobody on the bench.</span>'}</div></details>
-      <div class="note">Lineups are the best projected set for each roster under your league's slots. Check your league's roster limit before making a real move.</div></div>
+      <div class="note">Lineups are the best projected set for each roster under your league's slots. Check your league's roster limit before making a real move.${ctx.lock && Object.keys(ctx.lock).length ? ' Games have started, so anyone who has played stays in the slot you set at kickoff and nobody who has played can be added to this week\'s lineup. Rest of season outlook shows what a move does from here.' : ''}</div></div>
     <div id="wiTargetsOut"></div><div id="wiRosOut"></div>`;
   const q = $('#wiQ'), box = $('#wiRes');
   q.oninput = () => { const t = q.value.toLowerCase().trim(); if (t.length < 2) { box.innerHTML = ''; return; }
@@ -1704,7 +1704,7 @@ function wiTargets(ctx, base, B) {
   const pool = labPool(), want = new Set(['QB', 'RB', 'WR', 'TE', ...(st.lab.counts.K ? ['K'] : []), ...(st.lab.counts.DST ? ['DST'] : [])]);
   const byPos = {}; Object.values(pool).filter(p => want.has(p.pos) && !base.includes(p.id) && p.status !== 'Out').forEach(p => (byPos[p.pos] = byPos[p.pos] || []).push(p));
   const cands = Object.values(byPos).flatMap(a => a.sort((x, y) => y.proj - x.proj).slice(0, 14));
-  st.wi.targets = cands.map(p => { const ids = [...base, p.id], s = autoSet(ids), li = Object.values(s); return {p, gain: sumP(li) - B.ev, owner: owner(ctx, p.id)}; }).filter(x => x.gain > .05).sort((a, b) => b.gain - a.gain).slice(0, 20);
+  st.wi.targets = cands.map(p => { const ids = [...base, p.id], s = autoSet(ids, undefined, undefined, ctx.lock), li = Object.values(s); return {p, gain: sumP(li) - B.ev, owner: owner(ctx, p.id)}; }).filter(x => x.gain > .05).sort((a, b) => b.gain - a.gain).slice(0, 20);
   renderWhatIf(ctx);
 }
 function wiTargetsDraw(ctx) {
@@ -1731,7 +1731,7 @@ function wiRosDraw(ctx, base, after) {
   if (R.error) { out.innerHTML = `<div class="card"><h3>Rest of season</h3><div class="note err">${esc(R.error)}</div></div>`; return; }
   if (R.loading) { out.innerHTML = `<div class="card"><h3>Rest of season</h3><div class="empty" style="padding:var(--s4)"><span class="spin dark"></span><span>Simulating week ${st.slate.week + R.done - 1} of ${R.weeks[R.weeks.length - 1]}</span></div></div>`; return; }
   const rows = R.weeks.map(w => { const pw = R.pools[w], ig = w !== st.slate.week;
-    const b = sumPIn(pw, Object.values(autoSet(base, pw, ig))), a = sumPIn(pw, Object.values(autoSet(after, pw, ig)));
+    const lk = ig ? undefined : ctx.lock, b = sumPIn(pw, Object.values(autoSet(base, pw, ig, lk))), a = sumPIn(pw, Object.values(autoSet(after, pw, ig, lk)));
     return {w, b, a, d: a - b, byes: after.filter(i => !pw[i] || pw[i].idle === 'BYE').map(i => wiName(i, labPool()))}; });
   const tb = rows.reduce((x, r) => x + r.b, 0), ta = rows.reduce((x, r) => x + r.a, 0), td = ta - tb, changed = st.wi.add.length || st.wi.drop.length, mx = Math.max(...rows.map(r => Math.abs(r.d)), 1);
   out.innerHTML = `<div class="card"><h3>Rest of season <span class="sub2">weeks ${R.weeks[0]} to ${R.weeks[R.weeks.length - 1]}</span></h3>
@@ -1961,7 +1961,7 @@ function renderTrades(c) {
     ev.innerHTML = `<h3>Evaluation</h3><div class="note" style="margin-top:0">${!T.partner ? 'Choose a team on the right.' : !T.give.length ? 'Select at least one player to give.' : 'Select at least one player to get.'} Or let the finder suggest trades.</div>${actions}`;
   } else {
     const e = trEval(c, T.give, T.get, T.partner), o = trOdds(c, x, e, T.partner), [vt, vc] = trVerdict(e, o), tn = c.D.teams.find(t => t.id === T.partner).name, tot = Math.max(e.vg + e.vq, 1e-6), nm = ids => ids.map(i => { const r = rowOf(i); return r ? `<span class="tp">${hshot(r, 40)}<span class="tpn"><b>${esc(dn(r))}</b><span class="sub2">${r.pos === 'DST' ? '' : tlogo(r.team, 14)}${r.pos} · ${r.team}</span></span></span>` : ''; }).join('');
-    const lw = st.slate.week, dp = labPool(), setB = autoSet(me.ids), setA = autoSet(e.m2), slots = slotsAll().filter(([k]) => setB[k] !== setA[k]);
+    const lw = st.slate.week, dp = labPool(), setB = autoSet(me.ids, undefined, undefined, x.lock[c.L.my]), setA = autoSet(e.m2, undefined, undefined, x.lock[c.L.my]), slots = slotsAll().filter(([k]) => setB[k] !== setA[k]);
     const gcls = v => Math.abs(v) < .05 ? '' : v > 0 ? 'pos' : 'neg';
     const oc = ([a, b]) => `${trPct(a)} → <b class="${gcls((b - a) * 100)}">${trPct(b)}</b> <span class="sub2">${sgn((b - a) * 100, 1)}</span>`;
     const orow = (nm, s) => `<tr><td class="l">${esc(nm)}</td><td>${oc(s.po)}</td>${o.byes ? `<td>${oc(s.by)}</td>` : ''}<td>${oc(s.ti)}</td><td>${fmt(s.ew[0])} → ${fmt(s.ew[1])}</td></tr>`;
@@ -2334,6 +2334,16 @@ function applyLive() {
   L.players.forEach(p => { const r = matchRow(p, idx), g = r && L.gs[r.game]; if (!g || g.s === 'pre') return; r._act = p.pts; r._left = g.left; n++; });
   L.n = n; tradesStale();
 }
+/* Once ESPN's own scoreboard (not our kickoff-time estimate) says every game of the week is final, the week is over: lineups, trades and
+   waivers are about the next one, and scoring a finished week from what everyone scored only shows who would have been your best lineup.
+   Only the current week moves on (the one the schedule or the league calls current), and picking a week in the menu stops it, so old weeks and
+   links to them still open as they are. */
+const weekOver = () => { const S = st.slate, g = st.live && st.live.gs; return !!(S && g && S.games.length && S.games.every(x => g[x.id] && g[x.id].s === 'post' && !g[x.id].est)); };
+function maybeAdvanceWeek() {
+  if (st.weekPinned || !weekOver()) return false;
+  const was = st.slate.week, nx = st.sched.weeks.find(w => w > was); if (nx == null || ![st.sched.next_week, st.lg && st.lg.data.week].includes(was)) return false;
+  st.week = nx; $('#g_week').value = nx; toast(`Week ${was} is finished, so GridSim moved on to week ${nx}. Use the week menu at the top to look back.`, {ms: 7000}); reloadSlate(); return true;
+}
 /* trade ideas are priced on which games have started, so a list found before kickoff (or before the next game ended) is stale */
 function tradeLiveSig() { const L = st.live; return !L || !L.gs ? '' : Object.entries(L.gs).map(([k, g]) => k + g.s).join(); }
 function liveCounts() { const v = Object.values(st.live.gs || {}); return {fin: v.filter(g => g.s === 'post').length, live: v.filter(g => g.s === 'in').length, est: v.some(g => g.est)}; }
@@ -2352,8 +2362,10 @@ async function loadLive(manual) {
     const L = st.lg, q = new URLSearchParams(L.saved ? {saved: L.saved, week: st.slate.week} : {platform: L.platform, league: L.ref, week: st.slate.week, season: 2026, s2: L.creds.s2, swid: L.creds.sw});
     const r = await fetch('/api/league_live?' + q); if (!r.ok) { let m = r.statusText; try { m = (await r.json()).detail || m; } catch (e) {} throw new Error(m); }
     const d = await r.json(); Object.assign(st.live, {players: d.players, games: d.games || [], week: d.week, at: new Date(), err: null}); applyLive();
-    if (manual) toast(st.live.n ? `Live scores loaded for ${st.live.n} players.` : 'No games have started yet for this week, so there are no actual points.');
-    if (st.page === 'players') renderSlate(); else renderEasy();
+    if (!maybeAdvanceWeek()) {               // (moving on reloads the page for the next week, which fetches its scores)
+      if (manual) toast(st.live.n ? `Live scores loaded for ${st.live.n} players.` : 'No games have started yet for this week, so there are no actual points.');
+      if (st.page === 'players') renderSlate(); else renderEasy();
+    }
   } catch (e) {
     const first = !st.live.err; st.live.err = e.message; st.live.n = 0; if (manual || first) toast('Live scores unavailable: ' + e.message, {err: true, action: {label: 'Retry', fn: () => loadLive(true)}, ms: 8000});
   }
