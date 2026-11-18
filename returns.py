@@ -8,17 +8,20 @@ has a fixed minimum, so each case gets a return week:
     player who could be activated and is not is rarely close).
   * any other Out or Doubtful: back next week.
 
-These are estimates from what the data holds (roster status by week, game schedule); there is no medical news in it, so a long-term injury
-can still come back later than this. The app shows the week it used next to the player so it can be judged.
+The roster file only lists the newest weeks, so it cannot say when a player went on injured reserve. That date comes from his last game: a
+player hurt in week 8 goes on IR that week and his four games are weeks 9 to 12.
+
+These are estimates from what the data holds (roster status, last game played, game schedule); there is no medical news in it, so a
+long-term injury can still come back later than this. The app shows the week it used next to the player so it can be judged.
 """
 IR_GAMES = 4
 
 
-def injury_returns(out, res_weeks, team_weeks, week, last, roster_latest):
+def injury_returns(out, res_weeks, team_weeks, week, last, roster_latest, last_played=None):
     """out: {player id: team abbr} of players currently Out or Doubtful.
     res_weeks: {player id: set of weeks the roster file lists him on reserve/injured}.
     team_weeks: {team abbr: sorted weeks that team plays}. week: week shown. last: last week of the season.
-    roster_latest: newest week in the roster file.
+    roster_latest: newest week in the roster file. last_played: {player id: last week he was on the field}, used for when he went on IR.
     Returns {player id: {"ret": first week he can play or None if not this season, "kind": "ir" | "week", "since": week put on IR or None, "note": text}}."""
     res = {}
     for pid, team in out.items():
@@ -27,6 +30,9 @@ def injury_returns(out, res_weeks, team_weeks, week, last, roster_latest):
             since = roster_latest
             while since - 1 in weeks:
                 since -= 1
+            lp = (last_played or {}).get(pid)
+            if lp is not None and lp + 1 < since:                    # went on IR after his last game, earlier than the roster file shows
+                since = lp + 1
             games = [w for w in team_weeks.get(team, []) if w >= since]
             earliest = games[IR_GAMES - 1] + 1 if len(games) >= IR_GAMES else last + 1
             if earliest > week:

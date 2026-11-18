@@ -311,6 +311,22 @@ def _reserve_weeks():
     return _RES["res"], _RES["latest"]
 
 
+def _last_played():
+    """{gsis id: last week he had snaps} from the snap-count file (pfr ids mapped through the roster file). Re-read when the file changes."""
+    import pandas as pd
+    fs, fr = (os.path.join(HERE, "data", n) for n in ("snap_counts_2026.parquet", "roster_2026.parquet"))
+    if not (os.path.exists(fs) and os.path.exists(fr)):
+        return {}
+    m = (os.path.getmtime(fs), os.path.getmtime(fr))
+    if _RES.get("lp_m") != m:
+        sn = pd.read_parquet(fs, columns=["pfr_player_id", "week", "offense_snaps", "defense_snaps", "st_snaps"]).dropna(subset=["pfr_player_id"])
+        sn = sn[(sn[["offense_snaps", "defense_snaps", "st_snaps"]].fillna(0).sum(axis=1) > 0)]
+        wk = sn.groupby("pfr_player_id").week.max()
+        ro = pd.read_parquet(fr, columns=["gsis_id", "pfr_id"]).dropna().drop_duplicates("gsis_id")
+        _RES.update(lp_m=m, lp={g: int(wk[p]) for g, p in ro.itertuples(index=False) if p in wk.index})
+    return _RES["lp"]
+
+
 @app.get("/api/returns", dependencies=[Depends(auth.plan)])
 def returns_(week: int):
     """Expected return week for every player currently Out or Doubtful (see returns.py). Used so the trade machine and rest-of-season
@@ -324,7 +340,7 @@ def returns_(week: int):
             tw.setdefault(a, set()).add(g["week"])
     res, latest = _reserve_weeks()
     last = max((g["week"] for g in sim.SCHEDULE), default=week)
-    return {"week": week, "returns": returns.injury_returns(out, res, {a: sorted(w) for a, w in tw.items()}, week, last, latest)}
+    return {"week": week, "returns": returns.injury_returns(out, res, {a: sorted(w) for a, w in tw.items()}, week, last, latest, _last_played())}
 
 
 def _attach_faces(res):

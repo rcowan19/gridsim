@@ -38,3 +38,15 @@ def test_endpoint_lists_everyone_who_is_out_with_a_return_week(monkeypatch, tmp_
     d = TestClient(server.app).get("/api/returns", params={"week": 10}).json()
     assert d["week"] == 10 and d["returns"], "the model has players who are Out"
     assert all(set(v) == {"ret", "kind", "since", "note"} and v["kind"] in ("ir", "week") and (v["ret"] is None or v["ret"] > 10) for v in d["returns"].values())
+
+
+def test_ir_start_comes_from_his_last_game_when_the_roster_file_only_shows_the_newest_week():
+    # hurt in week 8, on IR since then, but the roster file lists him on reserve only in week 11: his four games are 9, 10, 11, 12
+    r = injury_returns({"love": "ARI"}, {"love": {11}}, TW, week=11, last=18, roster_latest=11, last_played={"love": 8})["love"]
+    assert (r["since"], r["ret"]) == (9, 13)
+    # no last-game information: falls back to the roster file
+    r = injury_returns({"love": "ARI"}, {"love": {11}}, TW, week=11, last=18, roster_latest=11)["love"]
+    assert r["since"] == 11
+    # a last game after the roster's IR start (activated, played, hurt again) does not move the start earlier
+    r = injury_returns({"p": "ARI"}, {"p": {10, 11}}, TW, week=11, last=18, roster_latest=11, last_played={"p": 12})["p"]
+    assert r["since"] == 10
