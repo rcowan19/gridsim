@@ -65,6 +65,41 @@ def snap_pcts(cutoff=None):
     return out
 
 
+def snap_teams(cutoff=None):
+    """{gsis_id: {week: team}} for every week he had offensive snaps, plus the set of (team, week) the snap file covers at all."""
+    try:
+        s = pd.read_parquet("data/snap_counts_2026.parquet", columns=["pfr_player_id", "week", "team", "offense_snaps"])
+    except (FileNotFoundError, KeyError):
+        return {}, set()
+    m = {}
+    for f in ("data/roster_2025.parquet", "data/roster_2026.parquet"):
+        r = pd.read_parquet(f)
+        m.update({a: b for a, b in zip(r.pfr_id, r.gsis_id) if isinstance(a, str) and isinstance(b, str)})
+    if cutoff is not None:
+        s = s[s.week < cutoff]
+    known = set(zip(s.team, s.week.astype(int)))
+    out = {}
+    for pid, wk, tm, n in zip(s.pfr_player_id, s.week, s.team, s.offense_snaps):
+        g = m.get(pid)
+        if g and n == n and n > 0:
+            out.setdefault(g, {})[int(wk)] = tm
+    return out, known
+
+
+def available_totals(all_tot, prev_tot, week_tot, snap_weeks, snap_known, played, tm):
+    """Team totals (targets, red-zone targets, carries, goal-line carries) over the games a player was available, last season's plays included
+    as before. all_tot: the old every-game totals, returned when there is no snap data for him. week_tot: {week: totals} for this season.
+    snap_weeks: {week: team} he had snaps. snap_known: {(team, week)} the snap file covers. played: weeks he had a target, carry or dropback."""
+    if not snap_weeks:
+        return all_tot
+    tot = dict(prev_tot)
+    for w, v in week_tot.items():
+        if snap_weeks.get(w) == tm or (tm, w) not in snap_known or w in played:       # a week the snap file does not cover counts for everyone
+            for k in tot:
+                tot[k] += v.get(k, 0.0)
+    return tot
+
+
 def logit(p):
     p = min(max(p, 1e-4), 1 - 1e-4)
     return math.log(p / (1 - p))
@@ -533,6 +568,26 @@ def main(cutoff=None, write=True, quiet=False, usage_decay=None, w_prev_use=None
             "tgt": o.wu.sum(), "rz_tgt": o[o.yardline_100 <= 20].wu.sum(),
             "car": d_.wu.sum(), "gl": d_[d_.yardline_100 <= 5].wu.sum(),
         }
+    # Usage shares count only the games a player was available. A back who missed four games is not a 15% back because the team ran
+    # plays without him; his share is what he got in the games he played. Walk-forward on weeks 4-10, players on the field in week W:
+    # carry-share RMSE 0.084 -> 0.076 for everyone and 0.132 -> 0.073 for players back from a missed stretch (target share 0.069 -> 0.066, 0.084 -> 0.063).
+    snap_wk, snap_known = snap_teams(cutoff)
+    plays_wk = {}
+    for col, df_ in (("receiver_player_id", pa), ("rusher_player_id", des), ("passer_player_id", d)):
+        c = df_[df_.cur == 1]
+        for pid_, ws in c[c[col].notna()].groupby(col).week.unique().items():
+            plays_wk.setdefault(pid_, set()).update(int(w) for w in ws)
+    cw_tot = {}
+    for t in teams:
+        cw_tot[t] = {}
+        for w, g_ in pa[(pa.posteam == t) & (pa.cur == 1)].groupby("week"):
+            cw_tot[t].setdefault(int(w), {})["tgt"], cw_tot[t][int(w)]["rz_tgt"] = g_.wu.sum(), g_[g_.yardline_100 <= 20].wu.sum()
+        for w, g_ in des[(des.posteam == t) & (des.cur == 1)].groupby("week"):
+            cw_tot[t].setdefault(int(w), {})["car"], cw_tot[t][int(w)]["gl"] = g_.wu.sum(), g_[g_.yardline_100 <= 5].wu.sum()
+    prev_tot = {t: {"tgt": pa[(pa.posteam == t) & (pa.cur == 0)].wu.sum(), "rz_tgt": pa[(pa.posteam == t) & (pa.cur == 0) & (pa.yardline_100 <= 20)].wu.sum(),
+                    "car": des[(des.posteam == t) & (des.cur == 0)].wu.sum(), "gl": des[(des.posteam == t) & (des.cur == 0) & (des.yardline_100 <= 5)].wu.sum()} for t in teams}
+
+    avail_tot = lambda pid, tm: available_totals(team_tot[tm], prev_tot[tm], cw_tot[tm], snap_wk.get(pid), snap_known, plays_wk.get(pid, ()), tm)
     pos_adot = M["adot_pos"]
     pos_yac = M["yac_pos"]
     for pid, p in P.items():
@@ -547,7 +602,7 @@ def main(cutoff=None, write=True, quiet=False, usage_decay=None, w_prev_use=None
         if rstatus.get(pid) in (None,) and not has_cur:
             continue
         p["team"] = rt
-        T0 = team_tot[tm_pbp]
+        T0 = avail_tot(pid, tm_pbp)
         q = {"id": pid, "name": p["name"], "pos": p["pos"]}
         if pid in inj_status:
             q["status"] = inj_status[pid]

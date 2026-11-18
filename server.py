@@ -94,6 +94,10 @@ def do_refresh():
             if script == "fetch_data.py" and ".parquet" not in (p.stdout or ""):      # offline: keep the last good data instead of rebuilding from it
                 raise RuntimeError("no data files could be downloaded (is this computer online?)")
         MODEL = sim.load_model()
+        try:                                                  # record Sleeper/ESPN pre-game projections for later accuracy comparison (never blocks a refresh)
+            import ext_proj; print(ext_proj.log_week(), flush=True)
+        except Exception as e:
+            print("ext projections skipped:", e, flush=True)
         import vegas; vegas.reset()
         sim._E = None
         old, POOL = POOL, Pool(os.cpu_count() or 1, initializer=sim._init)

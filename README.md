@@ -41,6 +41,10 @@ Dev/testing: `GRIDSIM_ESPN_LIVE_MOCK` and `GRIDSIM_NFL_STATUS_MOCK` serve saved 
 
 **Data refresh.** The server re-downloads nflverse data (results, injuries, depth charts, rosters) and rebuilds the model every `GRIDSIM_REFRESH_HOURS` (default 6; 0 turns it off). It checks shortly after start, so a server that was off for days catches up right away, and a failed or offline download keeps the last good data. The "Update data" button (Cmd/Ctrl+K) does the same on demand. Start test servers with `GRIDSIM_REFRESH_HOURS=0`.
 
+**Usage shares.** A player's target and carry share is divided by the team's plays in the games he was available (snap counts say which), not by every team game, so a back returning from a four-game absence keeps the share he had when playing. Walk-forward on weeks 4-10: share error -4% (targets) and -5% (carries) for everyone on the field, about -27% for players back from missed games; player-points MAE 5.65 -> 5.53. The decay settings (`USAGE_DECAY`, `W_PREV_USE`) were swept at the same time and are within 1% of the best, so they are unchanged.
+
+**Outside projections (record only).** Each refresh before a week's first kickoff saves Sleeper's and ESPN's pre-game PPR projections to `data/ext_proj.csv` (`ext_proj.py`; ESPN needs `GRIDSIM_EXTPROJ_ESPN_LEAGUE`, plus `_S2`/`_SWID` if private). They are not used or shown. After a few weeks, `python backtest.py -s 4` then `python scripts/ext_blend_eval.py` scores the model against them and finds the best blend weight. The endpoints are unofficial and the projections are the sites' own, so check the terms before ever showing or reselling them.
+
 **Injured players.** Rest-of-season numbers count a player from the week he is expected back (`returns.py`, `/api/returns`): four games after going on injured reserve, the week after a game-day Out. The week is shown next to his name. It is an estimate from roster and schedule data, not medical news; edit a player's status in What-If to override it.
 
 ## Leagues, accounts and billing (branch `product/accounts-billing`)
