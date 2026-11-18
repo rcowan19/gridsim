@@ -1,4 +1,4 @@
-import json, time
+import json, os, time
 import jwt as pyjwt
 import pytest
 from fastapi.testclient import TestClient
@@ -7,6 +7,7 @@ import db
 from tests.fixtures import sleeper as fx
 
 SECRET = "test-jwt-secret-test-jwt-secret-1234"
+os.environ.setdefault("GRIDSIM_REFRESH_HOURS", "0")      # tests never download data; the server refreshes every 6 hours by default
 
 
 @pytest.fixture

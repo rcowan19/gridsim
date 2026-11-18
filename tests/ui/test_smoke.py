@@ -182,6 +182,22 @@ def test_finished_week_rolls_over_to_the_next_week(br):
     assert pg.input_value("#g_week") == str(r["nx"])
     assert not pg.errs
 
+def test_injured_players_are_simulated_from_their_return_week(br):
+    # Jeremiyah Love (on IR, four-game minimum) showed "+0 vs repl." for the rest of the season: an Out player was out in every later week.
+    pg = page(br, "#/moves?week=9", league=True); reqs = []
+    pg.on("request", lambda r: reqs.append(r.post_data_json) if r.method == "POST" and r.url.endswith("/api/slate") else None)
+    r = pg.evaluate("""(async () => {
+      const w0 = st.slate.week; st.inj = {C: false}; st.wi.ros = null;
+      st.returns = {week: w0, map: {A: {ret: w0 + 2, kind: 'ir'}, B: {ret: null, kind: 'ir'}, C: {ret: w0 + 1, kind: 'week'}}};
+      await ensureRos(); st.inj = {};
+      return {w0, tagA: retTag({id: 'A', status: 'Out'}), tagB: retTag({id: 'B', status: 'Out'}), tagHealthy: retTag({id: 'A', status: 'Active'})}; })()""")
+    w0 = r["w0"]; by = {q["week"]: q["ov"] for q in reqs}
+    assert by and min(by) == w0 + 1 and "A" not in by[w0 + 1] and by[w0 + 2]["A"] is True and by[w0 + 5]["A"] is True      # in the lineup pool from week w0 + 2
+    assert all("B" not in o for o in by.values())                                                                      # no return this season: stays out
+    assert all(o["C"] is False for o in by.values())                                                                   # your own Injuries edit wins
+    assert "back wk %d" % (w0 + 2) in r["tagA"] and "out for the year" in r["tagB"] and r["tagHealthy"] == ""
+    assert not pg.errs
+
 def test_lopsided_trades_are_long_shots_and_hidden_by_default(br):
     pg = page(br, "#/moves", league=True)
     pg.click(".choice[data-mv=trade]"); pg.wait_for_selector("#mvFind"); pg.click("#mvFind")

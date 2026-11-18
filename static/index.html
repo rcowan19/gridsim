@@ -838,7 +838,7 @@ function ensureSlate(mode, after) { if (st.slate) { if (after) after(); return P
 function rerender() { labSync(); if (st.slate) { renderNflWeek(); renderSlate(); } renderEasy(); if (st.last) renderProj(st.last); }
 function syncFmtUI() { document.querySelectorAll('#g_fmt button').forEach(b => b.classList.toggle('on', b.dataset.f === st.fmt)); }
 function setFmt(f) { st.fmt = f; if (st.lab.trials) st.lab.trials.cache = {}; syncFmtUI(); rerender(); }
-function reloadSlate() { st.ss.res = null; st.tr.px = null; st.tr.sugg = null; st.slate = null; st.wi.ros = null; st.wi.targets = null; if (st.lab.trials) st.lab.trials = null; const m = {home: 'home', mylineup: 'home', moves: 'home', games: 'games', players: 'players', league: 'home', inj: 'home', whatif: 'home', lab: null, settings: null}[st.page]; if (m) loadSlate(m); }
+function reloadSlate() { st.returns = null; st.ss.res = null; st.tr.px = null; st.tr.sugg = null; st.slate = null; st.wi.ros = null; st.wi.targets = null; if (st.lab.trials) st.lab.trials = null; const m = {home: 'home', mylineup: 'home', moves: 'home', games: 'games', players: 'players', league: 'home', inj: 'home', whatif: 'home', lab: null, settings: null}[st.page]; if (m) loadSlate(m); }
 
 /* ---------- lineups sidebar ---------- */
 /* logos beside the two team pickers */
@@ -1722,7 +1722,8 @@ async function loadRos(ctx) {
   const add = (w, rows) => { W.ros.pools[w] = Object.fromEntries(rows.map(r => [r.id, r])); rows.forEach(r => { if (!W.ros.any[r.id]) W.ros.any[r.id] = r; const k = r.team + '|' + r.pos; (W.ros.idx[k] = W.ros.idx[k] || []); if (!W.ros.idx[k].some(x => x.id === r.id)) W.ros.idx[k].push(r); }); };
   add(st.slate.week, [...(st.slate.rows_idle || []), ...st.slate.rows]); W.ros.done = 1; renderWhatIf(ctx);
   try {
-    for (const w of weeks.slice(1)) { const d = await post('/api/slate', {week: w, n: Math.min(DEPTH[st.depth].slate, 1000), weather: false, ov: st.inj}); add(w, [...(d.rows_idle || []), ...d.rows]); W.ros.done++; renderWhatIf(ctx); }
+    const rm = await loadReturns();
+    for (const w of weeks.slice(1)) { const d = await post('/api/slate', {week: w, n: Math.min(DEPTH[st.depth].slate, 1000), weather: false, ov: rosOv(w, rm)}); add(w, [...(d.rows_idle || []), ...d.rows]); W.ros.done++; renderWhatIf(ctx); }
   } catch (e) { W.ros.error = e.message; }
   W.ros.loading = false; renderWhatIf(ctx);
 }
@@ -1754,6 +1755,17 @@ function lineupStats(ids, pw, ig, lock) {
 
 /* ================= trade machine ================= */
 st.tr = {mode: 'ros', partner: null, give: [], get: [], px: null, pxBusy: null, sugg: null, sBusy: null};
+/* Injured players: the week each is expected back (returns.py: 4 games after going on injured reserve, next week for a game-day Out).
+   Later weeks are simulated with him playing, instead of treating a player who is Out now as out all season. Your own edits on the
+   Injuries page still win. */
+st.returns = null;
+async function loadReturns() {
+  const wk = st.slate.week; if (st.returns && st.returns.week === wk) return st.returns.map;
+  let map = {}; try { const r = await fetch('/api/returns?week=' + wk); if (r.ok) map = (await r.json()).returns || {}; } catch (e) {}
+  st.returns = {week: wk, map}; return map;
+}
+const rosOv = (w, map) => { const ov = {...st.inj}; Object.entries(map).forEach(([id, r]) => { if (r.ret != null && r.ret <= w && !(id in st.inj)) ov[id] = true; }); return ov; };
+const retTag = r => { const m = st.returns && st.returns.week === st.slate.week && st.returns.map[r.id]; return m && (r.status === 'Out' || r.status === 'Doubtful') ? (m.ret != null ? ` · back wk ${m.ret}` : ' · out for the year') : ''; };
 async function ensureRos(tick) {
   const W = st.wi; if (W.ros && !W.ros.loading && !W.ros.error) return W.ros;
   if (W.ros && W.ros.loading) { while (W.ros.loading) await new Promise(r => setTimeout(r, 200)); return W.ros; }
@@ -1761,7 +1773,7 @@ async function ensureRos(tick) {
   const R = W.ros = {weeks, pools: {}, any: {}, idx: {}, loading: true, done: 0};
   const add = (w, rows) => { R.pools[w] = Object.fromEntries(rows.map(r => [r.id, r])); rows.forEach(r => { if (!R.any[r.id]) R.any[r.id] = r; const k = r.team + '|' + r.pos; (R.idx[k] = R.idx[k] || []); if (!R.idx[k].some(x => x.id === r.id)) R.idx[k].push(r); }); };
   add(st.slate.week, [...(st.slate.rows_idle || []), ...st.slate.rows]); R.done = 1; tick && tick(R);
-  try { for (const w of weeks.slice(1)) { const d = await post('/api/slate', {week: w, n: Math.min(DEPTH[st.depth].slate, 1000), weather: false, ov: st.inj}); add(w, [...(d.rows_idle || []), ...d.rows]); R.done++; tick && tick(R); } }
+  try { const rm = await loadReturns(); for (const w of weeks.slice(1)) { const d = await post('/api/slate', {week: w, n: Math.min(DEPTH[st.depth].slate, 1000), weather: false, ov: rosOv(w, rm)}); add(w, [...(d.rows_idle || []), ...d.rows]); R.done++; tick && tick(R); } }
   catch (e) { R.error = e.message; }
   R.loading = false; return R;
 }
@@ -1935,7 +1947,7 @@ function renderTrades(c) {
   const me = c.tms[c.L.my], rowOf = id => face(pool[id] || (x && x.row(id)) || (st.wi.ros && st.wi.ros.any[id]), id);
   const wk = id => { const r = rowOf(id); return r ? P(r, 'proj') : null; };
   const TPOS = ['QB', 'RB', 'WR', 'TE'], tile = (id, side) => { const r = rowOf(id); if (!r) return ''; const on = (side === 'give' ? T.give : T.get).includes(id), v = x ? x.vor(id) : null;
-    return `<button class="ptile ${on ? 'on' : ''}" data-${side}="${id}" style="--pc:${POSCOL[r.pos]}" aria-pressed="${on}"><i class="stripe"></i>${hshot(r, 38)}<span class="tn"><b>${esc(dn(r))}</b><span class="sub2">${r.pos === 'DST' ? '' : tlogo(r.team, 14)}${r.pos} · ${r.team}${r.status && r.status !== 'Active' ? ' · ' + esc(r.status) : ''}</span></span><span class="tv"><b>${pool[id] ? fmt(wk(id)) : 'bye'}</b>${v != null ? `<span class="sub2">+${fmt(v, 0)} vs repl.</span>` : ''}</span>${on ? '<span class="tick" aria-hidden="true">✓</span>' : ''}</button>`; };
+    return `<button class="ptile ${on ? 'on' : ''}" data-${side}="${id}" style="--pc:${POSCOL[r.pos]}" aria-pressed="${on}"><i class="stripe"></i>${hshot(r, 38)}<span class="tn"><b>${esc(dn(r))}</b><span class="sub2">${r.pos === 'DST' ? '' : tlogo(r.team, 14)}${r.pos} · ${r.team}${r.status && r.status !== 'Active' ? ' · ' + esc(r.status) : ''}${retTag(r)}</span></span><span class="tv"><b>${pool[id] ? fmt(wk(id)) : 'bye'}</b>${v != null ? `<span class="sub2">+${fmt(v, 0)} vs repl.</span>` : ''}</span>${on ? '<span class="tick" aria-hidden="true">✓</span>' : ''}</button>`; };
   const roster = (ids, side) => TPOS.map(p => { const l = ids.filter(i => { const r = rowOf(i); return r && r.pos === p; }).sort((a, b) => (x ? x.vor(b) - x.vor(a) : (wk(b) || 0) - (wk(a) || 0))); return l.length ? `<div class="pgrp"><div class="sub2">${p}</div><div class="ptiles">${l.map(i => tile(i, side)).join('')}</div></div>` : ''; }).join('');
   const others = c.D.teams.filter(t => t.id !== c.L.my), partner = T.partner ? c.tms[T.partner] : null;
   const pills = others.map(t => `<button class="pill ${T.partner === t.id ? 'on' : ''}" data-partner="${t.id}">${t.name}</button>`).join('');
@@ -1973,7 +1985,7 @@ function renderTrades(c) {
       ${oddsHtml}
       <div class="balance"><div class="sub2">VALUE OVER FREE-AGENT REPLACEMENT</div><div class="bbar"><i style="width:${e.vg / tot * 100}%"></i></div><div class="blab"><span>You send ${fmt(e.vg, 0)}</span><span>You receive ${fmt(e.vq, 0)}</span></div></div>
       ${slots.length ? `<div class="sub2" style="margin-top:var(--s3)">YOUR LINEUP CHANGES THIS WEEK (week ${lw})</div><table class="st"><tr><th class="l">Slot</th><th class="l">Before</th><th class="l">After</th></tr>${slots.map(([k]) => `<tr><td class="slot">${k}</td><td class="l">${setB[k] && dp[setB[k]] ? pchip(dp[setB[k]]) : '<span class="sub2">empty</span>'}</td><td class="l strong">${setA[k] && dp[setA[k]] ? pchip(dp[setA[k]]) : '<span class="sub2">empty</span>'}</td></tr>`).join('')}</table>` : `<div class="note">Your starting lineup this week would not change.</div>`}
-      <div class="note">Points are best-lineup totals ${x.mode === 'week' ? 'for this week' : x.mode === 'playoff' ? 'over the rest of the season, playoff weeks counted extra' : 'summed over the rest of the season'}. Every team is scored as if it can also pick up the best free agents, so a trade only counts for what it adds beyond them. A trade is “reasonable” when the other lineup improves and both sides trade similar value.</div>${actions}`;
+      <div class="note">Points are best-lineup totals ${x.mode === 'week' ? 'for this week' : x.mode === 'playoff' ? 'over the rest of the season, playoff weeks counted extra' : 'summed over the rest of the season'}. Injured players count from the week they are expected back, shown next to their name: four games after going on injured reserve, the week after a game-day Out. Every team is scored as if it can also pick up the best free agents, so a trade only counts for what it adds beyond them. A trade is “reasonable” when the other lineup improves and both sides trade similar value.</div>${actions}`;
   }
   const g = id => $('#' + id); g('trClear') && (g('trClear').onclick = () => { T.give = []; T.get = []; T.sugg = null; renderTrades(c); });
   g('trRet') && (g('trRet').onclick = () => trSuggest(c, 'returns')); g('trOff') && (g('trOff').onclick = () => trSuggest(c, 'offer')); g('trAny') && (g('trAny').onclick = () => trSuggest(c, 'any'));

@@ -9,7 +9,7 @@ Week, scoring format and simulation depth are global controls in the top bar.
 Play-by-play NFL Monte Carlo simulator with a web UI.
 
     pip install -r requirements.txt
-    python fetch_data.py       # download nflverse data (re-run weekly to refresh)
+    python fetch_data.py       # download nflverse data (the server also re-runs this itself every 6 hours)
     python build_model.py      # data -> model.json (team ratings, player usage, empirical pools)
     python server.py           # http://localhost:8000
     python sim.py KC BUF -n 5000   # CLI
@@ -38,6 +38,10 @@ so far plus the unplayed share of the pre-game projection, and a game not starte
 probabilities, best-lineup and rest-of-season numbers all read that one updated value, and players whose games have started are locked in
 their slots (as on ESPN). The pre-game projection stays visible in its own column. No model or simulation logic changes.
 Dev/testing: `GRIDSIM_ESPN_LIVE_MOCK` and `GRIDSIM_NFL_STATUS_MOCK` serve saved payloads.
+
+**Data refresh.** The server re-downloads nflverse data (results, injuries, depth charts, rosters) and rebuilds the model every `GRIDSIM_REFRESH_HOURS` (default 6; 0 turns it off). It checks shortly after start, so a server that was off for days catches up right away, and a failed or offline download keeps the last good data. The "Update data" button (Cmd/Ctrl+K) does the same on demand. Start test servers with `GRIDSIM_REFRESH_HOURS=0`.
+
+**Injured players.** Rest-of-season numbers count a player from the week he is expected back (`returns.py`, `/api/returns`): four games after going on injured reserve, the week after a game-day Out. The week is shown next to his name. It is an estimate from roster and schedule data, not medical news; edit a player's status in What-If to override it.
 
 ## Leagues, accounts and billing (branch `product/accounts-billing`)
 - **Platforms:** ESPN and Sleeper (`espn.py`, `sleeper.py`). Both normalize to one league shape, so every page works on either. Sleeper needs no keys: enter a username to list leagues, or a league ID. Dev: `GRIDSIM_SLEEPER_MOCK=path.json`.
@@ -81,4 +85,4 @@ image is blocked or missing, the team abbreviation or the player's initials show
 (`fn`, `hs`, `eid`) to slate rows; no model or simulation code changed.
 
 ## UI (branch `ui/redesign`)
-Sidebar/rail/tab-bar shell, one simple view on every page with detail on demand, Home dashboard, Settings, light/dark themes, Ctrl/Cmd+K palette, URL-state routing. Design tokens and component guide: `docs/ui/design-system.md`; findings and before/after: `UI_AUDIT.md`. Checks: `python tests/ui/contrast.py`, `python tests/ui/axe_run.py`, `python -m pytest -q tests/ui` (server on :8000; start it with `GRIDSIM_ESPN_MOCK=/tmp/espn_mock.json` from `tests/ui/make_espn_mock.py` for the league tests).
+Sidebar/rail/tab-bar shell, one simple view on every page with detail on demand, Home dashboard, Settings, light/dark themes, Ctrl/Cmd+K palette, URL-state routing. Design tokens and component guide: `docs/ui/design-system.md`; findings and before/after: `UI_AUDIT.md`. Checks: `python tests/ui/contrast.py`, `python tests/ui/axe_run.py`, `python -m pytest -q tests/ui` (server on :8000; start it with `GRIDSIM_REFRESH_HOURS=0 GRIDSIM_ESPN_MOCK=/tmp/espn_mock.json` from `tests/ui/make_espn_mock.py` for the league tests).

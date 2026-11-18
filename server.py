@@ -41,7 +41,7 @@ async def lifespan(app):
     auth.check_production_config()      # a paid app refuses to start half-configured
     db.engine()
     POOL = Pool(os.cpu_count() or 1, initializer=sim._init)
-    hrs = float(os.environ.get("GRIDSIM_REFRESH_HOURS", "0") or 0)
+    hrs = refresh_hours()
     if hrs > 0:                                     # keep injuries, depth charts and results fresh without anyone pressing a button
         import threading
         threading.Thread(target=_refresh_loop, args=(hrs,), daemon=True).start()
@@ -52,6 +52,22 @@ async def lifespan(app):
 app = FastAPI(lifespan=lifespan)
 app.include_router(accounts.router)
 app.include_router(billing.router)
+
+
+def refresh_hours():
+    """How often to pull fresh nflverse data (injuries, depth charts, game results) and rebuild the model. On by default (every 6 hours);
+    GRIDSIM_REFRESH_HOURS=0 turns it off, e.g. for offline tests."""
+    return float(os.environ.get("GRIDSIM_REFRESH_HOURS", "6") or 0)
+
+
+def data_age_hours():
+    p = os.path.join(HERE, "data", "injuries_2026.parquet")
+    return (__import__("time").time() - os.path.getmtime(p)) / 3600 if os.path.exists(p) else None
+
+
+def refresh_due(hours):
+    age = data_age_hours()
+    return age is None or age >= hours
 
 
 def _stamp():
@@ -75,6 +91,8 @@ def do_refresh():
             p = subprocess.run([sys.executable, script], cwd=HERE, capture_output=True, text=True, timeout=1800)
             if p.returncode:
                 raise RuntimeError(f"{script} failed: {(p.stderr or p.stdout)[-300:]}")
+            if script == "fetch_data.py" and ".parquet" not in (p.stdout or ""):      # offline: keep the last good data instead of rebuilding from it
+                raise RuntimeError("no data files could be downloaded (is this computer online?)")
         MODEL = sim.load_model()
         import vegas; vegas.reset()
         sim._E = None
@@ -101,14 +119,18 @@ def healthz():
 
 
 def _refresh_loop(hours):
+    """Refresh as soon as the data is older than `hours` (so a server started on a Wednesday does not serve last week's games), then keep
+    checking hourly. A failed refresh keeps serving the last good data and tries again in an hour."""
     import time
+    time.sleep(20)                                  # let the server finish starting first
     while True:
-        time.sleep(hours * 3600)
-        try:
-            do_refresh()
-            print("data refreshed", _stamp(), flush=True)
-        except Exception as e:                      # a failed refresh keeps serving the last good data
-            print("scheduled refresh failed:", e, flush=True)
+        if refresh_due(hours):
+            try:
+                do_refresh()
+                print("data refreshed", _stamp(), flush=True)
+            except Exception as e:
+                print("scheduled refresh failed:", e, flush=True)
+        time.sleep(min(hours, 1) * 3600)
 
 
 class Req(BaseModel):
@@ -270,6 +292,39 @@ class SlateReq(BaseModel):
 
 SLATE_CACHE = {}
 _FACES = None
+_RES = {}
+
+
+def _reserve_weeks():
+    """{player id: weeks he is on reserve/injured in the nflverse roster file}, plus the newest week in the file. Re-read when the file changes."""
+    import pandas as pd
+    f = os.path.join(HERE, "data", "roster_2026.parquet")
+    if not os.path.exists(f):
+        return {}, 0
+    m = os.path.getmtime(f)
+    if _RES.get("m") != m:
+        d = pd.read_parquet(f, columns=["gsis_id", "week", "status"]).dropna(subset=["gsis_id", "week"])
+        res = {}
+        for g, w in d[d.status == "RES"][["gsis_id", "week"]].itertuples(index=False):
+            res.setdefault(g, set()).add(int(w))
+        _RES.update(m=m, res=res, latest=int(d.week.max()) if len(d) else 0)
+    return _RES["res"], _RES["latest"]
+
+
+@app.get("/api/returns", dependencies=[Depends(auth.plan)])
+def returns_(week: int):
+    """Expected return week for every player currently Out or Doubtful (see returns.py). Used so the trade machine and rest-of-season
+    outlooks count an injured player's healthy weeks instead of treating him as out all season."""
+    import returns
+    teams = sim.get_engine().m["teams"]
+    out = {q["id"]: abbr for abbr, t in teams.items() for q in [*t["qbs"], *t["skill"], *([t["k"]] if t.get("k") else [])] if q.get("status") in ("Out", "Doubtful")}
+    tw = {}
+    for g in sim.SCHEDULE:
+        for a in (g["home"], g["away"]):
+            tw.setdefault(a, set()).add(g["week"])
+    res, latest = _reserve_weeks()
+    last = max((g["week"] for g in sim.SCHEDULE), default=week)
+    return {"week": week, "returns": returns.injury_returns(out, res, {a: sorted(w) for a, w in tw.items()}, week, last, latest)}
 
 
 def _attach_faces(res):

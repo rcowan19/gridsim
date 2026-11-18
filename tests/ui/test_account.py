@@ -28,7 +28,7 @@ def webhook(ev):
 def srv(tmp_path_factory):
     d = tmp_path_factory.mktemp("acct")
     subprocess.run([sys.executable, "-m", "tests.ui.make_sleeper_mock", str(d / "sl.json")], cwd=ROOT, check=True, capture_output=True)
-    env = {**os.environ, "GRIDSIM_AUTH": "on", "SUPABASE_JWT_SECRET": SECRET, "DATABASE_URL": f"sqlite:///{d}/a.db", "GRIDSIM_SECRET_KEY": "u6RUU1wN3c3LLr2c3B9rRS5iFXEOmP2S3o_DMHbQEvU=",
+    env = {**os.environ, "GRIDSIM_REFRESH_HOURS": "0", "GRIDSIM_AUTH": "on", "SUPABASE_JWT_SECRET": SECRET, "DATABASE_URL": f"sqlite:///{d}/a.db", "GRIDSIM_SECRET_KEY": "u6RUU1wN3c3LLr2c3B9rRS5iFXEOmP2S3o_DMHbQEvU=",
            "STRIPE_SECRET_KEY": "sk_test_x", "STRIPE_WEBHOOK_SECRET": WH, "STRIPE_PRICE_MONTHLY": "price_m", "STRIPE_PRICE_SEASON": "price_s", "APP_URL": URL.rstrip("/"),
            "GRIDSIM_SLEEPER_MOCK": str(d / "sl.json"), "GRIDSIM_NFL_STATUS_MOCK": str(d / "none.json"), "GRIDSIM_MODEL": ""}
     env.pop("GRIDSIM_ENV", None)
